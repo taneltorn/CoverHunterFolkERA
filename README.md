@@ -4,9 +4,9 @@ Fork of [Liu Feng's CoverHunter](https://github.com/Liu-Feng-deeplearning/CoverH
 
 # Requirements
 
-Apple computer with an Apple M-series chip
-sox (only needed for data prep phase) and therefore a Java runtime
-python3 (minimum version uncertain, tested on 3.11)
+1. Apple computer with an Apple M-series chip
+2. sox (only needed for data prep phase) and therefore a Java runtime
+3. python3 (minimum version uncertain, tested on 3.11)
 
 # Usage
 
