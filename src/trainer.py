@@ -86,8 +86,8 @@ def train_one_epoch(model, optimizer, scheduler, train_loader_lst,
 #        oldlabel = torch.autograd.Variable(
 #          label.to("mps", non_blocking=True)).long()
 #       Replaced with: 
-        feat = batch[1].float().to("cpu")  # Assuming feat is at index 1
-        label = batch[2].float().to("mps")  # Assuming label is at index 2
+        feat = batch[1].float().to("mps")  # Assuming feat is at index 1
+        label = batch[2].long().to("mps")  # Assuming label is at index 2
 
         optimizer.zero_grad()
         total_loss, losses = model.compute_loss(feat, label)
@@ -128,14 +128,14 @@ def validate(model, validation_loader, valid_name, sw=None, epoch_num=-1,
   with torch.no_grad():
     for j, batch in enumerate(validation_loader):
       utt, anchor, label = batch
-      anchor = torch.autograd.Variable(
-        anchor.to(device, non_blocking=True)).float()
-      label = torch.autograd.Variable(
-        label.to(device, non_blocking=True)).long()
-      if isinstance(model, torch.nn.parallel.DistributedDataParallel):
-        tot_loss, losses = model.module.compute_loss(anchor, label)
-      else:
-        tot_loss, losses = model.compute_loss(anchor, label)
+#      anchor = torch.autograd.Variable(
+#        anchor.to(device, non_blocking=True)).float()
+#      label = torch.autograd.Variable(
+#        label.to(device, non_blocking=True)).long()
+      anchor = batch[1].float().to("mps")  # Assuming feat is at index 1
+      label = batch[2].long().to("mps")  # Assuming label is at index 2
+
+      tot_loss, losses = model.compute_loss(anchor, label)
 
       if logger and j % 10 == 0:
         logger.info("step-{} {} {} {} {}".format(
@@ -166,10 +166,13 @@ def _calc_label(model, query_loader, device):
   with torch.no_grad():
     for j, batch in enumerate(query_loader):
       utt_b, anchor_b, label_b = batch
-      anchor_b = torch.autograd.Variable(
-        anchor_b.to(device, non_blocking=True)).float()
-      label_b = torch.autograd.Variable(
-        label_b.to(device, non_blocking=True)).long()
+#      anchor_b = torch.autograd.Variable(
+#        anchor_b.to(device, non_blocking=True)).float()
+#      label_b = torch.autograd.Variable(
+#        label_b.to(device, non_blocking=True)).long()
+      anchor_b = batch[1].float().to("mps")  # Assuming feat is at index 1
+      label_b = batch[2].long().to("mps")  # Assuming label is at index 2
+
       _, pred_b = model.inference(anchor_b)
       pred_b = pred_b.cpu().numpy()
       label_b = label_b.cpu().numpy()

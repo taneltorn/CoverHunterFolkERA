@@ -35,13 +35,13 @@ def _main():
   first_eval = args.first_eval
   only_eval = args.only_eval
   first_eval = True if only_eval else first_eval
-  assert torch.backends.mps.is_available()
-
-  local_rank = -1
+  assert torch.backends.mps.is_available(), "This implementation only runs on Apple M-series chips."
   device = torch.device('mps')
-  total_rank = -1
-
   logger = create_logger()
+
+  # remnants from DPP support, could be unraveled and removed
+  local_rank = -1
+  total_rank = -1
 
   hp = load_hparams(os.path.join(model_dir, "config/hparams.yaml"))
   logger.info("{}".format(get_hparams_as_string(hp)))
@@ -206,7 +206,7 @@ def _main():
         embed_dir = os.path.join(model_dir,
                                  "embed_{}_{}".format(epoch, save_name))
         query_in_ref_path = hp_test.get("query_in_ref_path", None)
-        mean_ap, hit_rate = eval_for_map_with_feat(
+        mean_ap, hit_rate, _ = eval_for_map_with_feat( # added _ to avoid unpacking error in original CoverHunter
           hp, model, embed_dir, query_path=hp_test["query_path"],
           ref_path=hp_test["ref_path"], query_in_ref_path=query_in_ref_path,
           batch_size=hp["batch_size"], logger=logger)

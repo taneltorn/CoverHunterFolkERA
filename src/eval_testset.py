@@ -36,14 +36,13 @@ def _calc_embed(model, query_loader, device, saved_dir=None):
 
     for j, batch in enumerate(query_loader):
       utt_b, feat_b, label_b = batch
-      feat_b = torch.autograd.Variable(
-        feat_b.to(device, non_blocking=True)).float()
-      label_b = torch.autograd.Variable(
-        label_b.to(device, non_blocking=True)).long()
-      if isinstance(model, torch.nn.parallel.DistributedDataParallel):
-        embed_b, _ = model.module.inference(feat_b)
-      else:
-        embed_b, _ = model.inference(feat_b)
+#      feat_b = torch.autograd.Variable(
+#        feat_b.to(device, non_blocking=True)).float()
+#      label_b = torch.autograd.Variable(
+#        label_b.to(device, non_blocking=True)).long()
+      feat_b = batch[1].float().to("mps") 
+      label_b = batch[2].long().to("mps")
+      embed_b, _ = model.inference(feat_b)
 
       embed_b = embed_b.cpu().numpy()
       label_b = label_b.cpu().numpy()

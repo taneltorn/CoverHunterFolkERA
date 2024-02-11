@@ -95,6 +95,34 @@ class FocalLoss(nn.Module):
     b = y_pred.size(0)
     y_pred_softmax = torch.nn.Softmax(dim=1)(y_pred) + self._eps
     ce = -torch.log(y_pred_softmax)
+# =============================================================================
+# # confirmed y_true is on mps
+# # y_true is tensor([33., 33., 33., 33., 33., 33., 33., 33., 65., 65., 65., 65., 65., 65., 65., 65.], device='mps:0')
+# # y_true.view(-1, 1): tensor([[33.],
+#         [33.],
+#         [33.],
+#         [33.],
+#         [33.],
+#         [33.],
+#         [33.],
+#         [33.],
+#         [65.],
+#         [65.],
+#         [65.],
+#         [65.],
+#         [65.],
+#         [65.],
+#         [65.],
+#         [65.]], device='mps:0')
+#     dtype = y_true.view(-1, 1).dtype
+#     print(f"Data type of y_true after reshape: {dtype}")
+#     output: "torch.float32"
+# =============================================================================
+#  force to meet ce.gather's expectations of int64 
+    y_true = torch.as_tensor(y_true, dtype=torch.int64, device="mps")
+#    dtype = y_true.view(-1, 1).dtype
+#    print(f"Data type of y_true after reshape: {dtype}")
+
     ce = ce.gather(1, y_true.view(-1, 1))
 
     y_pred_softmax = y_pred_softmax.gather(1, y_true.view(-1, 1))
