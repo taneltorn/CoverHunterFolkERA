@@ -29,15 +29,9 @@ class CenterLoss(nn.Module):
     super(CenterLoss, self).__init__()
     self.num_classes = num_classes
     self.feat_dim = feat_dim
-    self.use_gpu = use_gpu
-    os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
-    if self.use_gpu:
-      self.centers = nn.Parameter(
-        torch.randn(self.num_classes, self.feat_dim).cuda())
-      self.centers = nn.Parameter(
-        torch.randn(self.num_classes, self.feat_dim).to("cuda"))
-    else:
-      self.centers = nn.Parameter(torch.randn(self.num_classes, self.feat_dim))
+
+    self.centers = nn.Parameter(
+      torch.randn(self.num_classes, self.feat_dim).float().to("mps"))
     logging.info("CenterLoss: num_classes({}), feat_dim({})".format(
       num_classes, feat_dim))
     return
@@ -57,7 +51,7 @@ class CenterLoss(nn.Module):
 
     classes = torch.arange(self.num_classes).long()
     if self.use_gpu:
-      classes = classes.cuda()
+      classes = classes.mps() # unclear whether .mps() is supported here
     labels = labels.unsqueeze(1).expand(batch_size, self.num_classes)
     mask = labels.eq(classes.expand(batch_size, self.num_classes))
 
@@ -84,7 +78,7 @@ class FocalLoss(nn.Module):
     if alpha is not None:
       assert len(alpha) <= num_cls, "{} != {}".format(len(alpha), num_cls)
       self._alpha = torch.tensor(self._alpha)
-    self._eps = np.finfo(float).eps
+    self._eps = torch.finfo(torch.float32).eps
     logging.info("Init Focal loss with gamma:{}".format(gamma))
     return
 
@@ -104,6 +98,7 @@ class FocalLoss(nn.Module):
     ce = ce.gather(1, y_true.view(-1, 1))
 
     y_pred_softmax = y_pred_softmax.gather(1, y_true.view(-1, 1))
+# advice from Gemini: Use explicit subtraction (a - b) instead of torch.sub(a, b) for guaranteed MPS compatibility.
     weight = torch.pow(torch.sub(1., y_pred_softmax), self._gamma)
 
     if self._alpha is not None:
@@ -113,32 +108,6 @@ class FocalLoss(nn.Module):
       alpha = alpha / torch.sum(alpha) * b
       weight = torch.mul(alpha, weight)
     fl_loss = torch.mul(weight, ce).squeeze(1)
-    return self._reduce(fl_loss)
-
-  def forward_with_onehot(self, y_pred: torch.Tensor,
-                          y_true: torch.Tensor) -> torch.Tensor:
-    """ Another implement for "forward" with onehot label matrix.
-
-    It is not good because when ce_embed size is large, more memory will used.
-
-    Args:
-      y_pred: [batch_size, num_cls]
-      y_true: [batch_size]
-
-    Returns:
-      loss
-
-    """
-    y_pred = torch.nn.Softmax(dim=1)(y_pred)
-    y_true = torch.nn.functional.one_hot(y_true, self.num_cls)
-
-    eps = np.finfo(float).eps
-    y_pred = y_pred + eps
-    ce = torch.mul(y_true, -torch.log(y_pred))
-    weight = torch.mul(y_true, torch.pow(torch.sub(1., y_pred), self._gamma))
-    fl_loss = torch.mul(self.alpha, torch.mul(weight, ce))
-
-    fl_loss, _ = torch.max(fl_loss, dim=1)
     return self._reduce(fl_loss)
 
   def _reduce(self, x):

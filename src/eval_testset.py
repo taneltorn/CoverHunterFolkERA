@@ -22,7 +22,7 @@ def _calc_embed(model, query_loader, device, saved_dir=None):
   Args:
     model: trained model
     query_loader: dataset loader for audio
-    device: cuda or cpu
+    device: mps or cpu
     saved_dir: To save embed to disk as npy
 
   Returns:
@@ -195,7 +195,7 @@ def _cut_lines_with_dur(init_lines, chunk_s, embed_dir):
 def eval_for_map_with_feat(hp, model, embed_dir, query_path, ref_path,
                            query_in_ref_path=None, batch_size=128,
                            num_workers=1,
-                           device="cuda", logger=None):
+                           device="mps", logger=None):
   """compute map10 with trained model and query/ref loader(dataset loader
   can speed up process dramatically)
 
@@ -209,7 +209,7 @@ def eval_for_map_with_feat(hp, model, embed_dir, query_path, ref_path,
     query_in_ref_path: path to store query in ref index, None means that
         query index equals ref index
     batch_size: for nnet infer
-    device: "cuda" or "cpu"
+    device: "mps" or "cpu"
     logger:
 
   Returns:

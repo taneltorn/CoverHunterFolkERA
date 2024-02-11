@@ -40,7 +40,7 @@ def subsequent_chunk_mask(
         num_left_chunks (int): number of left chunks
             <0: use full chunk
             >=0: use num_left_chunks
-        device (torch.device): "cpu" or "cuda" or torch.Tensor.device
+        device (torch.device): "cpu" or "mps" or torch.Tensor.device
 
     Returns:
         torch.Tensor: mask
@@ -1446,7 +1446,7 @@ class ConformerEncoder(torch.nn.Module):
 
 
 def _test_model():
-  device = torch.device('cuda')
+  device = torch.device('mps')
   model = ConformerEncoder(input_size=128, output_size=128,
                            linear_units=128).to(device)
   batch_size = 4

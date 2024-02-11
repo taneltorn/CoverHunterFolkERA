@@ -15,20 +15,14 @@ from src.dataset import AudioFeatDataset, MPerClassSampler
 from src.trainer import save_checkpoint, load_checkpoint
 from src.trainer import train_one_epoch, validate
 from src.eval_testset import eval_for_map_with_feat
-from src.utils import load_hparams, get_hparams_as_string, create_rank_logger
+from src.utils import load_hparams, get_hparams_as_string, create_logger
 from src.model import Model
-
-torch.backends.cudnn.benchmark = True
 
 
 def _main():
-  """support distribution(ddp)"""
   parser = argparse.ArgumentParser(
-    description="Train: python3 -m tools.train model_dir\n\n"
-                "Train for ddp: \n"
-                "torchrun -m --nnodes=1 --nproc_per_node=2 tools.train "
-                "model_dir\n",
-    formatter_class=RawTextHelpFormatter)
+      description="Train: python3 -m tools.train model_dir",
+      formatter_class=RawTextHelpFormatter)
   parser.add_argument('model_dir')
   parser.add_argument('--first_eval', default=False, action='store_true',
                       help="Set for run eval first before train")
@@ -41,24 +35,16 @@ def _main():
   first_eval = args.first_eval
   only_eval = args.only_eval
   first_eval = True if only_eval else first_eval
-  assert torch.cuda.is_available()
+  assert torch.backends.mps.is_available()
 
-  local_rank = int(os.environ.get("LOCAL_RANK", -1))
-  if local_rank >= 0:
-    torch.cuda.set_device(local_rank)
-    device = torch.device('cuda', local_rank)
-    torch.distributed.init_process_group(backend='nccl')
-    total_rank = torch.distributed.get_world_size()
-  else:
-    device = torch.device('cuda:0')
-    total_rank = -1
+  local_rank = -1
+  device = torch.device('mps')
+  total_rank = -1
 
-  logger = create_rank_logger(local_rank)
-  logger.info("local rank-{}, total rank-{}".format(local_rank, total_rank))
+  logger = create_logger()
 
   hp = load_hparams(os.path.join(model_dir, "config/hparams.yaml"))
-  if local_rank <= 0:
-    logger.info("{}".format(get_hparams_as_string(hp)))
+  logger.info("{}".format(get_hparams_as_string(hp)))
 
   torch.manual_seed(hp["seed"])
 
@@ -152,11 +138,6 @@ def _main():
   step, init_epoch = load_checkpoint(model, optimizer, checkpoint_dir,
                                      advanced=False)
 
-  if local_rank >= 0:
-    model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model).to(device)
-    model = torch.nn.parallel.DistributedDataParallel(
-      model, device_ids=[local_rank], output_device=local_rank)
-
   scheduler = UserDefineExponentialLR(
     optimizer, gamma=hp["lr_decay"], min_lr=hp["min_lr"],
     last_epoch=init_epoch)
@@ -168,47 +149,21 @@ def _main():
   for epoch in range(max(0, 1 + init_epoch), 100000):
     if not first_eval:
       start = time.time()
-      if local_rank >= 0:
-        item_length = float("inf")
-        for i, loader in enumerate(train_loader_lst):
-          loader.sampler.shuffle_data_on_ranks(
-            seed=epoch + i, display_details=(i == 0))
-          length = loader.sampler.num_iters()
-          item_length = length if length < item_length else item_length
-
-        # logger.info("{}".format(item_length))
-        train_step_t = torch.tensor([item_length], dtype=torch.long,
-                                    device=device)
-        torch.distributed.all_reduce(train_step_t,
-                                     torch.distributed.ReduceOp.MIN,
-                                     async_op=False)
-        train_step = train_step_t.item() * len(train_loader_lst)
-      else:
-        train_step = None
-
-      if local_rank >= 0:
-        torch.distributed.barrier()
+      train_step = None
       logger.info("Start to train for epoch {}".format(epoch))
       step = train_one_epoch(model, optimizer, scheduler, train_loader_lst,
                              step, train_step=train_step,
                              sw=(sw if local_rank <= 0 else None),
                              logger=(logger if local_rank <= 0 else None))
-      if local_rank >= 0:
-        torch.distributed.barrier()
-
-      if local_rank <= 0:
-        if epoch % hp["every_n_epoch_to_save"] == 0:
-          save_checkpoint(model, optimizer, step, epoch, checkpoint_dir)
-        logger.info('Time for train epoch {} step {} is {:.1f}s\n'.format(
-          epoch, step, time.time() - start))
+      if epoch % hp["every_n_epoch_to_save"] == 0:
+        save_checkpoint(model, optimizer, step, epoch, checkpoint_dir)
+      logger.info('Time for train epoch {} step {} is {:.1f}s\n'.format(
+        epoch, step, time.time() - start))
 
     if train_sampler_loader and epoch % hp["every_n_epoch_to_dev"] == 0:
-      if local_rank >= 0:
-        torch.distributed.barrier()
       start = time.time()
-      if local_rank <= 0:
-        logger.info("compute train-sample at epoch-{} with rank {}".format(
-          epoch, local_rank))
+      logger.info("compute train-sample at epoch-{} with rank {}".format(
+        epoch, local_rank))
 
       res = validate(model, train_sampler_loader, "train_sample",
                      epoch_num=epoch,
@@ -218,48 +173,20 @@ def _main():
         "count:{}, avg_ce_loss:{}".format(
           res["count"], res["ce_loss"] / res["count"]))
 
-      if local_rank >= 0:
-        total = torch.tensor([res["count"], res["ce_loss"]],
-                             dtype=torch.float32, device=device)
-        torch.distributed.all_reduce(total, torch.distributed.ReduceOp.SUM,
-                                     async_op=False)
-        tot_count, tot_ce_loss = total.tolist()
-        avg = tot_ce_loss / tot_count
-        if local_rank == 0:
-          logger.info(
-            "Train sample count:{}, avg_ce_loss:{:.4f}".format(tot_count, avg))
-          sw.add_scalar("csi_{}/{}".format("train_sample", "avg_ce_loss"),
-                        avg, epoch)
-
-      if local_rank <= 0:
-        logger.info('Time for train-sample is {:.1f}s\n'.format(
-          time.time() - start))
+      logger.info('Time for train-sample is {:.1f}s\n'.format(
+        time.time() - start))
 
     if dev_loader and epoch % hp["every_n_epoch_to_dev"] == 0:
       start = time.time()
-      if local_rank <= 0:
-        logger.info(
-          "compute dev at epoch-{} with rank {}".format(epoch, local_rank))
+      logger.info(
+        "compute dev at epoch-{} with rank {}".format(epoch, local_rank))
       dev_res = validate(model, dev_loader, "dev", epoch_num=epoch,
                          sw=(sw if local_rank <= 0 else None),
                          logger=(logger if local_rank <= 0 else None))
       cnt = dev_res["count"]
       logger.info(
         "count:{}, avg_ce_loss:{}".format(cnt, dev_res["ce_loss"] / cnt))
-      if local_rank >= 0:
-        total = torch.tensor([cnt, dev_res["ce_loss"]],
-                             dtype=torch.float32, device=device)
-        torch.distributed.all_reduce(total, torch.distributed.ReduceOp.SUM,
-                                     async_op=False)
-        tot_count, tot_ce_loss = total.tolist()
-        avg = tot_ce_loss / tot_count
-        if local_rank == 0:
-          logger.info(
-            "Avg of rank:: count:{}, avg_loss:{}".format(tot_count, avg))
-          sw.add_scalar("csi_{}/{}".format("dev", "avg_ce_loss"), avg, epoch)
-
-      if local_rank <= 0:
-        logger.info('Time for dev is {:.1f}s\n'.format(time.time() - start))
+      logger.info('Time for dev is {:.1f}s\n'.format(time.time() - start))
 
     valid_testlist = []
     for test_idx, testset_name in enumerate(test_set_list):

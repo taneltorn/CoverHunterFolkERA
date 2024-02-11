@@ -260,20 +260,14 @@ def remake_path_for_linux(path):
     '&', '\&').replace(";", "\;").replace("\'", "\\\'")
 
 
-def create_rank_logger(local_rank=-1):
-  """create logger with rank(especially for distribution train) """
-  logger = logging.getLogger("RANK:{}".format(local_rank))
+def create_logger():
+  logger = logging.getLogger()
   ch = logging.StreamHandler()
   ch.setLevel(logging.INFO)
-  if local_rank >= 0:
-    ch.setFormatter(
-      logging.Formatter('%(asctime)s %(name)s %(levelname)s %(message)s'))
-  else:
-    ch.setFormatter(
-      logging.Formatter('%(asctime)s %(levelname)s %(message)s'))
+  ch.setFormatter(
+    logging.Formatter('%(asctime)s %(levelname)s %(message)s'))
   logger.addHandler(ch)
   logger.propagate = False
-  logger.info("create logger of rank:{}".format(local_rank))
   return logger
 
 

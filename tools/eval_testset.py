@@ -10,7 +10,7 @@ import torch
 
 from src.eval_testset import eval_for_map_with_feat
 from src.model import Model
-from src.utils import load_hparams, get_hparams_as_string, create_rank_logger
+from src.utils import load_hparams, get_hparams_as_string, create_logger
 import argparse
 
 torch.backends.cudnn.benchmark = True
@@ -30,14 +30,14 @@ def _main():
   ref_path = args.ref_path
   query_in_ref_path = args.query_in_ref_path
 
-  assert torch.cuda.is_available()
+  assert torch.mps.is_available()
 
-  device = torch.device('cuda:0')
+  device = torch.device('mps')
   total_rank = -1
   local_rank = -1
 
-  logger = create_rank_logger(local_rank)
-  logger.info("local rank-{}, total rank-{}".format(local_rank, total_rank))
+  logger = create_logger()
+#  logger.info("local rank-{}, total rank-{}".format(local_rank, total_rank))
 
   hp = load_hparams(os.path.join(model_dir, "config/hparams.yaml"))
   logger.info("{}".format(get_hparams_as_string(hp)))

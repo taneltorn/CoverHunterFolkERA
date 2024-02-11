@@ -21,7 +21,7 @@ class BasicModel(torch.nn.Module):
     self._step = 0
     return
 
-  def load_model_parameters(self, model_dir, epoch_num=-1, device="cuda",
+  def load_model_parameters(self, model_dir, epoch_num=-1, device="mps",
                             advanced=False):
     """load parameters from pt model, and return model epoch,
     if advanced, model can has different variables from saved"""

@@ -66,12 +66,8 @@ def load_checkpoint(model, optimizer=None, checkpoint_dir=None, advanced=False):
 
 def train_one_epoch(model, optimizer, scheduler, train_loader_lst,
                     step, train_step=None, sw=None, logger=None):
-  """train one epoch with multi data_loader, support distributed model"""
-  if isinstance(model, torch.nn.parallel.DistributedDataParallel):
-    model_context = model.join
-  else:
-    model_context = nullcontext
-  # model_context = nullcontext
+  """train one epoch with multi data_loader"""
+  model_context = nullcontext
   init_step = step
   model.train()
   idx_loader = [i for i in range(len(train_loader_lst))]
@@ -83,18 +79,18 @@ def train_one_epoch(model, optimizer, scheduler, train_loader_lst,
         if step % 1000 == 0:
           scheduler.step()
         model.train()
-        device = "cuda"
         _, feat, label = batch
-        feat = torch.autograd.Variable(
-          feat.to(device, non_blocking=True)).float()
-        label = torch.autograd.Variable(
-          label.to(device, non_blocking=True)).long()
+#       Note: autograd.Variable was deprecated, see https://pytorch.org/docs/stable/autograd.html
+#        feat = torch.autograd.Variable(
+#          feat.to("mps", non_blocking=True)).float()
+#        oldlabel = torch.autograd.Variable(
+#          label.to("mps", non_blocking=True)).long()
+#       Replaced with: 
+        feat = batch[1].float().to("cpu")  # Assuming feat is at index 1
+        label = batch[2].float().to("mps")  # Assuming label is at index 2
 
         optimizer.zero_grad()
-        if isinstance(model, torch.nn.parallel.DistributedDataParallel):
-          total_loss, losses = model.module.compute_loss(feat, label)
-        else:
-          total_loss, losses = model.compute_loss(feat, label)
+        total_loss, losses = model.compute_loss(feat, label)
 
         total_loss.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
@@ -125,7 +121,7 @@ def train_one_epoch(model, optimizer, scheduler, train_loader_lst,
 
 
 def validate(model, validation_loader, valid_name, sw=None, epoch_num=-1,
-             device="cuda", logger=None):
+             device="mps", logger=None):
   """ Validation on dataset, support distributed model"""
   model.eval()
   val_losses = {"count": 0}
@@ -200,7 +196,7 @@ def _calc_label(model, query_loader, device):
 
 
 def _syn_pred_label(model, valid_loader, valid_name, sw=None, epoch_num=-1,
-                    device="cuda"):
+                    device="mps"):
   model.eval()
 
   query_utt_label, query_pred = _calc_label(model, valid_loader, device)

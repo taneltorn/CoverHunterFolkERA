@@ -229,6 +229,9 @@ class Model(BasicModel):
   def forward(self, x: torch.Tensor) -> torch.Tensor:
     """feat[b, frame_size, feat_size] -> embed[b, embed_dim]"""
 
+    assert x.dtype == torch.float32, "Input tensor must be of type float32" # for mps debugging only
+# confirmed float32 as of 2/10/2024
+
     x = self._global_cmvn(x.transpose(1, 2)).transpose(1, 2)
     xs_lens = torch.full(
       [x.size(0)], fill_value=x.size(1), dtype=torch.long).to(x.device).long()
@@ -236,7 +239,7 @@ class Model(BasicModel):
     x = self._pool_layer(x)
     return x
 
-  @torch.jit.ignore
+#  @torch.jit.ignore
   def compute_loss(self, anchor: torch.Tensor, label: torch.Tensor) -> Tuple[
     torch.Tensor, Dict]:
     """compute ce and triplet loss"""
@@ -278,7 +281,7 @@ class Model(BasicModel):
 
 
 def _test_model():
-  device = torch.device('cuda')
+  device = torch.device('mps')
   hp_path = "src/hparams.yaml"
   hp = load_hparams(hp_path)
   model = Model(hp).float().to(device)
