@@ -34,10 +34,6 @@ def _main():
   device = torch.device('mps')
   logger = create_logger()
 
-  # remnant of DPP from CoverHunter
-  total_rank = -1
-  local_rank = -1
-
   hp = load_hparams(os.path.join(model_dir, "config/hparams.yaml"))
   logger.info("{}".format(get_hparams_as_string(hp)))
 

@@ -39,10 +39,6 @@ def _main():
   device = torch.device('mps')
   logger = create_logger()
 
-  # remnants from DPP support, could be unraveled and removed
-  local_rank = -1
-  total_rank = -1
-
   hp = load_hparams(os.path.join(model_dir, "config/hparams.yaml"))
   logger.info("{}".format(get_hparams_as_string(hp)))
 
@@ -166,8 +162,8 @@ def _main():
 
     if train_sampler_loader and epoch % hp["every_n_epoch_to_dev"] == 0:
       start = time.time()
-      logger.info("compute train-sample at epoch-{} with rank {}".format(
-        epoch, local_rank))
+      logger.info("compute train-sample at epoch-{}".format(
+        epoch))
 
       res = validate(model, train_sampler_loader, "train_sample",
                      epoch_num=epoch,
@@ -206,12 +202,10 @@ def _main():
         valid_testlist.append(testset_name)
 
     for test_idx, testset_name in enumerate(valid_testlist):
-      hp_test = hp[testset_name]
-      if test_idx % total_rank == local_rank or local_rank == -1:
+        hp_test = hp[testset_name]
         logger.info(
-          "Compute {} with rank {} at epoch: {}".format(testset_name,
-                                                        local_rank, epoch))
-
+          "Compute {} at epoch: {}".format(testset_name, epoch))
+        
         start = time.time()
         save_name = hp_test.get("save_name", testset_name)
         embed_dir = os.path.join(model_dir,
@@ -221,7 +215,7 @@ def _main():
           hp, model, embed_dir, query_path=hp_test["query_path"],
           ref_path=hp_test["ref_path"], query_in_ref_path=query_in_ref_path,
           batch_size=hp["batch_size"], logger=logger)
-
+        
         sw.add_scalar("mAP/{}".format(testset_name), mean_ap, epoch)
         sw.add_scalar("hit_rate/{}".format(testset_name), hit_rate, epoch)
         logger.info("Test {}, hit_rate:{}, map:{}".format(

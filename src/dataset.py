@@ -396,7 +396,7 @@ class AudioFeatDataset(torch.utils.data.Dataset):
     if self._aug:
       feat = self._aug.augmentation(feat)
 
-    feat = torch.from_numpy(feat)
+    feat = torch.from_numpy(feat).float() # added .float() to reduce from float64 to float32 for MPS
     label = torch.tensor(label).long()
     return utt, feat, label
 
@@ -418,14 +418,6 @@ class MPerClassSampler(Sampler):
 
   def __init__(self, data_path, m, batch_size, distribute=False, logger=None):
     data_lines = read_lines(data_path, log=False)
-    if distribute:
-      if not dist.is_available():
-        raise RuntimeError("Requires distributed package to be available")
-      total_rank = dist.get_world_size()
-      local_rank = dist.get_rank()
-    else:
-      total_rank = -1
-      local_rank = -1
 
     self._m_per_class = m
     self._batch_size = batch_size
@@ -434,10 +426,7 @@ class MPerClassSampler(Sampler):
     self._labels_to_indices = self._get_labels_to_indices(data_lines)
     self._global_labels = list(self._labels_to_indices.keys())
 
-    if not distribute:
-      self.labels = self._global_labels
-    else:
-      self.labels = self._split_label_randoms(seed=0)[local_rank]
+    self.labels = self._global_labels
 
     assert (self._batch_size % self._m_per_class) == 0, \
       "m_per_class must divide batch_size without any remainder"
@@ -445,16 +434,9 @@ class MPerClassSampler(Sampler):
     self._sample_length = self._get_sample_length()
 
     if logger:
-      if not distribute:
         logger.info(
           "Init Sampler with Mper with {} items, and m = {}, batch_num = {}"
           "\n".format(self._sample_length, m, self.num_iters()))
-      else:
-        logger.info(
-          "Init Sampler with Mper with {} items, and m = {}, "
-          "rank = {}, num_replicas = {}, batch_num = {}"
-          "\n".format(self._sample_length, m, local_rank, total_rank,
-                      self.num_iters()))
     return
 
   def __iter__(self):
@@ -471,20 +453,6 @@ class MPerClassSampler(Sampler):
         i += self._m_per_class
     return iter(idx_list)
 
-  def shuffle_data_on_ranks(self, seed, display_details=True):
-    local_rank = dist.get_rank()
-    total_rank = dist.get_world_size()
-    self.labels = self._split_label_randoms(seed)[local_rank]
-    self._sample_length = self._get_sample_length()
-    if self._logger and display_details:
-      display = sorted(self.labels)[:5]
-      self._logger.info(
-        "Shuffle sampler with {} items, rank = {}, total rank = {}, "
-        "batch_num = {}, label of head{} is {}".format(
-          self._sample_length, local_rank, total_rank, self.num_iters(),
-          len(display), display))
-    return
-
   def num_iters(self):
     return self._sample_length // self._batch_size
 
@@ -497,8 +465,8 @@ class MPerClassSampler(Sampler):
     split_label = []
     global_label = [x for x in self._labels_to_indices.keys()].copy()
     random.Random(seed).shuffle(global_label)
-    for i in range(dist.get_world_size()):
-      split_label.append(global_label[i::dist.get_world_size()])
+    split_label.append(global_label) 
+
     return split_label
 
   # @staticmethod
@@ -512,11 +480,6 @@ class MPerClassSampler(Sampler):
     for index, line in enumerate(data_lines):
       local_data = line_to_dict(line)
       label = local_data["song_id"]
-      if distribute:
-        total_rank = dist.get_world_size()
-        local_rank = dist.get_rank()
-        if label % total_rank != local_rank:
-          continue
 
       if label not in labels_to_indices.keys():
         labels_to_indices[label] = []

@@ -37,10 +37,6 @@ def _main():
   hp = load_hparams(os.path.join(model_dir, "config/hparams.yaml"))
   logger.info("{}".format(get_hparams_as_string(hp)))
 
-  # remnant of DPP from CoverHunter
-  total_rank = -1
-  local_rank = -1
-
   # Note: we need to change chunks to 15s
   hp["chunk_frame"] = [125]
   hp["chunk_s"] = 15  # = 125 / 25 * 3
