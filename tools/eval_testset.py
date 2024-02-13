@@ -31,13 +31,12 @@ def _main():
   query_in_ref_path = args.query_in_ref_path
 
   assert torch.mps.is_available()
-
   device = torch.device('mps')
+  logger = create_logger()
+
+  # remnant of DPP from CoverHunter
   total_rank = -1
   local_rank = -1
-
-  logger = create_logger()
-#  logger.info("local rank-{}, total rank-{}".format(local_rank, total_rank))
 
   hp = load_hparams(os.path.join(model_dir, "config/hparams.yaml"))
   logger.info("{}".format(get_hparams_as_string(hp)))

@@ -39,6 +39,11 @@ def _main():
   device = torch.device('mps')
   logger = create_logger()
 
+  # Initialize variables for early stopping
+  best_validation_loss = float('inf')
+  early_stopping_counter = 0
+  early_stopping_patience = 5  # Adjust as needed
+
   # remnants from DPP support, could be unraveled and removed
   local_rank = -1
   total_rank = -1
@@ -54,11 +59,11 @@ def _main():
     train_dataset = AudioFeatDataset(
       hp, hp["train_path"], train=True, mode=hp["mode"],
       chunk_len=chunk_len * hp["mean_size"],
-      logger=(logger if local_rank <= 0 else None))
+      logger=logger)
     sampler = MPerClassSampler(data_path=hp["train_path"],
                                m=hp["m_per_class"],
                                batch_size=hp["batch_size"],
-                               distribute=(local_rank >= 0), logger=logger)
+                               distribute=False, logger=logger)
     train_loader = DataLoader(
       train_dataset,
       num_workers=hp["num_workers"],
@@ -71,19 +76,18 @@ def _main():
     train_loader_lst.append(train_loader)
 
   # At inference stage, we only use chunk with fixed length
-  if local_rank <= 0:
-    logger.info("Init train-sample and dev data loader")
+  logger.info("Init train-sample and dev data loader")
   infer_len = hp["chunk_frame"][0] * hp["mean_size"]
   if "train_sample_path" in hp.keys():
     # hp["batch_size"] = 1
     dataset = AudioFeatDataset(
       hp, hp["train_sample_path"], train=False, chunk_len=infer_len,
-      mode=hp["mode"], logger=(logger if local_rank <= 0 else None))
+      mode=hp["mode"], logger=logger)
     sampler = MPerClassSampler(data_path=hp["train_sample_path"],
                                # m=hp["m_per_class"],
                                m=1,
                                batch_size=hp["batch_size"],
-                               distribute=(local_rank >= 0), logger=logger)
+                               distribute=False, logger=logger)
     train_sampler_loader = DataLoader(
       dataset,
       num_workers=1,
@@ -99,11 +103,11 @@ def _main():
   if "dev_path" in hp.keys():
     dataset = AudioFeatDataset(hp, hp["dev_path"], chunk_len=infer_len,
                                mode=hp["mode"],
-                               logger=(logger if local_rank <= 0 else None))
+                               logger=(logger))
     sampler = MPerClassSampler(data_path=hp["dev_path"],
                                m=hp["m_per_class"],
                                batch_size=hp["batch_size"],
-                               distribute=(local_rank >= 0), logger=logger)
+                               distribute=False, logger=logger)
     dev_loader = DataLoader(
       dataset,
       num_workers=1,
@@ -153,8 +157,8 @@ def _main():
       logger.info("Start to train for epoch {}".format(epoch))
       step = train_one_epoch(model, optimizer, scheduler, train_loader_lst,
                              step, train_step=train_step,
-                             sw=(sw if local_rank <= 0 else None),
-                             logger=(logger if local_rank <= 0 else None))
+                             sw=sw,
+                             logger=logger)
       if epoch % hp["every_n_epoch_to_save"] == 0:
         save_checkpoint(model, optimizer, step, epoch, checkpoint_dir)
       logger.info('Time for train epoch {} step {} is {:.1f}s\n'.format(
@@ -167,8 +171,8 @@ def _main():
 
       res = validate(model, train_sampler_loader, "train_sample",
                      epoch_num=epoch,
-                     sw=(sw if local_rank <= 0 else None),
-                     logger=(logger if local_rank <= 0 else None))
+                     sw=sw,
+                     logger=logger)
       logger.info(
         "count:{}, avg_ce_loss:{}".format(
           res["count"], res["ce_loss"] / res["count"]))
@@ -179,15 +183,22 @@ def _main():
     if dev_loader and epoch % hp["every_n_epoch_to_dev"] == 0:
       start = time.time()
       logger.info(
-        "compute dev at epoch-{} with rank {}".format(epoch, local_rank))
+        "compute dev at epoch-{}".format(epoch))
       dev_res = validate(model, dev_loader, "dev", epoch_num=epoch,
-                         sw=(sw if local_rank <= 0 else None),
-                         logger=(logger if local_rank <= 0 else None))
-      cnt = dev_res["count"]
-      logger.info(
-        "count:{}, avg_ce_loss:{}".format(cnt, dev_res["ce_loss"] / cnt))
-      logger.info('Time for dev is {:.1f}s\n'.format(time.time() - start))
+                         sw=sw,
+                         logger=logger)
+      validation_loss = dev_res["ce_loss"] / dev_res["count"]
 
+      logger.info(
+        "count:{}, avg_ce_loss:{}".format(dev_res["count"], validation_loss))
+      logger.info('Time for dev is {:.1f}s\n'.format(time.time() - start))
+      
+      if validation_loss < best_validation_loss:
+          best_validation_loss = validation_loss
+          early_stopping_counter = 0
+      else:
+          early_stopping_counter += 1
+ 
     valid_testlist = []
     for test_idx, testset_name in enumerate(test_set_list):
       hp_test = hp[testset_name]
@@ -211,19 +222,17 @@ def _main():
           ref_path=hp_test["ref_path"], query_in_ref_path=query_in_ref_path,
           batch_size=hp["batch_size"], logger=logger)
 
-        # eval_for_map_with_feat_stage1(
-        #   hp, embed_dir, query_path=hp_test["query_path"],
-        #   ref_path=hp_test["ref_path"], query_in_ref_path=query_in_ref_path,
-        #   logger=logger)
-
         sw.add_scalar("mAP/{}".format(testset_name), mean_ap, epoch)
         sw.add_scalar("hit_rate/{}".format(testset_name), hit_rate, epoch)
         logger.info("Test {}, hit_rate:{}, map:{}".format(
           testset_name, hit_rate, mean_ap))
         logger.info('Time for test-{} is {} sec\n'.format(
           testset_name, int(time.time() - start)))
-        # if local_rank >= 0:
-        #   torch.distributed.barrier()
+
+    if early_stopping_counter >= early_stopping_patience:
+     logger.info("Early stopping at epoch {} due to lack of avg_ce_loss improvement.".format(epoch))
+     break
+
     if only_eval:
       return
     first_eval = False

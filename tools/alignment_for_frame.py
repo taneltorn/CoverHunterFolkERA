@@ -33,14 +33,13 @@ def _main():
   assert torch.mps.is_available()
 
   device = torch.device('mps')
-  total_rank = -1
-  local_rank = -1
-
   logger = create_logger()
-#  logger.info("local rank-{}, total rank-{}".format(local_rank, total_rank))
-
   hp = load_hparams(os.path.join(model_dir, "config/hparams.yaml"))
   logger.info("{}".format(get_hparams_as_string(hp)))
+
+  # remnant of DPP from CoverHunter
+  total_rank = -1
+  local_rank = -1
 
   # Note: we need to change chunks to 15s
   hp["chunk_frame"] = [125]

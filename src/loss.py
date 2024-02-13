@@ -96,37 +96,20 @@ class FocalLoss(nn.Module):
     y_pred_softmax = torch.nn.Softmax(dim=1)(y_pred) + self._eps
     ce = -torch.log(y_pred_softmax)
 # =============================================================================
-# # confirmed y_true is on mps
-# # y_true is tensor([33., 33., 33., 33., 33., 33., 33., 33., 65., 65., 65., 65., 65., 65., 65., 65.], device='mps:0')
-# # y_true.view(-1, 1): tensor([[33.],
-#         [33.],
-#         [33.],
-#         [33.],
-#         [33.],
-#         [33.],
-#         [33.],
-#         [33.],
-#         [65.],
-#         [65.],
-#         [65.],
-#         [65.],
-#         [65.],
-#         [65.],
-#         [65.],
-#         [65.]], device='mps:0')
+# original CoverHunter code threw error at ce.gather than it expected index to be of type int64
+# confirmed y_true is on mps. Debug test:
 #     dtype = y_true.view(-1, 1).dtype
 #     print(f"Data type of y_true after reshape: {dtype}")
 #     output: "torch.float32"
 # =============================================================================
-#  force to meet ce.gather's expectations of int64 
-    y_true = torch.as_tensor(y_true, dtype=torch.int64, device="mps")
 #    dtype = y_true.view(-1, 1).dtype
 #    print(f"Data type of y_true after reshape: {dtype}")
+#  force to meet ce.gather's expectations of int64 
+    y_true = torch.as_tensor(y_true, dtype=torch.int64, device="mps")
 
     ce = ce.gather(1, y_true.view(-1, 1))
 
     y_pred_softmax = y_pred_softmax.gather(1, y_true.view(-1, 1))
-# advice from Gemini: Use explicit subtraction (a - b) instead of torch.sub(a, b) for guaranteed MPS compatibility.
     weight = torch.pow(torch.sub(1., y_pred_softmax), self._gamma)
 
     if self._alpha is not None:
@@ -210,7 +193,6 @@ class HardTripletLoss(nn.Module):
        have same label.
 
     """
-    # device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     device = labels.device
     indices_not_equal = torch.eye(labels.shape[0]).to(device).byte() ^ 1
     labels_equal = torch.unsqueeze(labels, 0) == torch.unsqueeze(labels, 1)

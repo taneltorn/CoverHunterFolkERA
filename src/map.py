@@ -65,7 +65,8 @@ def calc_map(array2d: np.ndarray, label_query: List, label_ref: List,
     if version_cnt > 0:
       per_map = per_map / version_cnt
 
-    print("XX per_rank1:", per_rank1)
+    if per_rank1 > 1: # added filter to make logging output more readable
+      print("XX per_rank1:", per_rank1)
     if verbose > 0:
       top5_res = [x for x, _ in row][:5]
       print(
