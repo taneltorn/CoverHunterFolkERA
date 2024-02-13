@@ -39,17 +39,17 @@ def _main():
   device = torch.device('mps')
   logger = create_logger()
 
-  # Initialize variables for early stopping
-  best_validation_loss = float('inf')
-  early_stopping_counter = 0
-  early_stopping_patience = 5  # Adjust as needed
-
   # remnants from DPP support, could be unraveled and removed
   local_rank = -1
   total_rank = -1
 
   hp = load_hparams(os.path.join(model_dir, "config/hparams.yaml"))
   logger.info("{}".format(get_hparams_as_string(hp)))
+
+  # Initialize variables for early stopping
+  best_validation_loss = float('inf')
+  early_stopping_counter = 0
+  early_stopping_patience = hp["early_stopping_patience"]
 
   torch.manual_seed(hp["seed"])
 
