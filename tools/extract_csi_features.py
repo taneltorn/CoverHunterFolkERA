@@ -10,6 +10,7 @@ import os
 import random
 import shutil
 import subprocess
+from concurrent.futures import ProcessPoolExecutor
 
 import librosa
 import numpy as np
@@ -72,6 +73,7 @@ def _remove_line_with_same_dur(init_path, new_path):
   return
 
 
+
 def sox_change_speed(inp_path, out_path, k):
   cmd = "sox -q {} -t wav  -r 16000 -c 1 {} tempo {} " \
         "> sox.log 2> sox.log".format(
@@ -90,35 +92,65 @@ def sox_change_speed(inp_path, out_path, k):
     logging.info("EOFError: {}".format(cmd))
     return False
 
+# =============================================================================
+# def _speed_aug(init_path, aug_speed_lst, aug_path, sp_dir):
+#   """add items with speed argument wav"""
+#   logging.info("speed factor: {}".format(aug_speed_lst))
+#   os.makedirs(sp_dir, exist_ok=True)
+#   total_lines = read_lines(init_path, log=False)
+#   dump_lines = []
+# 
+#   for line in total_lines:
+#     local_data = line_to_dict(line)
+#     wav_path = local_data["wav"]
+#     for speed in aug_speed_lst:
+#       if abs(speed - 1.0) > 0.01:
+#         sp_utt = "sp_{}-{}".format(speed, local_data["utt"])
+#         sp_wav_path = os.path.join(sp_dir, f"{sp_utt}.wav")
+#         if not os.path.exists(sp_wav_path):
+#           sox_change_speed(wav_path, sp_wav_path, speed)
+#       else:
+#         sp_utt = local_data["utt"]
+#         sp_wav_path = local_data["wav"]
+# 
+#       local_data["utt"] = sp_utt
+#       local_data["wav"] = sp_wav_path
+#       dump_lines.append(dict_to_line(local_data))
+#       if len(dump_lines) % 1000 == 0:
+#         logging.info("{}: {}".format(len(dump_lines), dump_lines[-1]))
+# 
+#   write_lines(aug_path, dump_lines)
+#   return
+# =============================================================================
 
-def _speed_aug(init_path, aug_speed_lst, aug_path, sp_dir):
-  """add items with speed argument wav"""
-  logging.info("speed factor: {}".format(aug_speed_lst))
-  os.makedirs(sp_dir, exist_ok=True)
-  total_lines = read_lines(init_path, log=False)
-  dump_lines = []
+# leverage multiple CPU cores to run multiple sox instances in parallel
+def _speed_aug_worker(args):
+    wav_path, speed, sp_dir = args
+    sp_utt = "sp_{}-{}".format(speed, os.path.basename(wav_path).replace(".wav", ""))
+    sp_wav_path = os.path.join(sp_dir, f"{sp_utt}.wav")
 
-  for line in total_lines:
-    local_data = line_to_dict(line)
-    wav_path = local_data["wav"]
-    for speed in aug_speed_lst:
-      if abs(speed - 1.0) > 0.01:
-        sp_utt = "sp_{}-{}".format(speed, local_data["utt"])
-        sp_wav_path = os.path.join(sp_dir, f"{sp_utt}.wav")
-        if not os.path.exists(sp_wav_path):
-          sox_change_speed(wav_path, sp_wav_path, speed)
-      else:
-        sp_utt = local_data["utt"]
-        sp_wav_path = local_data["wav"]
+    if not os.path.exists(sp_wav_path):
+        sox_change_speed(wav_path, sp_wav_path, speed)
 
-      local_data["utt"] = sp_utt
-      local_data["wav"] = sp_wav_path
-      dump_lines.append(dict_to_line(local_data))
-      if len(dump_lines) % 1000 == 0:
-        logging.info("{}: {}".format(len(dump_lines), dump_lines[-1]))
+    return {"utt": sp_utt, "wav": sp_wav_path}
 
-  write_lines(aug_path, dump_lines)
-  return
+def _speed_aug_parallel(init_path, aug_speed_lst, aug_path, sp_dir):
+    """add items with speed argument wav"""
+    logging.info("speed factor: {}".format(aug_speed_lst))
+    os.makedirs(sp_dir, exist_ok=True)
+    total_lines = read_lines(init_path, log=False)
+    dump_lines = []
+
+    with ProcessPoolExecutor() as executor:
+        worker_args = [(line_to_dict(line)["wav"], speed, sp_dir) for line in total_lines for speed in aug_speed_lst]
+
+        for result in executor.map(_speed_aug_worker, worker_args):
+            dump_lines.append(dict_to_line(result))
+            if len(dump_lines) % 1000 == 0:
+                logging.info("{}: {}".format(len(dump_lines), dump_lines[-1]))
+
+    write_lines(aug_path, dump_lines)
+    return
 
 
 def _extract_cqt(init_path, out_path, cqt_dir):
@@ -308,13 +340,15 @@ def _generate_csi_features(hp, feat_dir, start_stage, end_stage):
     _sort_lines_by_utt(init_path, init_path)
     _remove_dup_line(init_path, init_path)
 
+  # aug_speed_mode is a list like: [0.8, 0.9, 1.0, 1.1, 1.2]
   sp_aug_path = os.path.join(feat_dir, "sp_aug.txt")
   if start_stage <= 3 <= end_stage:
     logging.info("Stage 3: speed augmentation")
     if "aug_speed_mode" in hp.keys() and not os.path.exists(sp_aug_path):
       sp_dir = os.path.join(feat_dir, "sp_wav")
-      _speed_aug(init_path, hp["aug_speed_mode"], sp_aug_path, sp_dir)
-
+#      _speed_aug(init_path, hp["aug_speed_mode"], sp_aug_path, sp_dir)
+      _speed_aug_parallel(init_path, hp["aug_speed_mode"], sp_aug_path, sp_dir)
+    
   full_path = os.path.join(feat_dir, "full.txt")
   if start_stage <= 4 <= end_stage:
     logging.info("Stage 4: extract cqt feature")
