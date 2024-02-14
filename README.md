@@ -14,7 +14,7 @@ Clone this repo or download it to a folder on your Mac. Run the following Termin
 
 ## Data Preparation
 
-Follow the example of the prepared Covers80 dataset included with the original CoverHunter. Directions here are for using that prepared data. See also [dataset.txt format](#dataset).
+Follow the example of the prepared Covers80 dataset included with the original CoverHunter. Directions here are for using that prepared data. See also the "dataset.txt format" documentation below.
 
 1. Download and extract the contents of the covers80.tgz file from http://labrosa.ee.columbia.edu/projects/coversongs/covers80/
 2. Abandon the 2-level folder structure that came inside the covers80.tgz file, flattening so all the .mp3 files are in the same folder. One way to do this is:
@@ -27,7 +27,9 @@ Follow the example of the prepared Covers80 dataset included with the original C
 
 ## Feature Extraction
 
-You must run this before proceeding to the Train step. From the project root folder, run:
+You must run this before proceeding to the Train step. And you can't run this without first doing the Data Preparation step above.
+
+From the project root folder, run:
 
 `python3 -m tools.extract_csi_features data/covers80/`
 
@@ -45,7 +47,7 @@ To see the TensorBoard visualization of the training progress:
 
 `tensorboard --logdir=egs/covers80/logs`
 
-# dataset.txt format {#dataset}
+# dataset.txt format
 
 A JSON formatted file expected by extract_csi_features.py that describes the training audio data, file by file.
 | key | value |
