@@ -63,8 +63,12 @@ A JSON formatted file expected by extract_csi_features.py that describes the tra
 | key | value |
 | --- | --- |
 | aug_speed_mode | list of ratios used for speed augmention of your raw training data. Example: [0.8, 0.9, 1.0, 1.1, 1.2] means use 80%, 90%, 100%, 110%, and 120% speed variants of your original audio data. |
+| chunk_frame | list of numbers used with mean_size. CoverHunter package used [1125, 900, 675] | 
+| data_type | "cqt" (default) or "raw" or "mel". Unknown whether CoverHunter actually implemented anything but CQT-based training | 
 | dev_sample_path | TBD: can apparently be the same path as train_path |
 | early_stopping_patience | how many epochs to wait for avg_ce_loss to improve before early stopping |
+| mean_size | used to multiply each member of chunk_frame to calculate chunk_len (TBD what the latter does) |
+| mode | "random" (default) or "defined". Unclear what "defined" does. Used when loading training data in chunks in AudioFeatDataset. |
 | query_path | TBD: can apparently be the same path as train_path |
 | ref_path | TBD: can apparently be the same path as train_path |
 | train_path | path to a text file listing certain required attributes of every training data sample |
