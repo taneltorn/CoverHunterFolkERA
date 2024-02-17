@@ -30,10 +30,13 @@ def _main():
                       help="Set for run eval first before train")
   parser.add_argument('--debug', default=False, action='store_true',
                       help="give more debug log")
+  parser.add_argument('--runid', default='', action='store',
+                      help="put TensorBoard logs in this subfolder of ../logs/")
   args = parser.parse_args()
   model_dir = args.model_dir
   first_eval = args.first_eval
   only_eval = args.only_eval
+  run_id = args.runid
   first_eval = True if only_eval else first_eval
   assert torch.backends.mps.is_available(), "This implementation only runs on Apple M-series chips."
   device = torch.device('mps')
@@ -142,7 +145,9 @@ def _main():
     optimizer, gamma=hp["lr_decay"], min_lr=hp["min_lr"],
     last_epoch=init_epoch)
 
-  sw = SummaryWriter(os.path.join(model_dir, "logs"))
+  log_path = os.path.join(model_dir, "logs", run_id)
+  os.makedirs(log_path, exist_ok=True)
+  sw = SummaryWriter(log_path)
   if only_eval:
     sw = None
 
