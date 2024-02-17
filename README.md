@@ -57,3 +57,17 @@ A JSON formatted file expected by extract_csi_features.py that describes the tra
 | dur_s | duration of the audio file in seconds. Example 316.728 |
 | song | title of the song. Example "A_Whiter_Shade_Of_Pale" |
 | version | Used for what? Example "annie_lennox+Medusa+03-A_Whiter_Shade_Of_Pale.mp3" |
+
+# Hyperparameters (hparams.yaml)
+
+| key | value |
+| --- | --- |
+| aug_speed_mode | list of ratios used for speed augmention of your raw training data. Example: [0.8, 0.9, 1.0, 1.1, 1.2] means use 80%, 90%, 100%, 110%, and 120% speed variants of your original audio data. |
+| dev_sample_path | TBD: can apparently be the same path as train_path |
+| early_stopping_patience | how many epochs to wait for avg_ce_loss to improve before early stopping |
+| query_path | TBD: can apparently be the same path as train_path |
+| ref_path | TBD: can apparently be the same path as train_path |
+| train_path | path to a text file listing certain required attributes of every training data sample |
+| train_sample_path | TBD: can apparently be the same path as train_path |
+
+ 

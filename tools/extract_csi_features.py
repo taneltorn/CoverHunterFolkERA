@@ -92,6 +92,7 @@ def sox_change_speed(inp_path, out_path, k):
     logging.info("EOFError: {}".format(cmd))
     return False
 
+# original CoverHunter
 # =============================================================================
 # def _speed_aug(init_path, aug_speed_lst, aug_path, sp_dir):
 #   """add items with speed argument wav"""
@@ -126,6 +127,7 @@ def sox_change_speed(inp_path, out_path, k):
 # instead of original serial function above,
 # leverage multiple CPU cores to run multiple sox instances in parallel
 def _speed_aug_worker(args):
+    """worker function for _speed_aug_parallel"""
     line, speed, sp_dir = args
     wav_path = line["wav"]
 
@@ -137,9 +139,13 @@ def _speed_aug_worker(args):
     else:
         sp_utt = line["utt"]
         sp_wav_path = line["wav"]
-
-    result = {"utt": sp_utt, "wav": sp_wav_path}
-    line.update(result)
+    
+    # added logic missing in original CoverHunter: modify dur_s
+    # so that _cut_one_line_with_dur function slices augmented samples appropriately
+    # since speed augmentation also changes duration
+    line["dur_s"] = round(line["dur_s"] / speed,2)
+    line["utt"] = sp_utt
+    line["wav"] = sp_wav_path
     return line
 
 def _speed_aug_parallel(init_path, aug_speed_lst, aug_path, sp_dir):
@@ -163,7 +169,8 @@ def _speed_aug_parallel(init_path, aug_speed_lst, aug_path, sp_dir):
 
 
 
-# =============================================================================
+# original CoverHunter
+#=============================================================================
 # def _extract_cqt(init_path, out_path, cqt_dir):
 #   logging.info("Extract Cqt feature")
 #   os.makedirs(cqt_dir, exist_ok=True)
@@ -202,6 +209,7 @@ def _speed_aug_parallel(init_path, aug_speed_lst, aug_path, sp_dir):
 # instead of original serial function above,
 # leverage multiple CPU cores to run multiple CQT extractions in parallel
 def _extract_cqt_worker(args):
+    """worker function for _extract_cqt_parallel"""
     line, cqt_dir = args
     wav_path = line["wav"]
     py_cqt = PyCqt(sample_rate=16000, hop_size=0.04)
