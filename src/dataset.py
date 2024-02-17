@@ -9,7 +9,6 @@ import subprocess
 import librosa
 import numpy as np
 import torch
-import torch.distributed as dist
 import torch.utils.data
 from torch.utils.data.sampler import Sampler
 
