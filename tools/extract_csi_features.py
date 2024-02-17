@@ -123,19 +123,24 @@ def sox_change_speed(inp_path, out_path, k):
 #   return
 # =============================================================================
 
+# instead of original serial function above,
 # leverage multiple CPU cores to run multiple sox instances in parallel
 def _speed_aug_worker(args):
-    wav_path, speed, sp_dir, line = args
-    
-    sp_utt = "sp_{}-{}".format(speed, os.path.basename(wav_path).replace(".wav", ""))
-    sp_wav_path = os.path.join(sp_dir, f"{sp_utt}.wav")
+    line, speed, sp_dir = args
+    wav_path = line["wav"]
 
-    if not os.path.exists(sp_wav_path):
-        sox_change_speed(wav_path, sp_wav_path, speed)
+    if abs(speed - 1.0) > 0.01:
+        sp_utt = "sp_{}-{}".format(speed, line["utt"])
+        sp_wav_path = os.path.join(sp_dir, f"{sp_utt}.wav")
+        if not os.path.exists(sp_wav_path):
+           sox_change_speed(wav_path, sp_wav_path, speed)
+    else:
+        sp_utt = line["utt"]
+        sp_wav_path = line["wav"]
 
     result = {"utt": sp_utt, "wav": sp_wav_path}
-    result.update(line)
-    return result
+    line.update(result)
+    return line
 
 def _speed_aug_parallel(init_path, aug_speed_lst, aug_path, sp_dir):
     """add items with speed argument wav"""
@@ -145,7 +150,8 @@ def _speed_aug_parallel(init_path, aug_speed_lst, aug_path, sp_dir):
     dump_lines = []
 
     with ProcessPoolExecutor() as executor:
-        worker_args = [(line_to_dict(line)["wav"], speed, sp_dir, line_to_dict(line)) for line in total_lines for speed in aug_speed_lst]
+        worker_args = [(line_to_dict(line), speed, sp_dir) 
+                     for line in total_lines for speed in aug_speed_lst]
 
         for result in executor.map(_speed_aug_worker, worker_args):
             dump_lines.append(dict_to_line(result))
@@ -155,44 +161,7 @@ def _speed_aug_parallel(init_path, aug_speed_lst, aug_path, sp_dir):
     write_lines(aug_path, dump_lines)
     return
 
-# leverage multiple CPU cores to run multiple CQT extractions in parallel
-def _extract_cqt_worker(args):
-    wav_path, local_data, cqt_dir = args
-    py_cqt = PyCqt(sample_rate=16000, hop_size=0.04)
-    utt = local_data.get("utt", "")
-    feat_path = os.path.join(cqt_dir, "{}.cqt.npy".format(utt))
 
-    if not os.path.exists(feat_path):
-        y, sr = librosa.load(wav_path, sr=16000)
-        y = y / max(0.001, np.max(np.abs(y))) * 0.999
-        cqt = py_cqt.compute_cqt(signal_float=y, feat_dim_first=False)
-        np.save(feat_path, cqt)
-        feat_len = len(cqt)
-    else:
-        feat_len = len(np.load(feat_path))
-    result = {"utt": utt, "feat": feat_path, "feat_len": feat_len}
-    result.update(local_data)
-    return result
-
-def _extract_cqt_parallel(init_path, out_path, cqt_dir):
-    logging.info("Extract Cqt feature")
-    os.makedirs(cqt_dir, exist_ok=True)
-    dump_lines = []
-
-    with ProcessPoolExecutor() as executor:
-        worker_args = [
-            (line_to_dict(line)["wav"], line_to_dict(line), cqt_dir)
-            for line in read_lines(init_path, log=False)
-        ]
-
-        for result in executor.map(_extract_cqt_worker, worker_args):
-            dump_lines.append(dict_to_line(result))
-            if len(dump_lines) % 1000 == 0:
-                logging.info("Extracted CQT for {} items: {}".format(
-                    len(dump_lines), result["utt"]))
-
-    write_lines(out_path, dump_lines)
-    return
 
 # =============================================================================
 # def _extract_cqt(init_path, out_path, cqt_dir):
@@ -229,6 +198,46 @@ def _extract_cqt_parallel(init_path, out_path, cqt_dir):
 #   return
 # 
 # =============================================================================
+
+# instead of original serial function above,
+# leverage multiple CPU cores to run multiple CQT extractions in parallel
+def _extract_cqt_worker(args):
+    line, cqt_dir = args
+    wav_path = line["wav"]
+    py_cqt = PyCqt(sample_rate=16000, hop_size=0.04)
+    feat_path = os.path.join(cqt_dir, "{}.cqt.npy".format(line["utt"]))
+
+    if not os.path.exists(feat_path):
+        y, sr = librosa.load(wav_path, sr=16000)
+        y = y / max(0.001, np.max(np.abs(y))) * 0.999
+        cqt = py_cqt.compute_cqt(signal_float=y, feat_dim_first=False)
+        np.save(feat_path, cqt)
+        feat_len = len(cqt)
+    else:
+        feat_len = len(np.load(feat_path))
+    result = {"feat": feat_path, "feat_len": feat_len}
+    line.update(result)
+    return line
+
+def _extract_cqt_parallel(init_path, out_path, cqt_dir):
+    logging.info("Extract CQT features")
+    os.makedirs(cqt_dir, exist_ok=True)
+    dump_lines = []
+
+    with ProcessPoolExecutor() as executor:
+        worker_args = [
+            (line_to_dict(line), cqt_dir)
+            for line in read_lines(init_path, log=False)
+        ]
+
+        for result in executor.map(_extract_cqt_worker, worker_args):
+            dump_lines.append(dict_to_line(result))
+            if len(dump_lines) % 1000 == 0:
+                logging.info("Extracted CQT for {} items: {}".format(
+                    len(dump_lines), result["utt"]))
+
+    write_lines(out_path, dump_lines)
+    return
 
 
 
