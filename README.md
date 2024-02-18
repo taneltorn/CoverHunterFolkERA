@@ -95,6 +95,8 @@ There are two different hparams.yaml files, each used at different stages.
 
 2. The one located in the "config" subfolder of the path you provide on the command line to tools.train uses all the other parameters listed below during training.
 
+| key | value |
+| --- | --- |
 | chunk_frame | list of numbers used with mean_size. CoverHunter package used [1125, 900, 675] | 
 | data_type | "cqt" (default) or "raw" or "mel". Unknown whether CoverHunter actually implemented anything but CQT-based training |
 | dev_sample_path | TBD: can apparently be the same path as train_path |
