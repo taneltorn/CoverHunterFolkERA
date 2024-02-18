@@ -6,7 +6,7 @@ Fork of [Liu Feng's CoverHunter](https://github.com/Liu-Feng-deeplearning/CoverH
 
 1. Apple computer with an Apple M-series chip
 2. python3 (minimum version uncertain, tested on 3.11)
-3. Only needed for the data prep phase: sox and therefore also a Java runtime
+3. sox and therefore also a Java runtime
 
 # Usage
 
@@ -20,7 +20,7 @@ Follow the example of the prepared Covers80 dataset included with the original C
 2. Abandon the 2-level folder structure that came inside the covers80.tgz file, flattening so all the .mp3 files are in the same folder. One way to do this is:
     1. In Terminal, go to the extracted "coversongs" folder as the current directory. Then: 
     2. `cd covers32k && mv */* .; rm -r */`
-3. Convert all the provided .mp3 files to .wav format. You will need to have sox (and therefore also a Java runtime) installed on your computer.
+3. Convert all the provided .mp3 files to .wav format. One way to do this is:
     1. `setopt EXTENDED_GLOB; for f in *.mp3; do sox "$f" -r 16000 "${f%%.mp3}.wav" && rm "$f"; done`
 4. Move all these new .wav files to a new folder called "wav_16k" in the project "data/covers80" folder.
 5. You can delete the rest of the downloaded covers80.tgz contents.
