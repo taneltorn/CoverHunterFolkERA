@@ -137,8 +137,9 @@ def _speed_aug_worker(args):
         if not os.path.exists(sp_wav_path):
            sox_change_speed(wav_path, sp_wav_path, speed)
     else:
-        sp_utt = line["utt"]
-        sp_wav_path = line["wav"]
+#        sp_utt = line["utt"]
+#        sp_wav_path = line["wav"]
+        return 'skip' # experimentation showed including 1.0 killed the model
     
     # added logic missing in original CoverHunter: modify dur_s
     # so that _cut_one_line_with_dur function slices augmented samples appropriately
@@ -160,6 +161,8 @@ def _speed_aug_parallel(init_path, aug_speed_lst, aug_path, sp_dir):
                      for line in total_lines for speed in aug_speed_lst]
 
         for result in executor.map(_speed_aug_worker, worker_args):
+            if result=='skip':
+                continue
             dump_lines.append(dict_to_line(result))
             if len(dump_lines) % 1000 == 0:
                 logging.info("{}: {}".format(len(dump_lines), dump_lines[-1]))
