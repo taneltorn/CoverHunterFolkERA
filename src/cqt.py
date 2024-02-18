@@ -46,7 +46,7 @@ class PyCqt:
       max_freq = sample_rate // 2
     self._kernel = self._compute_cqt_kernel(sample_rate, octave_resolution,
                                             min_freq, max_freq)
-    logging.info("cqt kernal: {}".format(np.shape(self._kernel)))
+    logging.info("CQT kernel shape: {}".format(np.shape(self._kernel)))
     return
 
   @staticmethod
