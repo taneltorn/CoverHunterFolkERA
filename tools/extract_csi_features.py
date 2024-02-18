@@ -137,9 +137,8 @@ def _speed_aug_worker(args):
         if not os.path.exists(sp_wav_path):
            sox_change_speed(wav_path, sp_wav_path, speed)
     else:
-#        sp_utt = line["utt"]
-#        sp_wav_path = line["wav"]
-        return 'skip' # experimentation showed including 1.0 killed the model
+        sp_utt = line["utt"]
+        sp_wav_path = line["wav"]
     
     # added logic missing in original CoverHunter: modify dur_s
     # so that _cut_one_line_with_dur function slices augmented samples appropriately
@@ -226,8 +225,8 @@ def _extract_cqt_worker(args):
         feat_len = len(cqt)
     else:
         feat_len = len(np.load(feat_path))
-    result = {"feat": feat_path, "feat_len": feat_len}
-    line.update(result)
+    line["feat"] = feat_path
+    line["feat_len"] =  feat_len
     return line
 
 def _extract_cqt_parallel(init_path, out_path, cqt_dir):
