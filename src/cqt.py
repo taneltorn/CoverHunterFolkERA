@@ -179,6 +179,10 @@ class PyCqt:
                                              time_resolution, self._kernel)
     cqt_spectrogram = cqt_spectrogram + 1e-9
     ref_value = np.max(cqt_spectrogram)
+    """ Gemini explanation of the next line:
+        np.log10(cqt_spectrogram) converts the spectrogram values to the logarithm base 10. This compresses the large range of magnitudes often observed in audio signals, making them easier to visualize and interpret.
+        20 * np.log10(cqt_spectrogram) multiplies the log values by 20. This effectively scales the values in decibels (dB), a common unit for expressing audio intensity relative to a reference level.
+        - 20 * np.log10(ref_value) subtracts the same log of the maximum value ref_value. This normalizes the spectrogram to have a maximum value of 0 dB, corresponding to the reference level. """
     cqt_spectrogram = 20 * np.log10(cqt_spectrogram) - 20 * np.log10(ref_value)
     if not feat_dim_first:
       cqt_spectrogram = cqt_spectrogram.T

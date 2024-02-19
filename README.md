@@ -68,6 +68,9 @@ full.txt is the JSON-formatted training data catalog for tools.train.py, generat
 
 My current understanding: My experiments showed you must exclude the original unaugmented audio from this catalog, because including the unmodified original audio for some reason consistently killed the model. However, you must also include 1.0 in the speed_aug list because somehow the model is referring to the unmodified original data, perhaps in the .map files that extract_csi_features generates?
 
+Original CoverHunter omitted the unmodified audio by accident due to a logic error at lines 104-112 of tools.extract_csi_features, by unintentionally appending the next value of `sp_utt` to the beginning of `local_data['utt']`. And if and only if the '1.0' member of the aug_speed_mode hyperparameter was not listed first, the result then was not only that the 1.0 variant was omitted, but also a duplicate copy of the 90% variant was created and included in the final output of full.txt in the end, both entries in full.txt pointing to the same cqt.npy file, just with different version_id values. 
+
+
 | key | value |
 | --- | --- |
 | utt | (see dataset.txt) |
@@ -90,7 +93,7 @@ There are two different hparams.yaml files, each used at different stages.
 | key | value |
 | --- | --- |
 |add_noise| Original CoverHunter provided the example of: <div>{<br> &nbsp; "prob": 0.75,<br> &nbsp; "sr": 16000,<br> &nbsp; "chunk": 3,<br> &nbsp; "name": "cqt_with_asr_noise",<br> &nbsp; "noise_path": "dataset/asr_as_noise/dataset.txt"<br>}<br>However, the CoverHunter repo did not include whatever might supposed to be in "dataset/asr_as_noise/dataset.txt" file nor does the CoverHunter research paper describe it. If that path does not exist in your project folder structure, then tools.extract_csi_features will just skip the stage of adding noise augmentation. At least for training successfully on Covers80, noise augmentation doesn't seem to be needed.|
-| aug_speed_mode | list of ratios used in tools.extract_csi_features for speed augmention of your raw training data. Example: [0.8, 0.9, 1.0 1.1, 1.2] means use 80%, 90%, 100%, 110%, and 120% speed variants of your original audio data.|
+| aug_speed_mode | list of ratios used in tools.extract_csi_features for speed augmention of your raw training data. Example: [0.8, 0.9, 1.0, 1.1, 1.2] means use 80%, 90%, 100%, 110%, and 120% speed variants of your original audio data.|
 
 
 2. The one located in the "config" subfolder of the path you provide on the command line to tools.train uses all the other parameters listed below during training.
@@ -102,7 +105,7 @@ There are two different hparams.yaml files, each used at different stages.
 | dev_sample_path | TBD: can apparently be the same path as train_path |
 | early_stopping_patience | how many epochs to wait for avg_ce_loss to improve before early stopping |
 | mean_size | used to multiply each member of chunk_frame to calculate chunk_len (TBD what the latter does) |
-| mode | "random" (default) or "defined". Unclear what "defined" does. Changes behavior when loading training data in chunks in AudioFeatDataset. |
+| mode | "random" (default) or "defined". Changes behavior when loading training data in chunks in AudioFeatDataset. "random" described in CoverHunter code as "cut chunk from feat from random start". "defined" described as "cut feat with 'start/chunk_len' info from line"|
 | query_path | TBD: can apparently be the same path as train_path |
 | ref_path | TBD: can apparently be the same path as train_path |
 | train_path | path to a text file listing certain required attributes of every training data sample |
