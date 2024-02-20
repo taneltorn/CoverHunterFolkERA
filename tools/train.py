@@ -128,6 +128,9 @@ def _main():
   # rank1 is going on training and update parameters. When epoch 2, we change
   # to compute dev at rank1, to make sure all ranks run the same train steps
   # almost.
+
+  # test_set_list stores whichever members of all_test_set_list are listed in hparams.yaml
+  # default CoverHunter only included "covers80"
   all_test_set_list = ["covers80", "shs_test", "dacaos", "hymf_20", "hymf_100"]
   test_set_list = [d for d in all_test_set_list if d in hp.keys()]
 
