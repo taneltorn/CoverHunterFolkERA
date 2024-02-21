@@ -45,7 +45,7 @@ spec_augmentation:
 seed: 1234
 num_workers: 1
 num_gpus: 1
-batch_size: 16 # 256
+batch_size: 32 # 256
 learning_rate: 0.001
 adam_b1: 0.8
 adam_b2: 0.99

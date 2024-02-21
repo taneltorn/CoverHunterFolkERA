@@ -121,6 +121,6 @@ Listed in the order that the script creates them:
 | sp_aug.txt | Copy of data.init.txt but with addition of 1 new row for each augmented variant created in sp_aug/*.wav. Not used by train.py. |
 | cqt_feat subfolder | Numpy array files of the CQT data for each file listed in full.txt. Needed by train.py |
 | song_id_num.map | Text file, not used by train.py, maybe not by anything else? |
-| sSong_id.map | Text file, not used by train.py, maybe not by anything else? |
+| song_id.map | Text file, not used by train.py, maybe not by anything else? |
 | song_name_num.map | Text file, not used by train.py, maybe not by anything else? |
 | full.txt | See above detailed description.| 
