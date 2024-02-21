@@ -39,7 +39,7 @@ CoverHunter includes a prepared configuration to train on the Covers80 dataset l
 
 `python -m tools.train egs/covers80/`
 
-This fork also added an optional --runid parameter so you can distinguish your training runs in Tensorboard in case you are experimenting:
+This fork also added an optional --runid parameter so you can distinguish your training runs in TensorBoard in case you are experimenting:
 
 `python -m tools.train egs/covers80/ --runid 'first try'`
 
@@ -76,7 +76,7 @@ There are two different hparams.yaml files, each used at different stages.
 | mode | "random" (default) or "defined". Changes behavior when loading training data in chunks in AudioFeatDataset. "random" described in CoverHunter code as "cut chunk from feat from random start". "defined" described as "cut feat with 'start/chunk_len' info from line"|
 | query_path | TBD: can apparently be the same path as train_path |
 | ref_path | TBD: can apparently be the same path as train_path |
-| train_path | path to a text file listing certain required attributes of every training data sample |
+| train_path | path to a text file listing certain required attributes of every training data sample. (See full.txt below) |
 | train_sample_path | TBD: can apparently be the same path as train_path |
 
 ## dataset.txt
@@ -96,7 +96,7 @@ full.txt is the JSON-formatted training data catalog for tools.train.py, generat
 
 Original CoverHunter omitted the unmodified audio by accident due to a logic error at lines 104-112 of tools.extract_csi_features, by unintentionally appending the next value of `sp_utt` to the beginning of `local_data['utt']`. And if and only if the '1.0' member of the aug_speed_mode hyperparameter was not listed first, the result then was not only that the 1.0 variant was omitted, but also a duplicate copy of the 90% variant was created and included in the final output of full.txt in the end, both entries in full.txt pointing to the same cqt.npy file, just with different version_id values. 
 
-That bug didn't prevent successful training, but fixing the bug did, until I discovered that because then, when the model was being fed the intended number of song versions (augmented from 1 to 5 instead of to 4 versions), CoverHunter's preset batch size of 16 became a barrier to success. Increasing the batch size hyperparameter to 32 made a huge difference, resulting in much faster convergence and higher mAP than the original CoverHunter code.
+That bug didn't prevent successful training, but fixing the bug did, until I discovered that because then, when the model was being fed the intended number of song versions (augmented from 1 to 5 instead of to 4 versions), CoverHunter's preset batch size of 16 became a barrier to success. Increasing the batch size hyperparameter to 32 and larger made a huge difference, resulting in much faster convergence and higher mAP than the original CoverHunter code.
 
 | key | value |
 | --- | --- |
