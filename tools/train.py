@@ -41,7 +41,8 @@ def _main():
   assert torch.backends.mps.is_available(), "This implementation only runs on Apple M-series chips."
   device = torch.device('mps')
   logger = create_logger()
-
+  logger.propagate = False
+  
   hp = load_hparams(os.path.join(model_dir, "config/hparams.yaml"))
   logger.info("{}".format(get_hparams_as_string(hp)))
 
