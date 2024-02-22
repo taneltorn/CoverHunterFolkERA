@@ -5,13 +5,11 @@
 # software: PyCharm
 
 import logging
-import os
-import time
 
 import librosa
 import numpy as np
-import scipy
-
+import scipy, 
+# import torch # not usable as of 21 Feb 2024
 
 def shorter(feat, mean_size):
   if mean_size == 1:
@@ -39,16 +37,107 @@ class PyCqt:
   """
 
   def __init__(self, sample_rate, hop_size, octave_resolution=12, min_freq=32,
-               max_freq=None):
+               max_freq=None, mps=False):
     self._hop_size = hop_size
     self._sample_rate = sample_rate
     if not max_freq:
       max_freq = sample_rate // 2
-    self._kernel = self._compute_cqt_kernel(sample_rate, octave_resolution,
+    if mps:
+      self._kernel = self._compute_cqt_kernelMPS(sample_rate, octave_resolution,
+                                            min_freq, max_freq)
+    else:
+      self._kernel = self._compute_cqt_kernel(sample_rate, octave_resolution,
                                             min_freq, max_freq)
     logging.info("CQT kernel shape: {}".format(np.shape(self._kernel)))
+    if mps:
+      self._kernel = torch.from_numpy(self._kernel).to('mps')
     return
 
+
+  @staticmethod
+  def _compute_cqt_kernelMPS(
+      sampling_frequency, octave_resolution, minimum_frequency, maximum_frequency
+  ):
+
+    """
+    Compute the constant-Q transform (CQT) kernel.
+    Inputs:
+        sampling_frequency: sampling frequency in Hz
+        octave_resolution: number of frequency channels per octave
+        minimum_frequency: minimum frequency in Hz
+        maximum_frequency: maximum frequency in Hz
+
+    Output:
+        cqt_kernel: CQT kernel (sparse) (number_frequencies, fft_length)
+    """
+    # Compute the constant ratio of frequency to resolution (= fk/(fk+1-fk))
+    quality_factor = 1 / (pow(2, 1 / octave_resolution) - 1)
+
+    # Compute the number of frequency channels for the CQT
+    number_frequencies = round(octave_resolution * np.log2(maximum_frequency / minimum_frequency))
+
+    # Compute the window length for the FFT
+    # (= longest window for the minimum frequency)
+    fft_length = int(
+        pow(
+            2,
+            np.ceil(
+                np.log2(quality_factor * sampling_frequency / minimum_frequency)
+            ),
+        )
+    )
+
+    # Initialize the (complex) CQT kernel
+    cqt_kernel = torch.zeros((number_frequencies, fft_length), dtype=torch.cfloat).to('mps')
+
+    # Loop over the frequency channels
+    for i in range(number_frequencies):
+        # Derive the frequency value in Hz
+        frequency_value = minimum_frequency * pow(2, i / octave_resolution)
+
+        # Compute the window length in samples
+        # (nearest odd value to center the temporal kernel on 0)
+        window_length = (
+            2 * round(quality_factor * sampling_frequency / frequency_value / 2) + 1
+        )
+
+        # Compute the temporal kernel for the current frequency (odd and symmetric)
+        temporal_kernel = (
+            torch.hamming_window(window_length)
+            * torch.exp(
+                2j
+                * np.pi
+                * quality_factor
+                * torch.arange(-(window_length - 1) / 2, (window_length - 1) / 2 + 1)
+                / window_length
+            )
+            / window_length
+        )
+
+        # Derive the pad width to center the temporal kernels
+        pad_width = int((fft_length - window_length + 1) / 2)
+
+        # Save the current temporal kernel at the center
+        cqt_kernel[i, pad_width : pad_width + window_length] = temporal_kernel
+
+    # Derive the spectral kernels by taking the FFT of the temporal kernels
+    # (the spectral kernels are almost real because the temporal kernels are almost symmetric)
+    cqt_kernel = torch.fft.fft(cqt_kernel, dim=1)
+
+    # Make the CQT kernel sparser by zeroing magnitudes below a threshold
+    cqt_kernel[torch.abs(cqt_kernel) < 0.01] = 0
+
+    # Get the final CQT kernel by using Parseval's theorem
+    cqt_kernel = torch.conj(cqt_kernel) / fft_length
+
+    # Create a sparse PyTorch tensor
+    indices = torch.nonzero(cqt_kernel, as_tuple=True)
+    values = cqt_kernel[indices]
+    cqt_kernel_sparse = torch.sparse_coo_tensor(indices, values, size=cqt_kernel.shape)
+
+    return cqt_kernelMPS
+
+    
   @staticmethod
   def _compute_cqt_kernel(
       sampling_frequency, octave_resolution, minimum_frequency,
@@ -129,48 +218,110 @@ class PyCqt:
     return cqt_kernel
 
   @staticmethod
-  def _compute_cqt_spec(audio_signal, sampling_frequency, time_resolution,
-                        cqt_kernel):
-    """
-    Compute the constant-Q transform (CQT) spectrogram using a CQT kernel.
-    Inputs:
-        audio_signal: audio signal (number_samples,)
-        sampling_frequency: sampling frequency in Hz
-        time_resolution: number of time frames per second
-        cqt_kernel: CQT kernel (number_frequencies, fft_length)
-    Output:
-        cqt_spectrogram: CQT spectrogram (number_frequencies, number_times)
-    """
+  def _compute_cqt_specMPS(audio_signal, sampling_frequency, time_resolution,
+                           cqt_kernel):
+       """
+       Compute the constant-Q transform (CQT) spectrogram using a CQT kernel.
+       Use torch optimization in an MPS environment.
+       Inputs:
+           audio_signal: audio signal (number_samples,)
+              as torch tensor already placed on 'mps' device
+           sampling_frequency: sampling frequency in Hz
+           time_resolution: number of time frames per second
+           cqt_kernel: CQT kernel (number_frequencies, fft_length)
+              as torch tensor already placed on 'mps' device
+       Output:
+           cqt_spectrogram: CQT spectrogram (number_frequencies, number_times)
+       """
+    
+       # Derive the number of time samples per time frame
+       step_length = round(sampling_frequency / time_resolution)
+    
+       # Compute the number of time frames
+       number_times = int(torch.floor(len(audio_signal) / step_length))
+    
+       # Get th number of frequency channels and the FFT length
+       number_frequencies, fft_length = torch.shape(cqt_kernel)
+    
+       # Zero-pad the signal to center the CQT
+       audio_signal = torch.pad(
+         audio_signal,
+         (
+           int(np.ceil((fft_length - step_length) / 2)),
+           int(np.floor((fft_length - step_length) / 2)),
+         ),
+         'constant',
+         constant_values=(0, 0),
+       )
+    
+       cqt_spectrogram = torch.zeros((number_frequencies, number_times)).to('mps')
+       i = 0
+       for j in range(number_times):
+         # Compute the magnitude CQT using the kernel
+         cqt_spectrogram[:, j] = np.absolute(
+           cqt_kernel * torch.fft.fft(audio_signal[i: i + fft_length])
+         )
+         i = i + step_length
+       return cqt_spectrogram
 
-    # Derive the number of time samples per time frame
-    step_length = round(sampling_frequency / time_resolution)
+  # @staticmethod
+  # def _compute_cqt_spec(audio_signal, sampling_frequency, time_resolution,
+  #                       cqt_kernel):
+  #   """
+  #   Compute the constant-Q transform (CQT) spectrogram using a CQT kernel.
+  #   Inputs:
+  #       audio_signal: audio signal (number_samples,)
+  #       sampling_frequency: sampling frequency in Hz
+  #       time_resolution: number of time frames per second
+  #       cqt_kernel: CQT kernel (number_frequencies, fft_length)
+  #   Output:
+  #       cqt_spectrogram: CQT spectrogram (number_frequencies, number_times)
+  #   """
 
-    # Compute the number of time frames
-    number_times = int(np.floor(len(audio_signal) / step_length))
+  #   # Derive the number of time samples per time frame
+  #   step_length = round(sampling_frequency / time_resolution)
 
-    # Get th number of frequency channels and the FFT length
-    number_frequencies, fft_length = np.shape(cqt_kernel)
+  #   # Compute the number of time frames
+  #   number_times = int(np.floor(len(audio_signal) / step_length))
 
-    # Zero-pad the signal to center the CQT
-    audio_signal = np.pad(
-      audio_signal,
-      (
-        int(np.ceil((fft_length - step_length) / 2)),
-        int(np.floor((fft_length - step_length) / 2)),
-      ),
-      "constant",
-      constant_values=(0, 0),
-    )
+  #   # Get th number of frequency channels and the FFT length
+  #   number_frequencies, fft_length = np.shape(cqt_kernel)
 
-    cqt_spectrogram = np.zeros((number_frequencies, number_times))
-    i = 0
-    for j in range(number_times):
-      # Compute the magnitude CQT using the kernel
-      cqt_spectrogram[:, j] = np.absolute(
-        cqt_kernel * np.fft.fft(audio_signal[i: i + fft_length])
-      )
-      i = i + step_length
+  #   # Zero-pad the signal to center the CQT
+  #   audio_signal = np.pad(
+  #     audio_signal,
+  #     (
+  #       int(np.ceil((fft_length - step_length) / 2)),
+  #       int(np.floor((fft_length - step_length) / 2)),
+  #     ),
+  #     "constant",
+  #     constant_values=(0, 0),
+  #   )
+
+  #   cqt_spectrogram = np.zeros((number_frequencies, number_times))
+  #   i = 0
+  #   for j in range(number_times):
+  #     # Compute the magnitude CQT using the kernel
+  #     cqt_spectrogram[:, j] = np.absolute(
+  #       cqt_kernel * np.fft.fft(audio_signal[i: i + fft_length])
+  #     )
+  #     i = i + step_length
+  #   return cqt_spectrogram
+
+  # compute_cqtMPS is not usable as of 21 Feb 2024
+  # missing Torch MPS support for multiple parts of CQT computation
+  def compute_cqtMPS(self, signal_float=None, feat_dim_first=True):
+    y = signal_float # assumes y is already placed on torch device
+    time_resolution = int(1 / self._hop_size)
+    cqt_spectrogram = self._compute_cqt_specMPS(y, self._sample_rate,
+                                               time_resolution, self._kernel)
+    cqt_spectrogram = cqt_spectrogram + 1e-9
+    ref_value = torch.max(cqt_spectrogram)
+    cqt_spectrogram = 20 * torch.log10(cqt_spectrogram) - 20 * torch.log10(ref_value)
+    if not feat_dim_first:
+      cqt_spectrogram = cqt_spectrogram.T
     return cqt_spectrogram
+
 
   def compute_cqt(self, signal_float=None, feat_dim_first=True):
     y = signal_float

@@ -14,6 +14,7 @@ from concurrent.futures import ProcessPoolExecutor
 
 import librosa
 import numpy as np
+import torch
 
 from src.dataset import SignalAug
 from src.cqt import PyCqt
@@ -73,7 +74,6 @@ def _remove_line_with_same_dur(init_path, new_path):
   return
 
 
-
 def sox_change_speed(inp_path, out_path, k):
   cmd = "sox -q {} -t wav  -r 16000 -c 1 {} tempo {} " \
         "> sox.log 2> sox.log".format(
@@ -92,39 +92,8 @@ def sox_change_speed(inp_path, out_path, k):
     logging.info("EOFError: {}".format(cmd))
     return False
 
-# original CoverHunter
-# =============================================================================
-# def _speed_aug(init_path, aug_speed_lst, aug_path, sp_dir):
-#   """add items with speed argument wav"""
-#   logging.info("speed factor: {}".format(aug_speed_lst))
-#   os.makedirs(sp_dir, exist_ok=True)
-#   total_lines = read_lines(init_path, log=False)
-#   dump_lines = []
-# 
-#   for line in total_lines:
-#     local_data = line_to_dict(line)
-#     wav_path = local_data["wav"]
-#     for speed in aug_speed_lst:
-#       if abs(speed - 1.0) > 0.01:
-#         sp_utt = "sp_{}-{}".format(speed, local_data["utt"])
-#         sp_wav_path = os.path.join(sp_dir, f"{sp_utt}.wav")
-#         if not os.path.exists(sp_wav_path):
-#           sox_change_speed(wav_path, sp_wav_path, speed)
-#       else:
-#         sp_utt = local_data["utt"]
-#         sp_wav_path = local_data["wav"]
-# 
-#       local_data["utt"] = sp_utt
-#       local_data["wav"] = sp_wav_path
-#       dump_lines.append(dict_to_line(local_data))
-#       if len(dump_lines) % 1000 == 0:
-#         logging.info("{}: {}".format(len(dump_lines), dump_lines[-1]))
-# 
-#   write_lines(aug_path, dump_lines)
-#   return
-# =============================================================================
 
-# instead of original serial function above,
+# instead of original serial function
 # leverage multiple CPU cores to run multiple sox instances in parallel
 def _speed_aug_worker(args):
     """worker function for _speed_aug_parallel"""
@@ -170,45 +139,7 @@ def _speed_aug_parallel(init_path, aug_speed_lst, aug_path, sp_dir):
     return
 
 
-
-# original CoverHunter
-#=============================================================================
-# def _extract_cqt(init_path, out_path, cqt_dir):
-#   logging.info("Extract Cqt feature")
-#   os.makedirs(cqt_dir, exist_ok=True)
-# 
-#   py_cqt = PyCqt(sample_rate=16000, hop_size=0.04)
-# 
-#   dump_lines = []
-#   for line in read_lines(init_path, log=False):
-#     local_data = line_to_dict(line)
-#     wav_path = local_data["wav"]
-#     local_data["feat"] = os.path.join(cqt_dir,
-#                                       "{}.cqt.npy".format(local_data["utt"]))
-# 
-#     if not os.path.exists(local_data["feat"]):
-#       y, sr = librosa.load(wav_path, sr=16000)
-#       y = y / max(0.001, np.max(np.abs(y))) * 0.999
-#       cqt = py_cqt.compute_cqt(signal_float=y, feat_dim_first=False)
-#       np.save(local_data["feat"], cqt)
-#       local_data["feat_len"] = len(cqt)
-# 
-#     if "feat_len" not in local_data.keys():
-#       cqt = np.load(local_data["feat"])
-#       local_data["feat_len"] = len(cqt)
-# 
-#     dump_lines.append(dict_to_line(local_data))
-# 
-#     if len(dump_lines) % 1000 == 0:
-#       logging.info("Process cqt for {}items: {}".format(
-#         len(dump_lines), local_data["utt"]))
-# 
-#   write_lines(out_path, dump_lines)
-#   return
-# 
-# =============================================================================
-
-# instead of original serial function above,
+# instead of original serial function,
 # leverage multiple CPU cores to run multiple CQT extractions in parallel
 def _extract_cqt_worker(args):
     """worker function for _extract_cqt_parallel"""
@@ -218,7 +149,7 @@ def _extract_cqt_worker(args):
     feat_path = os.path.join(cqt_dir, "{}.cqt.npy".format(line["utt"]))
 
     if not os.path.exists(feat_path):
-        y, sr = librosa.load(wav_path, sr=16000)
+        y, sr = librosa.load(wav_path, sr=16000) # y is a npy ndarray
         y = y / max(0.001, np.max(np.abs(y))) * 0.999
         cqt = py_cqt.compute_cqt(signal_float=y, feat_dim_first=False)
         np.save(feat_path, cqt)
@@ -249,6 +180,49 @@ def _extract_cqt_parallel(init_path, out_path, cqt_dir):
     write_lines(out_path, dump_lines)
     return
 
+
+### experimental Torch-optimized MPS use for CQT ###
+### not usable as of 21 Feb 2024 ###
+def _extract_cqt_workerMPS(args):
+    """worker function for _extract_cqt_parallel"""
+    line, cqt_dir, device = args
+    wav_path = line["wav"]
+    py_cqt = PyCqt(sample_rate=16000, hop_size=0.04, mps=True)
+    feat_path = os.path.join(cqt_dir, "{}.cqt.npy".format(line["utt"]))
+
+    if not os.path.exists(feat_path):
+        y, sr = librosa.load(wav_path, sr=16000) # y is a npy ndarray
+        y = torch.from_numpy(y).to(device)
+        y = y / max(0.001, torch.max(np.abs(y))) * 0.999
+        cqt = py_cqt.compute_cqtMPS(signal_float=y, feat_dim_first=False)
+        np.save(feat_path, cqt.numpy())
+        feat_len = len(cqt)
+    else:
+        feat_len = len(np.load(feat_path))
+    line["feat"] = feat_path
+    line["feat_len"] =  feat_len
+    return line
+
+def _extract_cqt_parallelMPS(init_path, out_path, cqt_dir):
+    logging.info("Extract CQT features")
+    assert torch.backends.mps.is_available(), "This implementation only runs on Apple M-series chips."
+    device = torch.device('mps')
+    os.makedirs(cqt_dir, exist_ok=True)
+    dump_lines = []
+    with ProcessPoolExecutor() as executor:
+        worker_args = [
+            (line_to_dict(line), cqt_dir, device)
+            for line in read_lines(init_path, log=False)
+        ]
+
+        for result in executor.map(_extract_cqt_workerMPS, worker_args):
+            dump_lines.append(dict_to_line(result))
+            if len(dump_lines) % 1000 == 0:
+                logging.info("Extracted CQT for {} items: {}".format(
+                    len(dump_lines), result["utt"]))
+
+    write_lines(out_path, dump_lines)
+    return
 
 
 
@@ -413,16 +387,18 @@ def _generate_csi_features(hp, feat_dir, start_stage, end_stage):
     logging.info("Stage 3: speed augmentation")
     if "aug_speed_mode" in hp.keys() and not os.path.exists(sp_aug_path):
       sp_dir = os.path.join(feat_dir, "sp_wav")
-      # _speed_aug(init_path, hp["aug_speed_mode"], sp_aug_path, sp_dir)
+#      _speed_aug(init_path, hp["aug_speed_mode"], sp_aug_path, sp_dir)
       _speed_aug_parallel(init_path, hp["aug_speed_mode"], sp_aug_path, sp_dir)
     
   full_path = os.path.join(feat_dir, "full.txt")
   if start_stage <= 4 <= end_stage:
     logging.info("Stage 4: extract cqt feature")
     cqt_dir = os.path.join(feat_dir, "cqt_feat")
-    #_extract_cqt(sp_aug_path, full_path, cqt_dir)
+#    _extract_cqt(sp_aug_path, full_path, cqt_dir)
     _extract_cqt_parallel(sp_aug_path, full_path, cqt_dir)
+#    _extract_cqt_parallelMPS(sp_aug_path, full_path, cqt_dir)
 
+  # noise augmentation is not necessary for Covers80 training success
   hp_noise = hp.get("add_noise", None)
   if start_stage <= 5 <= end_stage and hp_noise and os.path.exists(hp_noise["noise_path"]):
     logging.info("Stage 5: add noise and extract cqt feature")
@@ -430,6 +406,7 @@ def _generate_csi_features(hp, feat_dir, start_stage, end_stage):
     _extract_cqt_with_noise(full_path, full_path, noise_cqt_dir,
                             hp_noise={"add_noise": hp_noise})
 
+  # assumes "song" titles provided in dataset.txt are unique identifiers for the parent songs
   if start_stage <= 8 <= end_stage:
     logging.info("Stage 8: add song_id")
     song_id_map_path = os.path.join(feat_dir, "song_id.map")
