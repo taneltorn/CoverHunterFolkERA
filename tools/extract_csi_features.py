@@ -193,9 +193,10 @@ def _extract_cqt_workerMPS(args):
     if not os.path.exists(feat_path):
         y, sr = librosa.load(wav_path, sr=16000) # y is a npy ndarray
         y = torch.from_numpy(y).to(device)
-        y = y / max(0.001, torch.max(np.abs(y))) * 0.999
+        y = y / max(0.001, torch.max(torch.abs(y))) * 0.999
+        # compute_cqtMPS returns a Torch tensor on 'mps'
         cqt = py_cqt.compute_cqtMPS(signal_float=y, feat_dim_first=False)
-        np.save(feat_path, cqt.numpy())
+        np.save(feat_path, cqt.cpu().numpy())
         feat_len = len(cqt)
     else:
         feat_len = len(np.load(feat_path))
@@ -395,8 +396,13 @@ def _generate_csi_features(hp, feat_dir, start_stage, end_stage):
     logging.info("Stage 4: extract cqt feature")
     cqt_dir = os.path.join(feat_dir, "cqt_feat")
 #    _extract_cqt(sp_aug_path, full_path, cqt_dir)
-    _extract_cqt_parallel(sp_aug_path, full_path, cqt_dir)
 #    _extract_cqt_parallelMPS(sp_aug_path, full_path, cqt_dir)
+      # Failed attempt to do MPS acceleration of CQT.
+      # Too many unsupported demands on Torch MPS implementation as of Feb 2024
+      # Got it to run w/o errors but output wasn't quite right,
+      # and speed was 7 min 28 s for covers80,
+      # compared to 2 min 5 s with CPU-based _extract_cqt_parallel()
+    _extract_cqt_parallel(sp_aug_path, full_path, cqt_dir)
 
   # noise augmentation is not necessary for Covers80 training success
   hp_noise = hp.get("add_noise", None)

@@ -33,6 +33,8 @@ From the project root folder, run:
 
 `python3 -m tools.extract_csi_features data/covers80/`
 
+Side note: I attempted MPS optimization of CQT feature extraction but failed. The main issue is that PyTorch MPS implementation is very incomplete for many of the tensor operations involved in this CQT implementation. Even the core fft() function just became available with torch torch-2.3.0.dev20240222 or higher. See my comments in extract_csi_features.py and cqt.py.
+
 ## Train
 
 CoverHunter includes a prepared configuration to train on the Covers80 dataset located in the 'egs/covers80' subfolder of the project. Specify the path to your training data as the one required command-line parameter:
