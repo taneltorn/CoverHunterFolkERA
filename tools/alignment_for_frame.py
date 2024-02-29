@@ -30,7 +30,7 @@ def _main():
   data_path = args.data_path
   alignment_path = args.alignment_path
 
-  assert torch.mps.is_available()
+  assert torch.backends.mps.is_available(), "This implementation only runs on Apple M-series chips."
 
   device = torch.device('mps')
   logger = create_logger()
@@ -52,7 +52,7 @@ def _main():
     hp, model, embed_dir, query_path=data_path,
     ref_path=data_path, query_in_ref_path=None,
     batch_size=64, logger=logger)
-  logger.info("Test, map:{} rank1:{}".format(mean_ap, rank1))
+  logger.info("Test, map:{}".format(mean_ap))
 
   # Calculate shift frames for every-two items with same label
   aligner = Aligner(os.path.join(embed_dir, "query_embed"))
