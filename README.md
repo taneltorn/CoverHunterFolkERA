@@ -53,6 +53,8 @@ Optionally edit the hparams.yaml configuration file in the folder 'egs/covers80/
 
 This fork added an hparam.yaml setting of "early_stopping_patience" to support the added feature of early stopping (original CoverHunter defaulted to 10,000 epochs!).
 
+Note: Don't use the `torchrun` launch command offered in original CoverHunter. In the single-computer Apple Silicon context, it is not only irrelevant, it actually slows down performance. In my tests it slowed down performance by about 20%.
+
 # Input and Output Files
 
 ## Hyperparameters (hparams.yaml)
