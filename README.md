@@ -61,6 +61,8 @@ The command to launch the alignment script that CoverHunter included is:
 
 `python3 -m tools.alignment_for_frame pretrained_model data/covers80/full.txt data/covers80/alignment`
 
+That assumes you took the pretrained model from https://drive.google.com/file/d/1rDZ9CDInpxQUvXRLv87mr-hfDfnV7Y-j/view, unzipped it, and moved it to a folder that you renamed to "pretrained_model" at the top level of your project folder. The "alignment" subfolder of data/covers80 is an empty folder that will receive the output of this script.
+
 # Input and Output Files
 
 ## Hyperparameters (hparams.yaml)
