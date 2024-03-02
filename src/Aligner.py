@@ -33,13 +33,15 @@ class Aligner:
     idx_npy_i = dict()
     for k, v in self._memory_data.items():
       if utt_i in k:
-        idx_i = int(k.replace("start-", ".").split(".")[1])
+        idx_i = int(k.replace("start-", "..").split("..")[1]) 
+          # assumes '..' never occurs in an utt code
         idx_npy_i[idx_i] = v
 
     idx_npy_j = dict()
     for k, v in self._memory_data.items():
       if k.startswith(utt_j):
-        idx_j = int(k.replace("start-", ".").split(".")[1])
+        idx_j = int(k.replace("start-", "..").split("..")[1])
+          # assumes '..' never occurs in an utt code
         idx_npy_j[idx_j] = v
 
     res = []
