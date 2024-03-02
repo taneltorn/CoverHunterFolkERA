@@ -84,7 +84,7 @@ There are two different hparams.yaml files, each used at different stages.
 | key | value |
 | --- | --- |
 | batch_size | Usual "batch size" meaning in the field of machine learning. An important parameter to experiment with. |
-| chunk_frame | list of numbers used with mean_size. The first number is used during inference CoverHunter's covers80 config used [1125, 900, 675]. "chunk" references in this training script seem to be the chunks described in the time-domain pooling strategy part ofn their paper, not to the chunks discussed in their coarse-to-fine alignment strategy. | 
+| chunk_frame | list of numbers used with mean_size. CoverHunter's covers80 config used [1125, 900, 675]. "chunk" references in this training script seem to be the chunks described in the time-domain pooling strategy part of their paper, not the chunks discussed in their coarse-to-fine alignment strategy. See chunk_s. | 
 | chunk_s | duration of a chunk_frame in seconds. Apparently you are supposed to manually calculate chunk_s = chunk_frame / frames-per-second * mean_size. I'm not sure why the script doesn't just calculate this itself using CQT hop-size to get frames-per-second? |
 | cqt: hop_size: | Fine-grained time resolution, measured as duration in seconds of each CQT spectrogram slice of the audio data. CoverHunter's covers80 setting is 0.04 with a comment "1s has 25 frames". 25 frames per second is hard-coded as an assumption into CoverHunter in various places. |
 | data_type | "cqt" (default) or "raw" or "mel". Unknown whether CoverHunter actually implemented anything but CQT-based training |
