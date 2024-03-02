@@ -36,10 +36,6 @@ def _calc_embed(model, query_loader, device, saved_dir=None):
 
     for j, batch in enumerate(query_loader):
       utt_b, feat_b, label_b = batch
-#      feat_b = torch.autograd.Variable(
-#        feat_b.to(device, non_blocking=True)).float()
-#      label_b = torch.autograd.Variable(
-#        label_b.to(device, non_blocking=True)).long()
       feat_b = batch[1].float().to("mps") 
       label_b = batch[2].long().to("mps")
       embed_b, _ = model.inference(feat_b)
@@ -51,11 +47,7 @@ def _calc_embed(model, query_loader, device, saved_dir=None):
         embed = embed_b[idx_embed]
         label = label_b[idx_embed]
 
-        if isinstance(model, torch.nn.parallel.DistributedDataParallel):
-          assert np.shape(embed) == (
-            model.module.get_embed_length(),), np.shape(embed)
-        else:
-          assert np.shape(embed) == (model.get_embed_length(),), np.shape(embed)
+        assert np.shape(embed) == (model.get_embed_length(),), np.shape(embed)
 
         if utt not in query_label.keys():
           query_label[utt] = label
@@ -72,49 +64,92 @@ def _calc_embed(model, query_loader, device, saved_dir=None):
   return query_utt_label, query_embed
 
 
-def _generate_dist_matrix(query_utt_label, query_embed, ref_utt_label=None,
-                          ref_embed=None, query_in_ref=None):
-  """generate distance matrix from query/ref embedding
-
-  Args:
-    query_utt_label: List[(utt, label), ...],
-    query_embed: Dict, key is utt, value is List with embed of every chunk
-    ref_utt_label: List[(utt, label), ...]
-    ref_embed: Dict, key is utt, value is List with embed of every chunk
-    query_in_ref: List[(idx, idy), ...], means query[idx] is in ref[idy] so
-                  we skip that when computing map
-
-  Returns:
-    dist_matrix: [numpy.ndarray]
-    query_label:
-    ref_label:
-
-  """
-  if ref_utt_label is None and ref_embed is None:
-    query_in_ref = [(i, i) for i in range(len(query_utt_label))]
-    ref_utt_label = query_utt_label
-    ref_embed = query_embed
-
-  dist_matrix = np.zeros([len(query_utt_label), len(ref_utt_label)])
-  for idx, (utt_query, _) in enumerate(query_utt_label):
-    for idy, (utt_ref, _) in enumerate(ref_utt_label):
-      to_choice = []
-      for embed_x in query_embed[utt_query]:
+def _compute_distance_worker(args):
+    utt_query, utt_ref, query_embed, ref_embed = args
+    to_choice = []
+    for embed_x in query_embed[utt_query]:
         for embed_y in ref_embed[utt_ref]:
-          embed_x = embed_x / np.linalg.norm(embed_x)  # todo:
-          embed_y = embed_y / np.linalg.norm(embed_y)  # todo:
-          cos_sim = embed_x.dot(embed_y)
-          dist = 1 - cos_sim
-          to_choice.append(dist)
-      dist_matrix[idx, idy] = min(to_choice)
+            embed_x = embed_x / np.linalg.norm(embed_x)
+            embed_y = embed_y / np.linalg.norm(embed_y)
+            cos_sim = embed_x.dot(embed_y)
+            dist = 1 - cos_sim
+            to_choice.append(dist)
+    return min(to_choice)
 
-  if query_in_ref:
-    for idx, idy in query_in_ref:
-      dist_matrix[idx, idy] = -1  # will be skip when compute map
+def _generate_dist_matrixMPS(query_utt_label, query_embed, ref_utt_label=None,
+                          ref_embed=None, query_in_ref=None):
+    import multiprocessing
+    if ref_utt_label is None and ref_embed is None:
+        query_in_ref = [(i, i) for i in range(len(query_utt_label))]
+        ref_utt_label = query_utt_label
+        ref_embed = query_embed
 
-  query_label = [v for k, v in query_utt_label]
-  ref_label = [v for k, v in ref_utt_label]
-  return dist_matrix, query_label, ref_label
+    dist_matrix = np.zeros([len(query_utt_label), len(ref_utt_label)])
+    args_list = [(utt_query, utt_ref, query_embed, ref_embed) for utt_query, _ in query_utt_label for utt_ref, _ in ref_utt_label]
+
+    with multiprocessing.Pool() as pool:
+        distances = pool.map(_compute_distance_worker, args_list)
+
+    for (idx, idy), distance in zip([(idx, idy) for idx in range(len(query_utt_label)) for idy in range(len(ref_utt_label))], distances):
+        dist_matrix[idx, idy] = distance
+
+    if query_in_ref:
+        for idx, idy in query_in_ref:
+            dist_matrix[idx, idy] = -1  # will be skipped when computing map
+
+    query_label = [v for k, v in query_utt_label]
+    ref_label = [v for k, v in ref_utt_label]
+
+    return dist_matrix, query_label, ref_label
+
+# =============================================================================
+# original CoverHunter, very slow, took 12 minutes vs.
+# 1.5 minutes with the MPS version above on M2 Max chip
+# 
+# def _generate_dist_matrix(query_utt_label, query_embed, ref_utt_label=None,
+#                           ref_embed=None, query_in_ref=None):
+#   """generate distance matrix from query/ref embedding
+# 
+#   Args:
+#     query_utt_label: List[(utt, label), ...],
+#     query_embed: Dict, key is utt, value is List with embed of every chunk
+#     ref_utt_label: List[(utt, label), ...]
+#     ref_embed: Dict, key is utt, value is List with embed of every chunk
+#     query_in_ref: List[(idx, idy), ...], means query[idx] is in ref[idy] so
+#                   we skip that when computing map
+# 
+#   Returns:
+#     dist_matrix: [numpy.ndarray]
+#     query_label:
+#     ref_label:
+# 
+#   """
+#   if ref_utt_label is None and ref_embed is None:
+#     query_in_ref = [(i, i) for i in range(len(query_utt_label))]
+#     ref_utt_label = query_utt_label
+#     ref_embed = query_embed
+# 
+#   dist_matrix = np.zeros([len(query_utt_label), len(ref_utt_label)])
+#   for idx, (utt_query, _) in enumerate(query_utt_label):
+#     for idy, (utt_ref, _) in enumerate(ref_utt_label):
+#       to_choice = []
+#       for embed_x in query_embed[utt_query]:
+#         for embed_y in ref_embed[utt_ref]:
+#           embed_x = embed_x / np.linalg.norm(embed_x)  # todo:
+#           embed_y = embed_y / np.linalg.norm(embed_y)  # todo:
+#           cos_sim = embed_x.dot(embed_y)
+#           dist = 1 - cos_sim
+#           to_choice.append(dist)
+#       dist_matrix[idx, idy] = min(to_choice)
+# 
+#   if query_in_ref:
+#     for idx, idy in query_in_ref:
+#       dist_matrix[idx, idy] = -1  # will be skip when compute map
+# 
+#   query_label = [v for k, v in query_utt_label]
+#   ref_label = [v for k, v in ref_utt_label]
+#   return dist_matrix, query_label, ref_label
+# =============================================================================
 
 
 def _load_chunk_embed_from_dir(query_chunk_lines):
@@ -194,7 +229,7 @@ def _cut_lines_with_dur(init_lines, chunk_s, embed_dir):
 def eval_for_map_with_feat(hp, model, embed_dir, query_path, ref_path,
                            query_in_ref_path=None, batch_size=128,
                            num_workers=1,
-                           device="mps", logger=None):
+                           device='mps', logger=None):
   """compute map10 with trained model and query/ref loader(dataset loader
   can speed up process dramatically)
 
@@ -217,6 +252,7 @@ def eval_for_map_with_feat(hp, model, embed_dir, query_path, ref_path,
 
   """
   if logger:
+    logger.propagate = False
     logger.info("=" * 40)
     logger.info("Start to Eval")
     logger.info("query_path: {}".format(query_path))
@@ -318,9 +354,15 @@ def eval_for_map_with_feat(hp, model, embed_dir, query_path, ref_path,
   if logger:
     logger.info("Finish loading embedding and Start to compute dist matrix")
 
-  dist_matrix, query_label, ref_label = _generate_dist_matrix(
-    query_utt_label, query_embed, ref_utt_label, ref_embed,
-    query_in_ref=query_in_ref)
+  # original CoverHunter:
+  # dist_matrix, query_label, ref_label = _generate_dist_matrix(
+  #  query_utt_label, query_embed, ref_utt_label, ref_embed,
+  #  query_in_ref=query_in_ref)
+
+  # parallelized version for CoverHunterMPS
+  dist_matrix, query_label, ref_label = _generate_dist_matrixMPS(
+  query_utt_label, query_embed, ref_utt_label, ref_embed,
+  query_in_ref=query_in_ref)
 
   if logger:
     logger.info("Finish computing distance matrix and Start to compute map")
