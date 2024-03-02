@@ -83,11 +83,12 @@ There are two different hparams.yaml files, each used at different stages.
 
 | key | value |
 | --- | --- |
-| chunk_frame | list of numbers used with mean_size. CoverHunter package used [1125, 900, 675] | 
+| chunk_frame | list of numbers used with mean_size. CoverHunter's covers80 config used [1125, 900, 675]. "chunk" references in this training script seem to be the chunks described in the time-domain pooling strategy part ofn their paper, not to the chunks discussed in their coarse-to-fine alignment strategy. | 
+| chunk_s | duration of a chunk_frame in seconds. Apparently you are supposed to manually calculate chunk_s = chunk_frame / frames-per-second * mean_size. I'm not sure why the script doesn't just calculate this itself using CQT hop-size to get frames-per-second? |
 | data_type | "cqt" (default) or "raw" or "mel". Unknown whether CoverHunter actually implemented anything but CQT-based training |
 | dev_sample_path | TBD: can apparently be the same path as train_path |
 | early_stopping_patience | how many epochs to wait for avg_ce_loss to improve before early stopping |
-| mean_size | used to multiply each member of chunk_frame to calculate chunk_len (TBD what the latter does) |
+| mean_size | See chunk_s above. |
 | mode | "random" (default) or "defined". Changes behavior when loading training data in chunks in AudioFeatDataset. "random" described in CoverHunter code as "cut chunk from feat from random start". "defined" described as "cut feat with 'start/chunk_len' info from line"|
 | query_path | TBD: can apparently be the same path as train_path |
 | ref_path | TBD: can apparently be the same path as train_path |

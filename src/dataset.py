@@ -395,7 +395,7 @@ class AudioFeatDataset(torch.utils.data.Dataset):
     if self._aug:
       feat = self._aug.augmentation(feat)
 
-    feat = torch.from_numpy(feat).float() # added .float() to reduce from float64 to float32 for MPS
+    feat = torch.from_numpy(feat)
     label = torch.tensor(label).long()
     return utt, feat, label
 

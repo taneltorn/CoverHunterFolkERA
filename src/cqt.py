@@ -16,7 +16,7 @@ def shorter(feat, mean_size):
     return feat
   cqt = feat.T
   height, length = cqt.shape
-  new_cqt = np.zeros((height, int(length / mean_size)), dtype=np.float64)
+  new_cqt = np.zeros((height, int(length / mean_size)), dtype=np.float32)
   for i in range(int(length / mean_size)):
     new_cqt[:, i] = cqt[:, i * mean_size:(i + 1) * mean_size].mean(axis=1)
   return new_cqt.T
