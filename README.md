@@ -83,21 +83,25 @@ There are two different hparams.yaml files, each used at different stages.
 
 | key | value |
 | --- | --- |
-| chunk_frame | list of numbers used with mean_size. CoverHunter's covers80 config used [1125, 900, 675]. "chunk" references in this training script seem to be the chunks described in the time-domain pooling strategy part ofn their paper, not to the chunks discussed in their coarse-to-fine alignment strategy. | 
+| batch_size | Usual "batch size" meaning in the field of machine learning. An important parameter to experiment with. |
+| chunk_frame | list of numbers used with mean_size. The first number is used during inference CoverHunter's covers80 config used [1125, 900, 675]. "chunk" references in this training script seem to be the chunks described in the time-domain pooling strategy part ofn their paper, not to the chunks discussed in their coarse-to-fine alignment strategy. | 
 | chunk_s | duration of a chunk_frame in seconds. Apparently you are supposed to manually calculate chunk_s = chunk_frame / frames-per-second * mean_size. I'm not sure why the script doesn't just calculate this itself using CQT hop-size to get frames-per-second? |
+| cqt: hop_size: | Fine-grained time resolution, measured as duration in seconds of each CQT spectrogram slice of the audio data. CoverHunter's covers80 setting is 0.04 with a comment "1s has 25 frames". 25 frames per second is hard-coded as an assumption into CoverHunter in various places. |
 | data_type | "cqt" (default) or "raw" or "mel". Unknown whether CoverHunter actually implemented anything but CQT-based training |
 | dev_sample_path | TBD: can apparently be the same path as train_path |
 | early_stopping_patience | how many epochs to wait for avg_ce_loss to improve before early stopping |
-| mean_size | See chunk_s above. |
+| mean_size | See chunk_s above. An integer used to multiply chunk lengths to define the length of the feature chunks used in many stages of the training process. |
 | mode | "random" (default) or "defined". Changes behavior when loading training data in chunks in AudioFeatDataset. "random" described in CoverHunter code as "cut chunk from feat from random start". "defined" described as "cut feat with 'start/chunk_len' info from line"|
+| m_per_class | From CoverHunter code comments: "m_per_class must divide batch_size without any remainder" and: "At every iteration, this will return m samples per class. For example, if dataloader's batch-size is 100, and m = 5, then 20 classes with 5 samples iter will be returned." |
 | query_path | TBD: can apparently be the same path as train_path |
 | ref_path | TBD: can apparently be the same path as train_path |
+| spec_augmentation | spectral(?) augmentation settings, used to generate temporary data augmentation on the fly during training. CoverHunter settings were:<br>random_erase:<br> &nbsp; prob: 0.5<br> &nbsp; erase_num: 4<br>roll_pitch:<br> &nbsp; prob: 0.5<br> &nbsp; shift_num: 12 |
 | train_path | path to a text file listing certain required attributes of every training data sample. (See full.txt below) |
 | train_sample_path | TBD: can apparently be the same path as train_path |
 
 ## dataset.txt
 
-A JSON formatted file expected by extract_csi_features.py that describes the training audio data, file by file.
+A JSON formatted file expected by extract_csi_features.py that describes the training audio data, with one line per audio file.
 | key | value |
 | --- | --- |
 | utt | Unique identifier. Probably an abbreviation for "utterance," borrowed from speech-recognition ML work. Example "cover80_00000000_0_0". In a musical context we should call this a "performance." |

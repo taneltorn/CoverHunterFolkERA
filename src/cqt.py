@@ -16,7 +16,9 @@ def shorter(feat, mean_size):
     return feat
   cqt = feat.T
   height, length = cqt.shape
-  new_cqt = np.zeros((height, int(length / mean_size)), dtype=np.float32)
+  new_cqt = np.zeros((height, int(length / mean_size)), dtype=np.float32) 
+          # was float64 in original CoverHunter
+          # comparison training tests showed unmeasurable difference in speed or accuracy
   for i in range(int(length / mean_size)):
     new_cqt[:, i] = cqt[:, i * mean_size:(i + 1) * mean_size].mean(axis=1)
   return new_cqt.T
@@ -42,6 +44,7 @@ class PyCqt:
     self._sample_rate = sample_rate
     if not max_freq:
       max_freq = sample_rate // 2
+#   attempt to accelerate CQT calculation Feb 2024 failed due to incomplete MPS implementation 
 #    if mps:
 #      self._kernel = self._compute_cqt_kernelMPS(sample_rate, octave_resolution,
 #                                            min_freq, max_freq)
