@@ -61,7 +61,10 @@ The command to launch the alignment script that CoverHunter included is:
 
 `python3 -m tools.alignment_for_frame pretrained_model data/covers80/full.txt data/covers80/alignment.txt`
 
-That assumes you took a pretrained model (for example from https://drive.google.com/file/d/1rDZ9CDInpxQUvXRLv87mr-hfDfnV7Y-j/view), unzipped it, and moved it to a folder that you renamed to "pretrained_model" at the top level of your project folder. That folder in turn must contain a 'pt_model' subfolder that contains the do_000[epoch] and g_000[epoch] checkpoint files. The "alignment.txt" file will receive the output of this script.
+Arguments to pass to the script:
+1. Folder containing a pretrained model. For example if you use original CoverHunter's model from https://drive.google.com/file/d/1rDZ9CDInpxQUvXRLv87mr-hfDfnV7Y-j/view), unzip it, and move it to a folder that you rename to 'pretrained_model' at the top level of your project folder. That folder in turn must contain a 'pt_model' subfolder that contains the do_000[epoch] and g_000[epoch] checkpoint files.
+2. The output file from the feature-extraction script described above. It must include song_id attributes for each utt (unlike the raw 'dataset.txt' file that CoverHunter provided for covers80).
+3. The "alignment.txt" file will receive the output of this script.
 
 # Input and Output Files
 
