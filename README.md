@@ -53,7 +53,20 @@ Optionally edit the hparams.yaml configuration file in the folder 'egs/covers80/
 
 This fork added an hparam.yaml setting of "early_stopping_patience" to support the added feature of early stopping (original CoverHunter defaulted to 10,000 epochs!).
 
-Note: Don't use the `torchrun` launch command offered in original CoverHunter. In the single-computer Apple Silicon context, it is not only irrelevant, it actually slows down performance. In my tests it slowed down performance by about 20%.
+Note: Don't use the `torchrun` launch command offered in original CoverHunter. In the single-computer Apple Silicon context, it is not only irrelevant, it actually slows down performance. In my tests it slowed down tools.train performance by about 20%.
+
+The training script's output consists of:
+1. The model checkpoint files contained in the egs/covers80/pt_model folder, organized into epoch-specific subfolders. 
+2. Embedding vectors for each piece of training data, stored as numpy arrays in the embed-{epoch#}-covers80 subfolders, accompanied in each epoch with metadata text files query.txt and ref.txt, which are identical to each other in this case.
+
+## Evaluation
+
+CoverHunter provided this script to demonstrate how to use your trained model to classify unfamiliar data, aka query data.
+1. Have a pre-trained CoverHunter model's output checkpoint files available. If you use original CoverHunter's pre-trained model from https://drive.google.com/file/d/1rDZ9CDInpxQUvXRLv87mr-hfDfnV7Y-j/view), unzip it, and move it to a folder that you rename to, in this example, 'pretrained_model'.
+2. Run your query data through extract_csi_features. In the hparams.yaml file for the feature extraction, turn off all augmentation. See data/covers80_testset/hparams.yaml for an example configuration to treat covers80 as the query data:<br> `python3 -m tools.extract_csi_features data/covers80_testset`<br>
+The important output from that is full.txt and the cqt_feat subfolder's contents.
+3. Run the evaluation script:<br>
+`python3 -m tools.eval_testset pretrained_model data/covers80_testset ref_path` 
 
 ## Coarse-to-Fine Alignment Training
 

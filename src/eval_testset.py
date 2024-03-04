@@ -22,7 +22,7 @@ def _calc_embed(model, query_loader, device, saved_dir=None):
   Args:
     model: trained model
     query_loader: dataset loader for audio
-    device: mps or cpu
+    device: (not used)
     saved_dir: To save embed to disk as npy
 
   Returns:
@@ -78,6 +78,22 @@ def _compute_distance_worker(args):
 
 def _generate_dist_matrixMPS(query_utt_label, query_embed, ref_utt_label=None,
                           ref_embed=None, query_in_ref=None):
+    """generate distance matrix from query/ref embedding
+    
+    Args:
+      query_utt_label: List[(utt, label), ...],
+      query_embed: Dict, key is utt, value is List with embed of every chunk
+      ref_utt_label: List[(utt, label), ...]
+      ref_embed: Dict, key is utt, value is List with embed of every chunk
+      query_in_ref: List[(idx, idy), ...], means query[idx] is in ref[idy] so
+                    we skip that when computing map
+    
+    Returns:
+      dist_matrix: [numpy.ndarray]
+      query_label:
+      ref_label:
+    
+    """
     import multiprocessing
     if ref_utt_label is None and ref_embed is None:
         query_in_ref = [(i, i) for i in range(len(query_utt_label))]
@@ -103,8 +119,8 @@ def _generate_dist_matrixMPS(query_utt_label, query_embed, ref_utt_label=None,
     return dist_matrix, query_label, ref_label
 
 # =============================================================================
-# original CoverHunter, very slow, took 12 minutes vs.
-# 1.5 minutes with the MPS version above on M2 Max chip
+# original CoverHunter, very slow during use of the alignment_for_frame script
+# took 12 minutes vs. 1.5 minutes with the MPS version above on M2 Max chip
 # 
 # def _generate_dist_matrix(query_utt_label, query_embed, ref_utt_label=None,
 #                           ref_embed=None, query_in_ref=None):
@@ -271,6 +287,7 @@ def eval_for_map_with_feat(hp, model, embed_dir, query_path, ref_path,
     infer_frame = hp["chunk_frame"] * hp["mean_size"]
 
   chunk_s = hp["chunk_s"]
+  # assumes 25 frames per second
   assert infer_frame == chunk_s * 25, \
     "Error for mismatch of chunk_frame and chunk_s: {}!={}*25".format(
       infer_frame, chunk_s)

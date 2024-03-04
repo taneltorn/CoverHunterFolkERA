@@ -10,6 +10,7 @@ import torch
 
 from src.pytorch_utils import scan_and_load_checkpoint, get_lr
 
+# setting this to False in Apple Silicon context showed negligible impact.
 torch.backends.cudnn.benchmark = True
 
 

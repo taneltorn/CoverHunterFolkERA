@@ -229,8 +229,10 @@ class Model(BasicModel):
   def forward(self, x: torch.Tensor) -> torch.Tensor:
     """feat[b, frame_size, feat_size] -> embed[b, embed_dim]"""
 
-    assert x.dtype == torch.float32, "Input tensor must be of type float32" # for mps debugging only
-# confirmed float32 as of 2/10/2024 during train but not during train-sample
+    assert x.dtype == torch.float32, "Input tensor must be of type float32" 
+        # for mps debugging only
+        # confirmed float32 as of 2/10/2024 during train
+        # but not during train-sample
 
     x = self._global_cmvn(x.transpose(1, 2)).transpose(1, 2)
     xs_lens = torch.full(
