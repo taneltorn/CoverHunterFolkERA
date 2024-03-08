@@ -252,7 +252,7 @@ def eval_for_map_with_feat(hp, model, embed_dir, query_path, ref_path,
   Args:
     num_workers:
     hp: dict contains hparams
-    model: nnet model, should has method 'infer'
+    model: nnet model, should have method 'infer'
     embed_dir: dir for saving embedding, None for not saving anything
     query_path: contains query info
     ref_path: contains ref info
@@ -264,6 +264,7 @@ def eval_for_map_with_feat(hp, model, embed_dir, query_path, ref_path,
 
   Returns:
     map10
+    hitrate
     rank1
 
   """

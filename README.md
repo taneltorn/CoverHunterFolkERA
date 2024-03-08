@@ -68,6 +68,8 @@ The important output from that is full.txt and the cqt_feat subfolder's contents
 3. Run the evaluation script:<br>
 `python3 -m tools.eval_testset pretrained_model data/covers80/dataset.txt data/covers80/dataset.txt` 
 
+CoverHunter seems to have implemented evaluation only when query and reference data are identical. But there is an optional 4th parameter for `query_in_ref_path` which is where output would be placed if query and reference files are not identical.
+
 ## Coarse-to-Fine Alignment Training
 
 The command to launch the alignment script that CoverHunter included is:

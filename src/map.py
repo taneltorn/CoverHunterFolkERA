@@ -70,7 +70,7 @@ def calc_map(array2d: np.ndarray, label_query: List, label_ref: List,
     if verbose > 0:
       top5_res = [x for x, _ in row][:5]
       print(
-        "Debug::{}th, map:{},  rank1:{}, top5:{}".format(u, per_map, per_rank1,
+        "Debug:: {}th, query song: {}, map: {},  rank1: {}, top5: {}".format(u, label_query[u], per_map, per_rank1,
                                                          top5_res))
     mean_ap += per_map
     top10 += per_top10
