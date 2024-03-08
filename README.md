@@ -61,12 +61,12 @@ The training script's output consists of:
 
 ## Evaluation
 
-CoverHunter provided this script to demonstrate how to use your trained model to classify unfamiliar data, aka query data.
+CoverHunter provided this script to demonstrate how to use your trained model to classify data, aka query data.
 1. Have a pre-trained CoverHunter model's output checkpoint files available. If you use original CoverHunter's pre-trained model from https://drive.google.com/file/d/1rDZ9CDInpxQUvXRLv87mr-hfDfnV7Y-j/view), unzip it, and move it to a folder that you rename to, in this example, 'pretrained_model'.
 2. Run your query data through extract_csi_features. In the hparams.yaml file for the feature extraction, turn off all augmentation. See data/covers80_testset/hparams.yaml for an example configuration to treat covers80 as the query data:<br> `python3 -m tools.extract_csi_features data/covers80_testset`<br>
 The important output from that is full.txt and the cqt_feat subfolder's contents.
 3. Run the evaluation script:<br>
-`python3 -m tools.eval_testset pretrained_model data/covers80_testset ref_path` 
+`python3 -m tools.eval_testset pretrained_model data/covers80/dataset.txt data/covers80/dataset.txt` 
 
 ## Coarse-to-Fine Alignment Training
 
