@@ -70,6 +70,12 @@ The important output from that is full.txt and the cqt_feat subfolder's contents
 
 CoverHunter seems to have implemented evaluation only when query and reference data are identical. But there is an optional 4th parameter for `query_in_ref_path` which is where output would be placed if query and reference files are not identical.
 
+The file specified for `query_in_ref_path` (CoverHunter did nor provide an example or documentation) assumes:
+- JSON or tab-delimited key:value format
+- The only line contains a single key 'query_in_ref' with a value that is itself a collection of tuples, where each tuple represents a mapping between an index in the query input file and an index in the reference input file.
+This mapping is only used by the _generate_dist_matrix function.
+
+
 ## Coarse-to-Fine Alignment Training
 
 The command to launch the alignment script that CoverHunter included is:
@@ -116,14 +122,14 @@ There are two different hparams.yaml files, each used at different stages.
 
 ## dataset.txt
 
-A JSON formatted file expected by extract_csi_features.py that describes the training audio data, with one line per audio file.
+A JSON formatted or tab-delimited key:value text file (see format defined in the utils.py::line_to_dict() function) expected by extract_csi_features.py that describes the training audio data, with one line per audio file.
 | key | value |
 | --- | --- |
 | utt | Unique identifier. Probably an abbreviation for "utterance," borrowed from speech-recognition ML work. Example "cover80_00000000_0_0". In a musical context we should call this a "performance." |
 | wav | relative path to the raw audio file. Example: "data/covers80/wav_16k/annie_lennox+Medusa+03-A_Whiter_Shade_Of_Pale.wav" |
 | dur_s | duration of the audio file in seconds. Example 316.728 |
 | song | title of the song. Example "A_Whiter_Shade_Of_Pale" The _add_song_id() function in extract_csi_features assumes that this string is a unique identifier for the parent cover song (so it can't handle musically distinct songs that happen to have the same title). |
-| version | Used for what? Example "annie_lennox+Medusa+03-A_Whiter_Shade_Of_Pale.mp3" |
+| version | Not used by CoverHunter? Example "annie_lennox+Medusa+03-A_Whiter_Shade_Of_Pale.mp3" |
 
 ## full.txt 
 

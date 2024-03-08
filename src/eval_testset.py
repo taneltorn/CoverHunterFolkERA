@@ -300,15 +300,16 @@ def eval_for_map_with_feat(hp, model, embed_dir, query_path, ref_path,
     logger.info("ref lines: {}".format(len(ref_lines)))
     logger.info("chunk_frame: {} chunk_s:{}\n".format(infer_frame, chunk_s))
 
+  # basic validation of the query_in_ref contents
   if query_in_ref_path:
-    line = read_lines(query_in_ref_path, log=False)[0]
-    query_in_ref = line_to_dict(line)["query_in_ref"]
+    firstline = read_lines(query_in_ref_path, log=False)[0]
+    query_in_ref = line_to_dict(firstline)["query_in_ref"]
     for idx, idy in query_in_ref:
       assert idx < len(query_lines), \
-        "query idx {} must be smaller that max query idx {}".format(
+        "query idx {} must be smaller than max query idx {}".format(
           idx, len(query_lines))
       assert idy < len(ref_lines), \
-        "ref idx {} must be smaller that max ref idx {}".format(
+        "ref idx {} must be smaller than max ref idx {}".format(
           idy, len(ref_lines))
   else:
     query_in_ref = None
