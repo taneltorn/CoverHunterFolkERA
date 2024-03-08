@@ -30,7 +30,7 @@ def _main():
   ref_path = args.ref_path
   query_in_ref_path = args.query_in_ref_path
 
-  assert torch.mps.is_available()
+  assert torch.backends.mps.is_available(), "This implementation only runs on Apple M-series chips."
   device = torch.device('mps')
   logger = create_logger()
 
