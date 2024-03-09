@@ -68,11 +68,7 @@ The important output from that is full.txt and the cqt_feat subfolder's contents
 3. Run the evaluation script:<br>
 `python3 -m tools.eval_testset pretrained_model data/covers80/dataset.txt data/covers80/dataset.txt` 
 
-CoverHunter seems to have implemented evaluation only when query and reference data are identical. But there is an optional 4th parameter for `query_in_ref_path` that would be relevant if query and reference are not identical. The file specified for `query_in_ref_path` (CoverHunter did nor provide an example or documentation) assumes:
-- JSON or tab-delimited key:value format
-- The only line contains a single key 'query_in_ref' with a value that is itself a collection of tuples, where each tuple represents a mapping between an index in the query input file and an index in the reference input file.
-This mapping is only used by the _generate_dist_matrix function. That function explains: "List[(idx, idy), ...], means query[idx] is in ref[idy] so we skip that when computing mAP."
-
+CoverHunter seems to have implemented evaluation only when query and reference data are identical. But there is an optional 4th parameter for `query_in_ref_path` that would be relevant if query and reference are not identical. See the "query_in_ref" heading below under "Input and Output Files."
 
 ## Coarse-to-Fine Alignment Training
 
@@ -163,3 +159,10 @@ Listed in the order that the script creates them:
 | song_id.map | Text file, not used by train.py, maybe not by anything else? |
 | song_name_num.map | Text file, not used by train.py, maybe not by anything else? |
 | full.txt | See above detailed description.| 
+
+# query_in_ref
+
+The file you can prepare for the tools/eval_testset.py script to pass as the 4th parameter `query_in_ref_path` (CoverHunter did not provide an example file or documentation) assumes:
+- JSON or tab-delimited key:value format
+- The only line contains a single key 'query_in_ref' with a value that is itself a collection of tuples, where each tuple represents a mapping between an index in the query input file and an index in the reference input file.
+This mapping is only used by the _generate_dist_matrix function. That function explains: "List[(idx, idy), ...], means query[idx] is in ref[idy] so we skip that when computing mAP."
