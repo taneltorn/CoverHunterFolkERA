@@ -38,12 +38,21 @@ def _main():
   only_eval = args.only_eval
   run_id = args.runid
   first_eval = True if only_eval else first_eval
-  assert torch.backends.mps.is_available(), "This implementation only runs on Apple M-series chips."
-  device = torch.device('mps')
+
+  hp = load_hparams(os.path.join(model_dir, "config/hparams.yaml"))
+  match hp['device']: 
+      case 'mps':
+          assert torch.backends.mps.is_available(), "You requested 'mps' device in your hyperparameters but you are not running on an Apple M-series chip or have not compiled PyTorch for MPS support."
+          device = torch.device('mps')
+      case 'cuda':
+          assert torch.cuda.is_available(), "You requested 'cuda' device in your hyperparameters but you do have a CUDA-compatible GPU available."
+          device = torch.device('cuda')
+      case _:
+          print("You set device: ",hp['device']," in your hyperparameters but that is not a valid option.")
+          exit();
   logger = create_logger()
   logger.propagate = False
   
-  hp = load_hparams(os.path.join(model_dir, "config/hparams.yaml"))
   logger.info("{}".format(get_hparams_as_string(hp)))
 
   # Initialize variables for early stopping
@@ -162,8 +171,8 @@ def _main():
       logger.info("Start to train for epoch {}".format(epoch))
       step = train_one_epoch(model, optimizer, scheduler, train_loader_lst,
                              step, train_step=train_step,
-                             sw=sw,
-                             logger=logger)
+                             device=device,
+                             sw=sw, logger=logger)
       if epoch % hp["every_n_epoch_to_save"] == 0:
         save_checkpoint(model, optimizer, step, epoch, checkpoint_dir)
       logger.info('Time for train epoch {} step {} is {:.1f}s\n'.format(
@@ -175,7 +184,7 @@ def _main():
         epoch))
 
       res = validate(model, train_sampler_loader, "train_sample",
-                     epoch_num=epoch,
+                     epoch_num=epoch, device=device,
                      sw=sw,
                      logger=logger)
       logger.info(
@@ -190,7 +199,7 @@ def _main():
       logger.info(
         "compute dev at epoch-{}".format(epoch))
       dev_res = validate(model, dev_loader, "dev", epoch_num=epoch,
-                         sw=sw,
+                         device=device, sw=sw,
                          logger=logger)
       validation_loss = dev_res["ce_loss"] / dev_res["count"]
 

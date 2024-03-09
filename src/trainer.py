@@ -66,11 +66,11 @@ def load_checkpoint(model, optimizer=None, checkpoint_dir=None, advanced=False):
 
 
 def train_one_epoch(model, optimizer, scheduler, train_loader_lst,
-                    step, train_step=None, sw=None, logger=None):
+                    step, train_step=None, device='mps', sw=None, logger=None):
   """train one epoch with multi data_loader"""
   model_context = nullcontext
   init_step = step
-  model.train()
+  model.train() # torch.nn.Module.train sets model in training mode
   idx_loader = [i for i in range(len(train_loader_lst))]
   with model_context():
     for batch_lst in zip(*train_loader_lst):
@@ -81,8 +81,8 @@ def train_one_epoch(model, optimizer, scheduler, train_loader_lst,
           scheduler.step()
         model.train()
         _, feat, label = batch
-        feat = batch[1].float().to("mps")
-        label = batch[2].long().to("mps")
+        feat = batch[1].float().to(device)
+        label = batch[2].long().to(device)
         
         optimizer.zero_grad()
         total_loss, losses = model.compute_loss(feat, label)
@@ -115,16 +115,16 @@ def train_one_epoch(model, optimizer, scheduler, train_loader_lst,
   return step
 
 
-def validate(model, validation_loader, valid_name, sw=None, epoch_num=-1,
-             device="mps", logger=None):
-  """ Validation on dataset, support distributed model"""
+def validate(model, validation_loader, valid_name, device='mps', sw=None, epoch_num=-1,
+             logger=None):
+  """ Validation on dataset"""
   model.eval()
   val_losses = {"count": 0}
   with torch.no_grad():
     for j, batch in enumerate(validation_loader):
       utt, anchor, label = batch
-      anchor = batch[1].float().to("mps")
-      label = batch[2].long().to("mps")
+      anchor = batch[1].float().to(device)
+      label = batch[2].long().to(device)
 
       tot_loss, losses = model.compute_loss(anchor, label)
 
@@ -151,14 +151,14 @@ def validate(model, validation_loader, valid_name, sw=None, epoch_num=-1,
   return val_losses
 
 
-def _calc_label(model, query_loader, device):
+def _calc_label(model, query_loader):
   query_label = {}
   query_pred = {}
   with torch.no_grad():
     for j, batch in enumerate(query_loader):
       utt_b, anchor_b, label_b = batch
-      anchor_b = batch[1].float().to("mps")
-      label_b = batch[2].long().to("mps")
+      anchor_b = batch[1].float().to(model.device)
+      label_b = batch[2].long().to(model.device)
 
       _, pred_b = model.inference(anchor_b)
       pred_b = pred_b.cpu().numpy()
@@ -185,11 +185,10 @@ def _calc_label(model, query_loader, device):
   return query_utt_label, query_pred
 
 
-def _syn_pred_label(model, valid_loader, valid_name, sw=None, epoch_num=-1,
-                    device="mps"):
+def _syn_pred_label(model, valid_loader, valid_name, sw=None, epoch_num=-1):
   model.eval()
 
-  query_utt_label, query_pred = _calc_label(model, valid_loader, device)
+  query_utt_label, query_pred = _calc_label(model, valid_loader)
 
   utt_right, utt_total = 0, 0
   right, total = 0, 0

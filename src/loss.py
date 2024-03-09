@@ -23,15 +23,17 @@ class CenterLoss(nn.Module):
   Args:
       num_classes (int): number of classes.
       feat_dim (int): feature dimension.
+      device: specify a PyTorch device 
+  assumes a GPU device is available
   """
 
-  def __init__(self, num_classes=10, feat_dim=2, use_gpu=True):
+  def __init__(self, num_classes=10, feat_dim=2, device='mps'):
     super(CenterLoss, self).__init__()
     self.num_classes = num_classes
     self.feat_dim = feat_dim
-
+    self.device = device
     self.centers = nn.Parameter(
-      torch.randn(self.num_classes, self.feat_dim).float().to("mps"))
+      torch.randn(self.num_classes, self.feat_dim).float().to(device))
     logging.info("CenterLoss: num_classes({}), feat_dim({})".format(
       num_classes, feat_dim))
     return
@@ -50,8 +52,7 @@ class CenterLoss(nn.Module):
     distmat.addmm_(1, -2, x, self.centers.t())
 
     classes = torch.arange(self.num_classes).long()
-    if self.use_gpu:
-      classes = classes.mps() # unclear whether .mps() is supported here
+    classes = classes.to(device) # unclear whether .mps() is supported here
     labels = labels.unsqueeze(1).expand(batch_size, self.num_classes)
     mask = labels.eq(classes.expand(batch_size, self.num_classes))
 
@@ -65,7 +66,7 @@ class FocalLoss(nn.Module):
   """ Focal Loss implement for https://arxiv.org/abs/1708.02002 """
 
   def __init__(self, gamma: float = 2., alpha: List = None, num_cls: int = -1,
-               reduction: str = 'mean'):
+               reduction: str = 'mean', device='mps'):
 
     super(FocalLoss, self).__init__()
     assert check_argument_types()
@@ -79,6 +80,7 @@ class FocalLoss(nn.Module):
       assert len(alpha) <= num_cls, "{} != {}".format(len(alpha), num_cls)
       self._alpha = torch.tensor(self._alpha)
     self._eps = torch.finfo(torch.float32).eps
+    self.device = device # PyTorch GPU device
     logging.info("Init Focal loss with gamma:{}".format(gamma))
     return
 
@@ -105,7 +107,7 @@ class FocalLoss(nn.Module):
 #    dtype = y_true.view(-1, 1).dtype
 #    print(f"Data type of y_true after reshape: {dtype}")
 #  force to meet ce.gather's expectations of int64 
-    y_true = torch.as_tensor(y_true, dtype=torch.int64, device="mps")
+    y_true = torch.as_tensor(y_true, dtype=torch.int64, device=self.device)
 
     ce = ce.gather(1, y_true.view(-1, 1))
 

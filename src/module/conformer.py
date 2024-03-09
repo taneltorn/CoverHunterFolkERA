@@ -40,7 +40,7 @@ def subsequent_chunk_mask(
         num_left_chunks (int): number of left chunks
             <0: use full chunk
             >=0: use num_left_chunks
-        device (torch.device): "cpu" or "mps" or torch.Tensor.device
+        device (torch.device): "cpu" or "mps" or "cuda" or torch.Tensor.device
 
     Returns:
         torch.Tensor: mask

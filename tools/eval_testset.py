@@ -29,20 +29,28 @@ def _main():
   query_path = args.query_path
   ref_path = args.ref_path
   query_in_ref_path = args.query_in_ref_path
-
-  assert torch.backends.mps.is_available(), "This implementation only runs on Apple M-series chips."
-  device = torch.device('mps')
   logger = create_logger()
 
   hp = load_hparams(os.path.join(model_dir, "config/hparams.yaml"))
   logger.info("{}".format(get_hparams_as_string(hp)))
+
+  match hp['device']: 
+      case 'mps':
+          assert torch.backends.mps.is_available(), "You requested 'mps' device in your hyperparameters but you are not running on an Apple M-series chip or have not compiled PyTorch for MPS support."
+          device = torch.device('mps')
+      case 'cuda':
+          assert torch.cuda.is_available(), "You requested 'cuda' device in your hyperparameters but you do have a CUDA-compatible GPU available."
+          device = torch.device('cuda')
+      case _:
+          print("You set device: ",hp['device']," in your hyperparameters but that is not a valid option.")
+          exit();
 
   torch.manual_seed(hp["seed"])
 
   model = Model(hp).to(device)
   checkpoint_dir = os.path.join(model_dir, "pt_model")
   os.makedirs(checkpoint_dir, exist_ok=True)
-  epoch = model.load_model_parameters(checkpoint_dir)
+  epoch = model.load_model_parameters(checkpoint_dir, device)
 
   embed_dir = os.path.join(model_dir, "embed_{}_{}".format(epoch, "tmp"))
   mean_ap, hit_rate, rank1 = eval_for_map_with_feat(

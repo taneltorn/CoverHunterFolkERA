@@ -42,6 +42,7 @@ spec_augmentation:
     shift_num: 12
 
 # Train parameters
+device: 'mps' # 'mps' or 'cuda' 
 seed: 1234
 num_workers: 1
 num_gpus: 1

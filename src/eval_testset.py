@@ -22,7 +22,7 @@ def _calc_embed(model, query_loader, device, saved_dir=None):
   Args:
     model: trained model
     query_loader: dataset loader for audio
-    device: (not used)
+    device: PyTorch device
     saved_dir: To save embed to disk as npy
 
   Returns:
@@ -36,8 +36,8 @@ def _calc_embed(model, query_loader, device, saved_dir=None):
 
     for j, batch in enumerate(query_loader):
       utt_b, feat_b, label_b = batch
-      feat_b = batch[1].float().to("mps") 
-      label_b = batch[2].long().to("mps")
+      feat_b = batch[1].float().to(device) 
+      label_b = batch[2].long().to(device)
       embed_b, _ = model.inference(feat_b)
 
       embed_b = embed_b.cpu().numpy()
@@ -259,7 +259,7 @@ def eval_for_map_with_feat(hp, model, embed_dir, query_path, ref_path,
     query_in_ref_path: path to store query in ref index, None means that
         query index equals ref index
     batch_size: for nnet infer
-    device: "mps" or "cpu"
+    device: "mps" or "cuda" or "cpu"
     logger:
 
   Returns:

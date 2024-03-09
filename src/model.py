@@ -184,7 +184,6 @@ class Model(BasicModel):
   def __init__(self, hp: Dict):
     super(BasicModel, self).__init__()
     self._hp = hp
-
     self._global_cmvn = torch.nn.BatchNorm1d(hp["input_dim"])
     self._encoder = ConformerEncoder(
       input_size=hp["input_dim"],
@@ -218,10 +217,10 @@ class Model(BasicModel):
       logging.warning("Not use alpha")
 
     self._ce_loss = FocalLoss(alpha=alpha, gamma=self._hp["ce"]["gamma"],
-                              num_cls=self._hp["ce"]["output_dims"])
+                              num_cls=self._hp["ce"]["output_dims"], device=hp['device'])
     self._triplet_loss = HardTripletLoss(margin=hp["triplet"]["margin"])
     self._center_loss = CenterLoss(num_classes=self._hp["ce"]["output_dims"],
-                                   feat_dim=hp["embed_dim"], use_gpu=True)
+                                   feat_dim=hp["embed_dim"], device=hp['device'])
     logging.info(
       "Model size: {:.3f}M \n".format(self.model_size() / 1000 / 1000))
     return
@@ -283,9 +282,18 @@ class Model(BasicModel):
 
 
 def _test_model():
-  device = torch.device('mps')
   hp_path = "src/hparams.yaml"
   hp = load_hparams(hp_path)
+  match hp['device']: 
+    case 'mps':
+        assert torch.backends.mps.is_available(), "You requested 'mps' device in your hyperparameters but you are not running on an Apple M-series chip or have not compiled PyTorch for MPS support."
+        device = torch.device('mps')
+    case 'cuda':
+        assert torch.cuda.is_available(), "You requested 'cuda' device in your hyperparameters but you do have a CUDA-compatible GPU available."
+        device = torch.device('cuda')
+    case _:
+        print("You set device: ",hp['device']," in your hyperparameters but that is not a valid option.")
+        exit();
   model = Model(hp).float().to(device)
   batch_size = 4
   feat_size = hp["input_dim"]

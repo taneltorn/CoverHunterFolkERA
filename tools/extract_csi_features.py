@@ -204,6 +204,8 @@ def _extract_cqt_workerMPS(args):
     line["feat_len"] =  feat_len
     return line
 
+### experimental Torch-optimized MPS use for CQT ###
+### not usable as of 21 Feb 2024 ###
 def _extract_cqt_parallelMPS(init_path, out_path, cqt_dir):
     logging.info("Extract CQT features")
     assert torch.backends.mps.is_available(), "This implementation only runs on Apple M-series chips."
