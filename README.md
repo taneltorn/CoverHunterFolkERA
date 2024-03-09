@@ -5,8 +5,8 @@ Fork of [Liu Feng's CoverHunter](https://github.com/Liu-Feng-deeplearning/CoverH
 # Requirements
 
 1. Either: 
-  1. Apple computer with an Apple M-series chip
-  2. Other computer with an Nvidia GPU
+    1. Apple computer with an Apple M-series chip
+    2. Other computer with an Nvidia GPU
 2. python3 (minimum version uncertain, tested on 3.11)
 3. PyTorch with either CUDA or MPS support enabled.
 4. sox and therefore also a Java runtime
