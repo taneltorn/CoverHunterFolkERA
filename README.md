@@ -1,6 +1,6 @@
 # CoverHunterMPS
 
-Fork of [Liu Feng's CoverHunter](https://github.com/Liu-Feng-deeplearning/CoverHunter) project. Goal: make it run, and run fast, on Apple Silicon, while maintaining Nvidia GPU support). And document it better.
+Fork of [Liu Feng's CoverHunter](https://github.com/Liu-Feng-deeplearning/CoverHunter) project. Goal: make it run, and run fast, on Apple Silicon or Nvidia GPUs. And document it better.
 
 # Requirements
 
