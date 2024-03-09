@@ -232,7 +232,7 @@ def _main():
         mean_ap, hit_rate, _ = eval_for_map_with_feat( # added _ to avoid unpacking error in original CoverHunter
           hp, model, embed_dir, query_path=hp_test["query_path"],
           ref_path=hp_test["ref_path"], query_in_ref_path=query_in_ref_path,
-          batch_size=hp["batch_size"], logger=logger)
+          batch_size=hp["batch_size"], device=device, logger=logger)
         
         sw.add_scalar("mAP/{}".format(testset_name), mean_ap, epoch)
         sw.add_scalar("hit_rate/{}".format(testset_name), hit_rate, epoch)
