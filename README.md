@@ -7,7 +7,7 @@ Fork of [Liu Feng's CoverHunter](https://github.com/Liu-Feng-deeplearning/CoverH
 1. Either: 
     1. Apple computer with an Apple M-series chip
     2. Other computer with an Nvidia GPU
-2. python3 (minimum version uncertain, tested on 3.11)
+2. python3 (minimum version 3.10, tested on 3.11)
 3. PyTorch with either CUDA or MPS support enabled.
 4. sox and therefore also a Java runtime
 
@@ -101,6 +101,7 @@ There are two different hparams.yaml files, each used at different stages.
 
 | key | value |
 | --- | --- |
+| device | 'mps' or 'cuda', corresponding to your GPU hardware and PyTorch library support. Theoretically 'cpu' could work but untested and probably of no value. |
 | batch_size | Usual "batch size" meaning in the field of machine learning. An important parameter to experiment with. |
 | chunk_frame | list of numbers used with mean_size. CoverHunter's covers80 config used [1125, 900, 675]. "chunk" references in this training script seem to be the chunks described in the time-domain pooling strategy part of their paper, not the chunks discussed in their coarse-to-fine alignment strategy. See chunk_s. | 
 | chunk_s | duration of a chunk_frame in seconds. Apparently you are supposed to manually calculate chunk_s = chunk_frame / frames-per-second * mean_size. I'm not sure why the script doesn't just calculate this itself using CQT hop-size to get frames-per-second? |
