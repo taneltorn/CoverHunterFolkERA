@@ -167,14 +167,14 @@ Listed in the order that the script creates them:
 | song_name_num.map | Text file, not used by train.py, maybe not by anything else? |
 | full.txt | See above detailed description.| 
 
-# query_in_ref
+## query_in_ref
 
 The file you can prepare for the tools/eval_testset.py script to pass as the 4th parameter `query_in_ref_path` (CoverHunter did not provide an example file or documentation) assumes:
 - JSON or tab-delimited key:value format
 - The only line contains a single key 'query_in_ref' with a value that is itself a collection of tuples, where each tuple represents a mapping between an index in the query input file and an index in the reference input file.
 This mapping is only used by the _generate_dist_matrix function. That function explains: "List[(idx, idy), ...], means query[idx] is in ref[idy] so we skip that when computing mAP."
 
-## Code Map
+# Code Map
 
 Hand-made visualization of how core functions of this project interact with each other:
 https://miro.com/app/board/uXjVNkDkn70=/ 
