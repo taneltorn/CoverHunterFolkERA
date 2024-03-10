@@ -316,9 +316,11 @@ class SpecAug:
 
 
 class AudioFeatDataset(torch.utils.data.Dataset):
-  """Simple DataSet, to get chunk data one by one. if feat less than length, it
-  will be padding with zero.
-
+  """Simple DataSet, to get chunk data one by one. 
+  If feat length is less than chunk_len,
+  it will be padded with zeros.
+  
+  train: if true, then SpecAug the sample.
   mode:
     - random: cut chunk from feat from random start
     - defined: cut feat with "start/chunk_len" info from line

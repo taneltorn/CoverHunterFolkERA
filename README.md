@@ -176,5 +176,6 @@ This mapping is only used by the _generate_dist_matrix function. That function e
 
 # Code Map
 
-Hand-made visualization of how core functions of this project interact with each other:
+Hand-made visualization of how core functions of this project interact with each other. Also includes additional beginner-friendly or verbose code-commenting that I didn't add to the project code.
+
 https://miro.com/app/board/uXjVNkDkn70=/ 

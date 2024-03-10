@@ -206,15 +206,15 @@ class Model(BasicModel):
     self._ce_layer = torch.nn.Linear(
       hp["embed_dim"], hp["ce"]["output_dims"], bias=False)
 
-    # Loss
+    # Loss. CoverHunter doesn't use alpha
     if "alpha" in hp["ce"].keys():
       alpha = np.load(hp["ce"]["alpha"])
       alpha = 1.0 / (alpha + 1)
       alpha = alpha / np.sum(alpha)
-      logging.warning("use alpha with {}".format(len(alpha)))
+      logging.warning("Using alpha of {}".format(len(alpha)))
     else:
       alpha = None
-      logging.warning("Not use alpha")
+      logging.warning("Not using alpha.")
 
     self._ce_loss = FocalLoss(alpha=alpha, gamma=self._hp["ce"]["gamma"],
                               num_cls=self._hp["ce"]["output_dims"], device=hp['device'])
