@@ -68,13 +68,13 @@ The training script's output consists of:
 ## Evaluation
 
 CoverHunter provided this script to demonstrate how to use your trained model to classify data, aka query data.
-1. Have a pre-trained CoverHunter model's output checkpoint files available. If you use original CoverHunter's pre-trained model from https://drive.google.com/file/d/1rDZ9CDInpxQUvXRLv87mr-hfDfnV7Y-j/view), unzip it, and move it to a folder that you rename to, in this example, 'pretrained_model'.
+1. Have a pre-trained CoverHunter model's output checkpoint files available. You only need your best set (typically your highest-numbered one). If you use original CoverHunter's pre-trained model from https://drive.google.com/file/d/1rDZ9CDInpxQUvXRLv87mr-hfDfnV7Y-j/view), unzip it, and move it to a folder that you rename to, in this example, 'pretrained_model'.
 2. Run your query data through extract_csi_features. In the hparams.yaml file for the feature extraction, turn off all augmentation. See data/covers80_testset/hparams.yaml for an example configuration to treat covers80 as the query data:<br> `python3 -m tools.extract_csi_features data/covers80_testset`<br>
 The important output from that is full.txt and the cqt_feat subfolder's contents.
 3. Run the evaluation script:<br>
 `python3 -m tools.eval_testset pretrained_model data/covers80/dataset.txt data/covers80/dataset.txt` 
 
-CoverHunter seems to have implemented evaluation only when query and reference data are identical. But there is an optional 4th parameter for `query_in_ref_path` that would be relevant if query and reference are not identical. See the "query_in_ref" heading below under "Input and Output Files."
+CoverHunter only implemented evaluation for the case when query and reference data are identical. But there is an optional 4th parameter for `query_in_ref_path` that would be relevant if query and reference are not identical. See the "query_in_ref" heading below under "Input and Output Files."
 
 ## Coarse-to-Fine Alignment Training
 
@@ -173,3 +173,8 @@ The file you can prepare for the tools/eval_testset.py script to pass as the 4th
 - JSON or tab-delimited key:value format
 - The only line contains a single key 'query_in_ref' with a value that is itself a collection of tuples, where each tuple represents a mapping between an index in the query input file and an index in the reference input file.
 This mapping is only used by the _generate_dist_matrix function. That function explains: "List[(idx, idy), ...], means query[idx] is in ref[idy] so we skip that when computing mAP."
+
+## Code Map
+
+Hand-made visualization of how core functions of this project interact with each other:
+https://miro.com/app/board/uXjVNkDkn70=/ 
