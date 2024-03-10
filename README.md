@@ -15,6 +15,9 @@ Fork of [Liu Feng's CoverHunter](https://github.com/Liu-Feng-deeplearning/CoverH
 
 Clone this repo or download it to a folder on your computer. Run the following Unix commands from that folder.
 
+Or run this project in Google Colab, using this Colab notebook:
+https://colab.research.google.com/drive/1HKVT3_0ioRPy7lrKzikGXXGysxZrHpOr?usp=sharing
+
 ## Data Preparation
 
 Follow the example of the prepared Covers80 dataset included with the original CoverHunter. Directions here are for using that prepared data. See also the "dataset.txt format" heading below.
