@@ -52,7 +52,7 @@ class CenterLoss(nn.Module):
     distmat.addmm_(1, -2, x, self.centers.t())
 
     classes = torch.arange(self.num_classes).long()
-    classes = classes.to(device) # unclear whether .mps() is supported here
+    classes = classes.to(device)
     labels = labels.unsqueeze(1).expand(batch_size, self.num_classes)
     mask = labels.eq(classes.expand(batch_size, self.num_classes))
 
@@ -96,16 +96,9 @@ class FocalLoss(nn.Module):
     """
     b = y_pred.size(0)
     y_pred_softmax = torch.nn.Softmax(dim=1)(y_pred) + self._eps
-    ce = -torch.log(y_pred_softmax)
+    ce = -torch.log(y_pred_softmax) # ce refers to cross entropy?
 # =============================================================================
-# original CoverHunter code threw error at ce.gather than it expected index to be of type int64
-# confirmed y_true is on mps. Debug test:
-#     dtype = y_true.view(-1, 1).dtype
-#     print(f"Data type of y_true after reshape: {dtype}")
-#     output: "torch.float32"
-# =============================================================================
-#    dtype = y_true.view(-1, 1).dtype
-#    print(f"Data type of y_true after reshape: {dtype}")
+# original CoverHunter code threw error at ce.gather that it expected index to be of type int64
 #  force to meet ce.gather's expectations of int64 
     y_true = torch.as_tensor(y_true, dtype=torch.int64, device=self.device)
 

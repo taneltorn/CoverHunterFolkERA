@@ -82,7 +82,9 @@ class AttentiveStatisticsPooling(torch.nn.Module):
   def forward_with_mask(self, x: torch.Tensor,
                         lengths: Optional[torch.Tensor] = None):
     """Calculates mean and std for a batch (input tensor).
-
+    
+    Not used in CoverHunter
+    
     Args:
       x : torch.Tensor
           Tensor of shape [N, C, L].
@@ -247,6 +249,7 @@ class Model(BasicModel):
     f_t = self.forward(anchor)
     # print("f_t", f_t)
 
+    # FocalLoss (aka "ce"). Where ce refers to cross entropy?
     f_i = self._bottleneck(f_t)
     ce_pred = self._ce_layer(f_i)
     # print("ce_pred", ce_pred)
