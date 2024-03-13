@@ -43,7 +43,7 @@ Side note: I attempted MPS optimization of CQT feature extraction but failed. Th
 
 ## Training
 
-CoverHunter includes a prepared configuration to train on the Covers80 dataset located in the 'egs/covers80' subfolder of the project. Specify the path to your training data as the one required command-line parameter:
+CoverHunter includes a prepared configuration to run a training session on the Covers80 dataset located in the 'egs/covers80' subfolder of the project. Important note: this default configuration that the CoverHunter authors provided is a nonsense or toy configuration that only demonstrates that you have a working project and environment. It uses the same dataset for both training and validation, so by definition it will rapidly converge and overfit. Specify the path to your training data as the one required command-line parameter:
 
 `python -m tools.train egs/covers80/`
 
