@@ -119,9 +119,10 @@ def _generate_dist_matrixMPS(query_utt_label, query_embed, ref_utt_label=None,
     return dist_matrix, query_label, ref_label
 
 # =============================================================================
-# original CoverHunter, very slow during use of the alignment_for_frame script
+# Original CoverHunter distance matrix function is very slow at scale.
+# During use of the alignment_for_frame script it
 # took 12 minutes vs. 1.5 minutes with the MPS version above on M2 Max chip
-# 
+# =============================================================================
 # def _generate_dist_matrix(query_utt_label, query_embed, ref_utt_label=None,
 #                           ref_embed=None, query_in_ref=None):
 #   """generate distance matrix from query/ref embedding
@@ -256,7 +257,7 @@ def eval_for_map_with_feat(hp, model, embed_dir, query_path, ref_path,
     embed_dir: dir for saving embedding, None for not saving anything
     query_path: contains query info
     ref_path: contains ref info
-    query_in_ref_path: path to store query in ref index, None means that
+    query_in_ref_path: path to prepared query in ref index. None means that
         query index equals ref index
     batch_size: for nnet infer
     device: "mps" or "cuda" or "cpu"
