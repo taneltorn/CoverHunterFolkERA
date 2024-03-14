@@ -242,7 +242,7 @@ def _main():
           testset_name, int(time.time() - start)))
 
     if early_stopping_counter >= early_stopping_patience:
-     logger.info("Early stopping at epoch {} due to lack of avg_ce_loss improvement.".format(epoch))
+     logger.info("Early stopping at epoch {} due to lack of avg_ce_loss (focal aka cross-entropy loss) improvement.".format(epoch))
      break
 
     if only_eval:
