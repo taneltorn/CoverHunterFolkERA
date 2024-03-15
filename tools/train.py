@@ -40,7 +40,7 @@ def _main():
   first_eval = True if only_eval else first_eval
 
   hp = load_hparams(os.path.join(model_dir, "config/hparams.yaml"))
-  match hp['device']: 
+  match hp['device']:
       case 'mps':
           assert torch.backends.mps.is_available(), "You requested 'mps' device in your hyperparameters but you are not running on an Apple M-series chip or have not compiled PyTorch for MPS support."
           device = torch.device('mps')

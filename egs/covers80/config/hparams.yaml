@@ -1,8 +1,8 @@
 
 # Data parameters
-train_path: "data/covers80/full.txt"
-train_sample_path: "data/covers80/full.txt"
-dev_path: "data/covers80/full.txt"
+train_path: "data/covers80/train.txt"
+train_sample_path: "data/covers80/train.txt"
+dev_path: "data/covers80/dev.txt"
 
 covers80:
   query_path: "data/covers80/full.txt"

@@ -43,7 +43,9 @@ Side note: I attempted MPS optimization of CQT feature extraction but failed. Th
 
 ## Training
 
-CoverHunter includes a prepared configuration to run a training session on the Covers80 dataset located in the 'egs/covers80' subfolder of the project. *Important note:* this default configuration that the CoverHunter authors provided is a nonsense or toy configuration that only demonstrates that you have a working project and environment. It uses the same dataset for both training and validation, so by definition it will rapidly converge and overfit.
+CoverHunter includes a prepared configuration to run a training session on the Covers80 dataset located in the 'egs/covers80' subfolder of the project. *Important note:* the default configuration that the CoverHunter authors provided was a nonsense or toy configuration that only demonstrated that you have a working project and environment. It used the same dataset for both training and validation, so by definition it rapidly converged and overfit.
+
+This fork added a train/dev splitting function in the extract_csi_features tool, and built that into the default training hyperparameters. Coming soon: further splitting the train set into train/validation subsets as part of train.
 
 Specify the path to your training data as the one required command-line parameter:
 
@@ -132,7 +134,7 @@ A JSON formatted or tab-delimited key:value text file (see format defined in the
 | wav | relative path to the raw audio file. Example: "data/covers80/wav_16k/annie_lennox+Medusa+03-A_Whiter_Shade_Of_Pale.wav" |
 | dur_s | duration of the audio file in seconds. Example 316.728 |
 | song | title of the song. Example "A_Whiter_Shade_Of_Pale" The _add_song_id() function in extract_csi_features assumes that this string is a unique identifier for the parent cover song (so it can't handle musically distinct songs that happen to have the same title). |
-| version | Not used by CoverHunter? Example "annie_lennox+Medusa+03-A_Whiter_Shade_Of_Pale.mp3" |
+| version | Not used by CoverHunter. Example "annie_lennox+Medusa+03-A_Whiter_Shade_Of_Pale.mp3" |
 
 ## full.txt 
 
