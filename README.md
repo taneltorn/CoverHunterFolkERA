@@ -45,7 +45,7 @@ Side note: I attempted MPS optimization of CQT feature extraction but failed. Th
 
 CoverHunter includes a prepared configuration to run a training session on the Covers80 dataset located in the 'egs/covers80' subfolder of the project. *Important note:* the default configuration that the CoverHunter authors provided was a nonsense or toy configuration that only demonstrated that you have a working project and environment. It used the same dataset for both training and validation, so by definition it rapidly converged and overfit.
 
-This fork added a train/dev splitting function in the extract_csi_features tool, and built that into the default training hyperparameters. Coming soon: further splitting the train set into train/validation subsets as part of train.
+This fork added a train/validate/test data-splitting function in the extract_csi_features tool, along with corresponding new training hyperparameters. Note that CoverHunter used the terms "train/train-sample/dev" for train/validate/test.
 
 Specify the path to your training data as the one required command-line parameter:
 
