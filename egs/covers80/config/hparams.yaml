@@ -54,7 +54,7 @@ lr_decay: 0.99 # 0.9975
 min_lr: 0.0001
 warmup: False
 warmup_steps: 20000
-early_stopping_patience: 12
+early_stopping_patience: 8
 
 # Model parameters
 input_dim: 96
