@@ -290,19 +290,22 @@ def _add_song_id(init_path, out_path, map_path=None):
   return
 
 
-def _split_data_by_song_id(input_path, train_path, test_path, train_ratio=0.8, test_only_percent=0.0):
+def _split_data_by_song_id(input_path, train_path, val_path, test_path, hp):
   """
   Splits data into train and test sets based on song IDs using stratified sampling.
 
   Args:
       input_path: Path to the input data file.
       train_path: Path to write the training data.
+      val_path: Path to write the validation data.
       test_path: Path to write the testing data.
-      train_ratio: Proportion of data for the training set (default: 0.8).
-      test_only_percent: Proportion of unique song IDs to include
-                          only in the test set (default: 0.0).
   """
-
+  # percent of unique song IDs to include only in the val or test sets
+  val_only_percent = hp['train-sample_unseen']
+  test_only_percent = hp['test_data_unseen']
+  val_ratio = hp['train-sample_data_split']
+  test_ratio = hp['test_data_split'] 
+  
   # Dictionary to store song ID counts and shuffled sample lists
   song_data = {}
   for line in read_lines(input_path):
@@ -315,7 +318,8 @@ def _split_data_by_song_id(input_path, train_path, test_path, train_ratio=0.8, t
 
   # Separate songs for test-only and stratified split
   num_songs = len(song_data)
-  test_only_count = int(num_songs * test_only_percent)
+  # ensure minimum of one if non-zero intended
+  test_only_count = max(1, int(num_songs * test_only_percent) if test_only_percent > 0 else 0)
   test_only_songs = random.sample(list(song_data.keys()), test_only_count)  # Randomly select songs for test only
   remaining_songs = {song_id: samples for song_id, samples in song_data.items() if song_id not in test_only_songs}
 
@@ -323,29 +327,50 @@ def _split_data_by_song_id(input_path, train_path, test_path, train_ratio=0.8, t
   test_data = []
   for song_id in test_only_songs:
     test_data.extend(song_data[song_id])
-  del song_data[song_id]  # Remove from further processing
+#  del song_data[song_id]  # Remove from further processing
+
+  # Separate songs for val-only and stratified split
+  # ensure minimum of one if non-zero intended
+  val_only_count = max(1, int(num_songs * val_only_percent) if val_only_percent > 0 else 0)
+  val_only_songs = random.sample(list(remaining_songs.keys()), val_only_count)  # Randomly select songs for val only
+  remaining_songs = {song_id: samples for song_id, samples in remaining_songs.items() if song_id not in val_only_songs}
+
+  # Process songs for val only (all samples to val)
+  val_data = []
+  for song_id in val_only_songs:
+    val_data.extend(song_data[song_id])
+#  del song_data[song_id]  # Remove from further processing
+
 
   # Stratified split for remaining songs
-  train_data, remaining_test_data = [], []
+  train_data, remaining_val_data, remaining_test_data = [], [], []
   for song_id, samples in remaining_songs.items():
     # Randomly shuffle samples for this song ID
     random.shuffle(samples)
 
-    # Calculate split points based on train ratio and minimum samples (1)
+    # Calculate val split points based on train ratio and minimum samples (1)
     min_samples = 1  # Ensure at least 1 sample in each set for remaining songs
-    train_split = int(len(samples) * train_ratio)
-    train_split = max(min_samples, train_split)  # Ensure at least min_samples in train
+    val_split = int(len(samples) * val_ratio)
+    val_split = max(min_samples, val_split)  # Ensure at least min_samples in val
 
-    train_data.extend(samples[:train_split])
-    remaining_test_data.extend(samples[train_split:])
+    # Calculate test split points based on train ratio and minimum samples (1)
+    min_samples = 1  # Ensure at least 1 sample in each set for remaining songs
+    test_split = int(len(samples) * test_ratio)
+    test_split = max(min_samples, test_split)  # Ensure at least min_samples in test
 
-  # Combine remaining test data with test-only data
+    remaining_val_data.extend(samples[:val_split])
+    remaining_test_data.extend(samples[val_split:val_split+test_split])
+    train_data.extend(samples[val_split+test_split:])
+
+  val_data.extend(remaining_val_data)
   test_data.extend(remaining_test_data)
 
   logging.info("Number of samples in train: %s", len(train_data))
+  logging.info("Number of samples in validate: %s", len(val_data))
   logging.info("Number of samples in test: %s", len(test_data))
 
   write_lines(train_path, [dict_to_line(sample) for sample in train_data])
+  write_lines(val_path, [dict_to_line(sample) for sample in val_data])
   write_lines(test_path, [dict_to_line(sample) for sample in test_data])
 
 # =============================================================================
@@ -458,10 +483,12 @@ def _generate_csi_features(hp, feat_dir, start_stage, end_stage):
 #      _speed_aug(init_path, hp["aug_speed_mode"], sp_aug_path, sp_dir)
       _speed_aug_parallel(init_path, hp["aug_speed_mode"], sp_aug_path, sp_dir)
     
+  new_full = False
   full_path = os.path.join(feat_dir, "full.txt")
   if start_stage <= 4 <= end_stage:
     logging.info("Stage 4: extract cqt feature")
     if not os.path.exists(full_path):
+      new_full = True
       cqt_dir = os.path.join(feat_dir, "cqt_feat")
 #    _extract_cqt(sp_aug_path, full_path, cqt_dir)
 #    _extract_cqt_parallelMPS(sp_aug_path, full_path, cqt_dir)
@@ -484,7 +511,7 @@ def _generate_csi_features(hp, feat_dir, start_stage, end_stage):
   if start_stage <= 8 <= end_stage:
     logging.info("Stage 8: add song_id")
 #    song_id_map_path = os.path.join(feat_dir, "song_id.map")
-    if not os.path.exists(full_path):
+    if new_full or not os.path.exists(full_path):
       _add_song_id(full_path, full_path)
 
 # =============================================================================
@@ -505,10 +532,11 @@ def _generate_csi_features(hp, feat_dir, start_stage, end_stage):
 # =============================================================================
 
   if start_stage <= 13 <= end_stage:
-    logging.info("Stage 13:Split data into train and test groups")
+    logging.info("Stage 13:Split data into train / validate / test sets")
     train_path = os.path.join(feat_dir,'train.txt')
+    val_path = os.path.join(feat_dir,'train-sample.txt')
     test_path = os.path.join(feat_dir,'dev.txt')
-    _split_data_by_song_id(full_path,train_path,test_path)
+    _split_data_by_song_id(full_path,train_path,val_path,test_path, hp)
   return
 
 
