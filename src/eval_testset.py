@@ -255,8 +255,8 @@ def eval_for_map_with_feat(hp, model, embed_dir, query_path, ref_path,
     hp: dict contains hparams
     model: nnet model, should have method 'infer'
     embed_dir: dir for saving embedding, None for not saving anything
-    query_path: contains query info
-    ref_path: contains ref info
+    query_path: text file with query utt info
+    ref_path: text file with ref utt info
     query_in_ref_path: path to prepared query in ref index. None means that
         query index equals ref index
     batch_size: for nnet infer
@@ -318,12 +318,13 @@ def eval_for_map_with_feat(hp, model, embed_dir, query_path, ref_path,
   query_embed_dir = os.path.join(embed_dir, "query_embed")
   query_chunk_lines = _cut_lines_with_dur(query_lines, chunk_s, query_embed_dir)
   write_lines(os.path.join(embed_dir, "query.txt"), query_chunk_lines, False)
+  # select query utts for which there is not yet a saved embedding
   to_cal_lines = [l for l in query_chunk_lines
                   if not os.path.exists(line_to_dict(l)["embed"])]
   if logger:
     logger.info("query chunk lines: {}, to compute lines: {}".format(
       len(query_chunk_lines), len(to_cal_lines)))
-
+  # generate any missing embeddings 
   if len(to_cal_lines) > 0:
     data_loader = DataLoader(AudioFeatDataset(hp, data_lines=to_cal_lines,
                                               mode="defined",
@@ -341,6 +342,7 @@ def eval_for_map_with_feat(hp, model, embed_dir, query_path, ref_path,
   ref_chunk_lines = _cut_lines_with_dur(ref_lines, chunk_s, ref_embed_dir)
   write_lines(os.path.join(embed_dir, "ref.txt"), ref_chunk_lines, False)
   if ref_path != query_path:
+    # select ref utts for which there is not yet a saved embedding
     to_cal_lines = [l for l in ref_chunk_lines
                     if not os.path.exists(line_to_dict(l)["embed"])]
     if logger:
