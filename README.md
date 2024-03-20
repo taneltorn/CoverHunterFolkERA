@@ -80,8 +80,7 @@ The important output from that is full.txt and the cqt_feat subfolder's contents
 
 CoverHunter only shared an evaluation example for the case when query and reference data are identical(!). But there is an optional 4th parameter for `query_in_ref_path` that would be relevant if query and reference are not identical. See the "query_in_ref" heading below under "Input and Output Files."
 
-See the "Training checkpoint output" section below for a description of the embeddings saved by the `eval_for_map_with_feat()` function called in this script.
-
+See the "Training checkpoint output" section below for a description of the embeddings saved by the `eval_for_map_with_feat()` function called in this script. They are saved in a new subfolder of the `pretrained_model` folder named `embed_NN_tmp` where NN is the highest-numbered epoch subfolder in the `pretrained_model` folder.
 
 ## Coarse-to-Fine Alignment Training
 
@@ -182,9 +181,9 @@ Listed in the order that the script creates them:
 
 Using the default configuration, training saves checkpoints after each epoch in the egs/covers80 folder. 
 
-The `pt_model` subfolder gets two files per epoch: do_000000NN and g_000000NN where NN=epoch number. The do_ files contain the AdamW optimizer state. The g_ files contain the model's state dictionary. "g" might be an abbreviation for "generator" given that a transfomer architecture is involved?
+The `pt_model` subfolder gets two files per epoch: do_000000NN and g_000000NN where NN=epoch number. The do_ files contain the AdamW optimizer state. The g_ files contain the model's state dictionary. "g" might be an abbreviation for "generator" given that a transformer architecture is involved?
 
-The `eval_for_map_with_feat()` function, called at the end of each epoch, also saves data in separate new subfolder for each epoch, named epoch_NN_covers80. This in turn gets a `query_embed` subfolder containing the model-generated embeddings for every sample in the training data, plus the embeddings for time-chunked sections of those samples, named with a suffix of ...__start-N.npy where N is the timecode in seconds of where the chunk starts. The saved embeddings are 1-dimensional arrays containing 128 double-precision (float64) values between -1 and 1. The epoch_NN_covers80 folder also gets an accompanying file `query.txt` (with an identical copy as `ref.txt`) which is a text file listing the attributes of every training sample represented in the `query_embed` subfolder, following the same format as described above for `full.txt`.
+The `eval_for_map_with_feat()` function, called at the end of each epoch, also saves data in a separate new subfolder for each epoch, named epoch_NN_covers80. This in turn gets a `query_embed` subfolder containing the model-generated embeddings for every sample in the training data, plus the embeddings for time-chunked sections of those samples, named with a suffix of ...__start-N.npy where N is the timecode in seconds of where the chunk starts. The saved embeddings are 1-dimensional arrays containing 128 double-precision (float64) values between -1 and 1. The epoch_NN_covers80 folder also gets an accompanying file `query.txt` (with an identical copy as `ref.txt`) which is a text file listing the attributes of every training sample represented in the `query_embed` subfolder, following the same format as described above for `full.txt`.
 
 ## query_in_ref
 
