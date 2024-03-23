@@ -16,6 +16,27 @@ from src.utils import line_to_dict, dict_to_line
 from src.utils import read_lines, write_lines, RARE_DELIMITER
 
 
+
+def clusterPlot(dist_matrix, ref_labels, output_path):
+    """ 
+    generate t-SNE clustering PNG plot like fig. 3 in the CoverHunter paper 
+    """
+    from sklearn.manifold import TSNE
+    import matplotlib.pyplot as plt
+    
+    model = TSNE(n_components=2, init='random', random_state=0)  # Adjust parameters as needed
+    embedding = model.fit_transform(dist_matrix)
+    
+    unique_labels = np.unique(ref_labels)
+    colors = plt.cm.get_cmap('viridis', len(unique_labels))(np.arange(len(unique_labels)))
+    color_map = {label: color for label, color in zip(unique_labels, colors)}
+    point_colors = [color_map[label] for label in ref_labels]  # Assign colors to points
+
+    plt.figure(figsize=(10, 6))
+    plt.scatter(embedding[:, 0], embedding[:, 1], c=point_colors)
+    plt.title("t-SNE Visualization of Clustering")
+    plt.savefig(output_path)
+
 def _calc_embed(model, query_loader, device, saved_dir=None):
   """ calculate audio embedding
 
@@ -246,7 +267,8 @@ def _cut_lines_with_dur(init_lines, chunk_s, embed_dir):
 def eval_for_map_with_feat(hp, model, embed_dir, query_path, ref_path,
                            query_in_ref_path=None, batch_size=128,
                            num_workers=1,
-                           device='mps', logger=None):
+                           device='mps', logger=None,
+                           plotName=''):
   """compute map10 with trained model and query/ref loader(dataset loader
   can speed up process dramatically)
 
@@ -262,6 +284,7 @@ def eval_for_map_with_feat(hp, model, embed_dir, query_path, ref_path,
     batch_size: for nnet infer
     device: "mps" or "cuda" or "cpu"
     logger:
+    plotName: if a path is provided, save t-SNE plot there
 
   Returns:
     map10
@@ -319,14 +342,14 @@ def eval_for_map_with_feat(hp, model, embed_dir, query_path, ref_path,
   query_chunk_lines = _cut_lines_with_dur(query_lines, chunk_s, query_embed_dir)
   write_lines(os.path.join(embed_dir, "query.txt"), query_chunk_lines, False)
   # select query utts for which there is not yet a saved embedding
-  to_cal_lines = [l for l in query_chunk_lines
+  to_calc_lines = [l for l in query_chunk_lines
                   if not os.path.exists(line_to_dict(l)["embed"])]
   if logger:
     logger.info("query chunk lines: {}, to compute lines: {}".format(
-      len(query_chunk_lines), len(to_cal_lines)))
+      len(query_chunk_lines), len(to_calc_lines)))
   # generate any missing embeddings 
-  if len(to_cal_lines) > 0:
-    data_loader = DataLoader(AudioFeatDataset(hp, data_lines=to_cal_lines,
+  if len(to_calc_lines) > 0:
+    data_loader = DataLoader(AudioFeatDataset(hp, data_lines=to_calc_lines,
                                               mode="defined",
                                               chunk_len=infer_frame),
                              num_workers=num_workers,
@@ -343,13 +366,13 @@ def eval_for_map_with_feat(hp, model, embed_dir, query_path, ref_path,
   write_lines(os.path.join(embed_dir, "ref.txt"), ref_chunk_lines, False)
   if ref_path != query_path:
     # select ref utts for which there is not yet a saved embedding
-    to_cal_lines = [l for l in ref_chunk_lines
+    to_calc_lines = [l for l in ref_chunk_lines
                     if not os.path.exists(line_to_dict(l)["embed"])]
     if logger:
       logger.info("ref chunk lines: {}, to compute lines: {}".format(
-        len(ref_chunk_lines), len(to_cal_lines)))
-    if len(to_cal_lines) > 0:
-      data_loader = DataLoader(AudioFeatDataset(hp, data_lines=to_cal_lines,
+        len(ref_chunk_lines), len(to_calc_lines)))
+    if len(to_calc_lines) > 0:
+      data_loader = DataLoader(AudioFeatDataset(hp, data_lines=to_calc_lines,
                                                 mode="defined",
                                                 chunk_len=infer_frame),
                                num_workers=num_workers,
@@ -399,6 +422,15 @@ def eval_for_map_with_feat(hp, model, embed_dir, query_path, ref_path,
     logger.info("map: {}".format(metrics["mean_ap"]))
     logger.info("rank1: {}".format(metrics["rank1"]))
     logger.info("hit_rate: {}\n".format(metrics["hit_rate"]))
+    
+    
+  if plotName:
+      path = os.path.dirname(plotName)
+      if path!= '':
+        assert os.path.isdir(path), f"Invalid plot path: {plotName}"
+      clusterPlot(dist_matrix,ref_label,plotName) 
+      logger.info("t-SNE plot saved to: {}".format(plotName))
+
   return metrics["mean_ap"], metrics["hit_rate"],  metrics["rank1"]
 
 

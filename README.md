@@ -69,14 +69,17 @@ The training script's output consists of checkpoint files and embedding vectors,
 
 ## Evaluation
 
-CoverHunter provided this script to demonstrate how to use your trained model to classify data, aka query data.
+This script evaluates your trained model by providing mAP and MR1 metrics and an optional t-SNE clustering plot (compare Fig. 3 in the CoverHunter paper).
+
 1. Have a pre-trained CoverHunter model's output checkpoint files available. You only need your best set (typically your highest-numbered one). If you use original CoverHunter's pre-trained model from https://drive.google.com/file/d/1rDZ9CDInpxQUvXRLv87mr-hfDfnV7Y-j/view), unzip it, and move it to a folder that you rename to, in this example, 'pretrained_model'.
 2. Run your query data through extract_csi_features. In the hparams.yaml file for the feature extraction, turn off all augmentation. See data/covers80_testset/hparams.yaml for an example configuration to treat covers80 as the query data:<br> `python3 -m tools.extract_csi_features data/covers80_testset`<br>
 The important output from that is full.txt and the cqt_feat subfolder's contents.
-3. Run the evaluation script. In this example test.txt is the query and train.txt is the reference:<br>
-`python3 -m tools.eval_testset pretrained_model data/covers80/test.txt data/covers80/train.txt`
+3. Run the evaluation script:<br>
+`python3 -m tools.eval_testset egs/covers80 data/covers80_testset/full.txt data/covers80_testset/full.txt -plotName="tSNE.png"`
 
 CoverHunter only shared an evaluation example for the case when query and reference data are identical, presumably to do a self-similarity evaluation of the model. But there is an optional 4th parameter for `query_in_ref_path` that would be relevant if query and reference are not identical. See the "query_in_ref" heading below under "Input and Output Files."
+
+To use the optional t-SNE plot output your query and reference files must be identical.
 
 See the "Training checkpoint output" section below for a description of the embeddings saved by the `eval_for_map_with_feat()` function called in this script. They are saved in a new subfolder of the `pretrained_model` folder named `embed_NN_tmp` where NN is the highest-numbered epoch subfolder in the `pretrained_model` folder.
 
