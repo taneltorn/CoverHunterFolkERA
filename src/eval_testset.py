@@ -18,24 +18,23 @@ from src.utils import read_lines, write_lines, RARE_DELIMITER
 
 def _cluster_plot(dist_matrix, ref_labels, output_path):
     """
-    Generate t-SNE clustering PNG plot with enhanced color-marker differentiation.
+    Generate t-SNE clustering PNG plot. 
+    
+    dist_matrix must be square.
     """
     from sklearn.manifold import TSNE
     import matplotlib.pyplot as plt
     import numpy as np
-    from itertools import cycle
 
     model = TSNE(n_components=2, init='random', random_state=0)  # Adjust parameters as needed
     embedding = model.fit_transform(dist_matrix)
 
     unique_labels = np.unique(ref_labels)
-    cmap_name = 'hsv'  # Replace with your preferred palette name
+    cmap_name = 'hsv'  # use any pyplot palette you like
     # See https://matplotlib.org/stable/api/markers_api.html for style definitions
     marker_styles = ['o', 's', '^', 'p', 'x', 'D']
     num_colors = len(unique_labels) // len(marker_styles)
     colors = plt.get_cmap(cmap_name, num_colors)(range(num_colors))
-
-    num_marker_color_combinations = len(unique_labels) * len(marker_styles)
 
     plt.figure(figsize=(15, 10))
 
@@ -43,8 +42,10 @@ def _cluster_plot(dist_matrix, ref_labels, output_path):
     marker_dict = {}  # Dictionary to store marker style for each label
 
     for i, label in enumerate(unique_labels):
-        color_dict[label] = colors[i % num_colors]  # Assign color for label
-        marker_dict[label] = marker_styles[i % len(marker_styles)]  # Assign marker style for label
+        # Assign color for label
+        color_dict[label] = colors[i % num_colors]  
+        # Assign marker style for label
+        marker_dict[label] = marker_styles[i % len(marker_styles)]  
 
     for i, label in enumerate(unique_labels):
         label_indices = np.where(ref_labels == label)[0]
@@ -164,53 +165,10 @@ def _generate_dist_matrixMPS(query_utt_label, query_embed, ref_utt_label=None,
     return dist_matrix, query_label, ref_label
 
 # =============================================================================
-# Original CoverHunter distance matrix function is very slow at scale.
-# During use of the alignment_for_frame script it
-# took 12 minutes vs. 1.5 minutes with the MPS version above on M2 Max chip
-# =============================================================================
-# def _generate_dist_matrix(query_utt_label, query_embed, ref_utt_label=None,
-#                           ref_embed=None, query_in_ref=None):
-#   """generate distance matrix from query/ref embedding
-# 
-#   Args:
-#     query_utt_label: List[(utt, label), ...],
-#     query_embed: Dict, key is utt, value is List with embed of every chunk
-#     ref_utt_label: List[(utt, label), ...]
-#     ref_embed: Dict, key is utt, value is List with embed of every chunk
-#     query_in_ref: List[(idx, idy), ...], means query[idx] is in ref[idy] so
-#                   we skip that when computing map
-# 
-#   Returns:
-#     dist_matrix: [numpy.ndarray]
-#     query_label:
-#     ref_label:
-# 
-#   """
-#   if ref_utt_label is None and ref_embed is None:
-#     query_in_ref = [(i, i) for i in range(len(query_utt_label))]
-#     ref_utt_label = query_utt_label
-#     ref_embed = query_embed
-# 
-#   dist_matrix = np.zeros([len(query_utt_label), len(ref_utt_label)])
-#   for idx, (utt_query, _) in enumerate(query_utt_label):
-#     for idy, (utt_ref, _) in enumerate(ref_utt_label):
-#       to_choice = []
-#       for embed_x in query_embed[utt_query]:
-#         for embed_y in ref_embed[utt_ref]:
-#           embed_x = embed_x / np.linalg.norm(embed_x)  # todo:
-#           embed_y = embed_y / np.linalg.norm(embed_y)  # todo:
-#           cos_sim = embed_x.dot(embed_y)
-#           dist = 1 - cos_sim
-#           to_choice.append(dist)
-#       dist_matrix[idx, idy] = min(to_choice)
-# 
-#   if query_in_ref:
-#     for idx, idy in query_in_ref:
-#       dist_matrix[idx, idy] = -1  # will be skip when compute map
-# 
-#   query_label = [v for k, v in query_utt_label]
-#   ref_label = [v for k, v in ref_utt_label]
-#   return dist_matrix, query_label, ref_label
+# Original CoverHunter distance matrix function was very slow at scale.
+# It did not use multiprocessing (only one core of the CPU).
+# During use of the alignment_for_frame script it took
+# 12 minutes vs. 1.5 minutes on my M2 Max chip.
 # =============================================================================
 
 
@@ -317,7 +275,6 @@ def eval_for_map_with_feat(hp, model, embed_dir, query_path, ref_path,
 
   """
   if logger:
-    logger.propagate = False
     logger.info("=" * 40)
     logger.info("Start to Eval")
     logger.info("query_path: {}".format(query_path))
@@ -422,11 +379,6 @@ def eval_for_map_with_feat(hp, model, embed_dir, query_path, ref_path,
     ref_utt_label, ref_embed = _load_chunk_embed_from_dir(ref_chunk_lines)
   if logger:
     logger.info("Finish loading embedding and Start to compute dist matrix")
-
-  # original CoverHunter:
-  # dist_matrix, query_label, ref_label = _generate_dist_matrix(
-  #  query_utt_label, query_embed, ref_utt_label, ref_embed,
-  #  query_in_ref=query_in_ref)
 
   # parallelized version for CoverHunterMPS
   dist_matrix, query_label, ref_label = _generate_dist_matrixMPS(

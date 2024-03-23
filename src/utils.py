@@ -262,12 +262,6 @@ def remake_path_for_linux(path):
 
 def create_logger():
   logger = logging.getLogger()
-  ch = logging.StreamHandler()
-  ch.setLevel(logging.INFO)
-  ch.setFormatter(
-    logging.Formatter('%(asctime)s %(levelname)s %(message)s'))
-  logger.addHandler(ch)
-  logger.propagate = False
   return logger
 
 

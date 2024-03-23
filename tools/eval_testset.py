@@ -23,7 +23,7 @@ def _main():
   parser.add_argument('query_path')
   parser.add_argument('ref_path')
   parser.add_argument('-query_in_ref_path', default='', type=str)
-  parser.add_argument('-plot_name', default='', type=str, help='Show a t-SNE plot of the results')
+  parser.add_argument('-plot_name', default='', type=str, help='Save a t-SNE plot of the distance matrix')
 
   args = parser.parse_args()
   model_dir = args.model_dir
@@ -31,7 +31,6 @@ def _main():
   ref_path = args.ref_path
   query_in_ref_path = args.query_in_ref_path
   logger = create_logger()
-  logger.propagate = False # prevent duplicate logger outputs
 
   hp = load_hparams(os.path.join(model_dir, "config/hparams.yaml"))
   logger.info("{}".format(get_hparams_as_string(hp)))
@@ -58,7 +57,7 @@ def _main():
   mean_ap, hit_rate, rank1 = eval_for_map_with_feat(
     hp, model, embed_dir, query_path=query_path,
     ref_path=ref_path, query_in_ref_path=query_in_ref_path,
-    batch_size=64, logger=logger, plot_name = args.plot_name)
+    batch_size=64, logger=logger, plot_name=args.plot_name)
   logger.info("Test, map:{} rank1:{}".format(mean_ap, rank1))
       
   return

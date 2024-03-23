@@ -51,7 +51,6 @@ def _main():
           print("You set device: ",hp['device']," in your hyperparameters but that is not a valid option or is an untested option.")
           exit();
   logger = create_logger()
-  logger.propagate = False
   
   logger.info("{}".format(get_hparams_as_string(hp)))
 
