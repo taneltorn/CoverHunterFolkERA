@@ -319,7 +319,7 @@ def _split_data_by_song_id(input_path, train_path, val_path, test_path, hp):
   # Separate songs for test-only and stratified split
   num_songs = len(song_data)
   # ensure minimum of one if non-zero intended
-  test_only_count = max(1, int(num_songs * test_only_percent) if test_only_percent > 0 else 0)
+  test_only_count = max(1, int(num_songs * test_only_percent)) if test_only_percent > 0 else 0
   test_only_songs = random.sample(list(song_data.keys()), test_only_count)  # Randomly select songs for test only
   remaining_songs = {song_id: samples for song_id, samples in song_data.items() if song_id not in test_only_songs}
 
@@ -331,7 +331,7 @@ def _split_data_by_song_id(input_path, train_path, val_path, test_path, hp):
 
   # Separate songs for val-only and stratified split
   # ensure minimum of one if non-zero intended
-  val_only_count = max(1, int(num_songs * val_only_percent) if val_only_percent > 0 else 0)
+  val_only_count = max(1, int(num_songs * val_only_percent)) if val_only_percent > 0 else 0
   val_only_songs = random.sample(list(remaining_songs.keys()), val_only_count)  # Randomly select songs for val only
   remaining_songs = {song_id: samples for song_id, samples in remaining_songs.items() if song_id not in val_only_songs}
 
@@ -339,39 +339,42 @@ def _split_data_by_song_id(input_path, train_path, val_path, test_path, hp):
   val_data = []
   for song_id in val_only_songs:
     val_data.extend(song_data[song_id])
-#  del song_data[song_id]  # Remove from further processing
 
-
-  # Stratified split for remaining songs
   train_data, remaining_val_data, remaining_test_data = [], [], []
-  for song_id, samples in remaining_songs.items():
-    # Randomly shuffle samples for this song ID
-    random.shuffle(samples)
-
-    # Calculate val split points based on train ratio and minimum samples (1)
-    min_samples = 1  # Ensure at least 1 sample in each set for remaining songs
-    val_split = int(len(samples) * val_ratio)
-    val_split = max(min_samples, val_split)  # Ensure at least min_samples in val
-
-    # Calculate test split points based on train ratio and minimum samples (1)
-    min_samples = 1  # Ensure at least 1 sample in each set for remaining songs
-    test_split = int(len(samples) * test_ratio)
-    test_split = max(min_samples, test_split)  # Ensure at least min_samples in test
-
-    remaining_val_data.extend(samples[:val_split])
-    remaining_test_data.extend(samples[val_split:val_split+test_split])
-    train_data.extend(samples[val_split+test_split:])
-
-  val_data.extend(remaining_val_data)
-  test_data.extend(remaining_test_data)
+  if val_ratio > 0 or test_ratio > 0: # don't bother if 0,0 like for testset CQT generation
+      # Stratified split for remaining songs
+      for song_id, samples in remaining_songs.items():
+        # Randomly shuffle samples for this song ID
+        random.shuffle(samples)
+    
+        # Calculate val split points based on train ratio and minimum samples (1)
+        min_samples = 1  # Ensure at least 1 sample in each set for remaining songs
+        val_split = int(len(samples) * val_ratio)
+        val_split = max(min_samples, val_split)  # Ensure at least min_samples in val
+    
+        # Calculate test split points based on train ratio and minimum samples (1)
+        min_samples = 1  # Ensure at least 1 sample in each set for remaining songs
+        test_split = int(len(samples) * test_ratio)
+        test_split = max(min_samples, test_split)  # Ensure at least min_samples in test
+    
+        remaining_val_data.extend(samples[:val_split])
+        remaining_test_data.extend(samples[val_split:val_split+test_split])
+        train_data.extend(samples[val_split+test_split:])
+    
+      val_data.extend(remaining_val_data)
+      test_data.extend(remaining_test_data)
+  else:
+     train_data.extend(remaining_songs.items())
 
   logging.info("Number of samples in train: %s", len(train_data))
   logging.info("Number of samples in validate: %s", len(val_data))
   logging.info("Number of samples in test: %s", len(test_data))
 
   write_lines(train_path, [dict_to_line(sample) for sample in train_data])
-  write_lines(val_path, [dict_to_line(sample) for sample in val_data])
-  write_lines(test_path, [dict_to_line(sample) for sample in test_data])
+  if len(val_data) > 0:
+    write_lines(val_path, [dict_to_line(sample) for sample in val_data]) 
+  if len(test_data) > 0:
+    write_lines(test_path, [dict_to_line(sample) for sample in test_data])  
 
 # =============================================================================
 # Not needed

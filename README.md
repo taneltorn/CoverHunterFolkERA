@@ -65,9 +65,7 @@ This fork added an hparam.yaml setting of "early_stopping_patience" to support t
 
 Note: Don't use the `torchrun` launch command offered in original CoverHunter. In the single-computer Apple Silicon context, it is not only irrelevant, it actually slows down performance. In my tests it slowed down tools.train performance by about 20%.
 
-The training script's output consists of:
-1. The model checkpoint files contained in the egs/covers80/pt_model folder, organized into epoch-specific subfolders. 
-2. Embedding vectors for each piece of training data, stored as numpy arrays in the embed-{epoch#}-covers80 subfolders, accompanied in each epoch with metadata text files query.txt and ref.txt, which are identical to each other in this case.
+The training script's output consists of checkpoint files and embedding vectors, described below in the "Training checkpoint output" section.
 
 ## Evaluation
 
@@ -75,10 +73,10 @@ CoverHunter provided this script to demonstrate how to use your trained model to
 1. Have a pre-trained CoverHunter model's output checkpoint files available. You only need your best set (typically your highest-numbered one). If you use original CoverHunter's pre-trained model from https://drive.google.com/file/d/1rDZ9CDInpxQUvXRLv87mr-hfDfnV7Y-j/view), unzip it, and move it to a folder that you rename to, in this example, 'pretrained_model'.
 2. Run your query data through extract_csi_features. In the hparams.yaml file for the feature extraction, turn off all augmentation. See data/covers80_testset/hparams.yaml for an example configuration to treat covers80 as the query data:<br> `python3 -m tools.extract_csi_features data/covers80_testset`<br>
 The important output from that is full.txt and the cqt_feat subfolder's contents.
-3. Run the evaluation script:<br>
-`python3 -m tools.eval_testset pretrained_model data/covers80/dataset.txt data/covers80/dataset.txt` 
+3. Run the evaluation script. In this example test.txt is the query and train.txt is the reference:<br>
+`python3 -m tools.eval_testset pretrained_model data/covers80/test.txt data/covers80/train.txt`
 
-CoverHunter only shared an evaluation example for the case when query and reference data are identical(!). But there is an optional 4th parameter for `query_in_ref_path` that would be relevant if query and reference are not identical. See the "query_in_ref" heading below under "Input and Output Files."
+CoverHunter only shared an evaluation example for the case when query and reference data are identical, presumably to do a self-similarity evaluation of the model. But there is an optional 4th parameter for `query_in_ref_path` that would be relevant if query and reference are not identical. See the "query_in_ref" heading below under "Input and Output Files."
 
 See the "Training checkpoint output" section below for a description of the embeddings saved by the `eval_for_map_with_feat()` function called in this script. They are saved in a new subfolder of the `pretrained_model` folder named `embed_NN_tmp` where NN is the highest-numbered epoch subfolder in the `pretrained_model` folder.
 
@@ -179,7 +177,7 @@ Listed in the order that the script creates them:
 
 ## Training checkpoint output
 
-Using the default configuration, training saves checkpoints after each epoch in the egs/covers80 folder. 
+Using the default configuration, training saves checkpoints after each epoch in the egs/covers80 folder.
 
 The `pt_model` subfolder gets two files per epoch: do_000000NN and g_000000NN where NN=epoch number. The do_ files contain the AdamW optimizer state. The g_ files contain the model's state dictionary. "g" might be an abbreviation for "generator" given that a transformer architecture is involved?
 

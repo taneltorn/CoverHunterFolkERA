@@ -40,12 +40,12 @@ def _main():
   first_eval = True if only_eval else first_eval
 
   hp = load_hparams(os.path.join(model_dir, "config/hparams.yaml"))
-  match hp['device']:
+  match hp['device']: #noqa requires python 3.10
       case 'mps':
           assert torch.backends.mps.is_available(), "You requested 'mps' device in your hyperparameters but you are not running on an Apple M-series chip or have not compiled PyTorch for MPS support."
           device = torch.device('mps')
       case 'cuda':
-          assert torch.cuda.is_available(), "You requested 'cuda' device in your hyperparameters but you do have a CUDA-compatible GPU available."
+          assert torch.cuda.is_available(), "You requested 'cuda' device in your hyperparameters but you do not have a CUDA-compatible GPU available."
           device = torch.device('cuda')
       case _:
           print("You set device: ",hp['device']," in your hyperparameters but that is not a valid option or is an untested option.")
