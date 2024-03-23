@@ -75,7 +75,7 @@ This script evaluates your trained model by providing mAP and MR1 metrics and an
 2. Run your query data through extract_csi_features. In the hparams.yaml file for the feature extraction, turn off all augmentation. See data/covers80_testset/hparams.yaml for an example configuration to treat covers80 as the query data:<br> `python3 -m tools.extract_csi_features data/covers80_testset`<br>
 The important output from that is full.txt and the cqt_feat subfolder's contents.
 3. Run the evaluation script:<br>
-`python3 -m tools.eval_testset egs/covers80 data/covers80_testset/full.txt data/covers80_testset/full.txt -plotName="tSNE.png"`
+`python3 -m tools.eval_testset egs/covers80 data/covers80_testset/full.txt data/covers80_testset/full.txt -plot_name="tSNE.png"`
 
 CoverHunter only shared an evaluation example for the case when query and reference data are identical, presumably to do a self-similarity evaluation of the model. But there is an optional 4th parameter for `query_in_ref_path` that would be relevant if query and reference are not identical. See the "query_in_ref" heading below under "Input and Output Files."
 

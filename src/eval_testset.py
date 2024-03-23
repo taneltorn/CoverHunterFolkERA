@@ -16,24 +16,48 @@ from src.utils import line_to_dict, dict_to_line
 from src.utils import read_lines, write_lines, RARE_DELIMITER
 
 
-
-def clusterPlot(dist_matrix, ref_labels, output_path):
-    """ 
-    generate t-SNE clustering PNG plot like fig. 3 in the CoverHunter paper 
+def _cluster_plot(dist_matrix, ref_labels, output_path):
+    """
+    Generate t-SNE clustering PNG plot with enhanced color-marker differentiation.
     """
     from sklearn.manifold import TSNE
     import matplotlib.pyplot as plt
-    
+    import numpy as np
+    from itertools import cycle
+
     model = TSNE(n_components=2, init='random', random_state=0)  # Adjust parameters as needed
     embedding = model.fit_transform(dist_matrix)
-    
-    unique_labels = np.unique(ref_labels)
-    colors = plt.cm.get_cmap('viridis', len(unique_labels))(np.arange(len(unique_labels)))
-    color_map = {label: color for label, color in zip(unique_labels, colors)}
-    point_colors = [color_map[label] for label in ref_labels]  # Assign colors to points
 
-    plt.figure(figsize=(10, 6))
-    plt.scatter(embedding[:, 0], embedding[:, 1], c=point_colors)
+    unique_labels = np.unique(ref_labels)
+    cmap_name = 'hsv'  # Replace with your preferred palette name
+    # See https://matplotlib.org/stable/api/markers_api.html for style definitions
+    marker_styles = ['o', 's', '^', 'p', 'x', 'D']
+    num_colors = len(unique_labels) // len(marker_styles)
+    colors = plt.get_cmap(cmap_name, num_colors)(range(num_colors))
+
+    num_marker_color_combinations = len(unique_labels) * len(marker_styles)
+
+    plt.figure(figsize=(15, 10))
+
+    color_dict = {}  # Dictionary to store color for each label
+    marker_dict = {}  # Dictionary to store marker style for each label
+
+    for i, label in enumerate(unique_labels):
+        color_dict[label] = colors[i % num_colors]  # Assign color for label
+        marker_dict[label] = marker_styles[i % len(marker_styles)]  # Assign marker style for label
+
+    for i, label in enumerate(unique_labels):
+        label_indices = np.where(ref_labels == label)[0]
+        color = color_dict[label]
+        marker = marker_dict[label]
+        plt.scatter(
+            embedding[label_indices, 0],
+            embedding[label_indices, 1],
+            color=color,
+            marker=marker,
+            label=label
+        )
+
     plt.title("t-SNE Visualization of Clustering")
     plt.savefig(output_path)
 
@@ -268,7 +292,7 @@ def eval_for_map_with_feat(hp, model, embed_dir, query_path, ref_path,
                            query_in_ref_path=None, batch_size=128,
                            num_workers=1,
                            device='mps', logger=None,
-                           plotName=''):
+                           plot_name=''):
   """compute map10 with trained model and query/ref loader(dataset loader
   can speed up process dramatically)
 
@@ -284,7 +308,7 @@ def eval_for_map_with_feat(hp, model, embed_dir, query_path, ref_path,
     batch_size: for nnet infer
     device: "mps" or "cuda" or "cpu"
     logger:
-    plotName: if a path is provided, save t-SNE plot there
+    plot_name: if a path is provided, save t-SNE plot there
 
   Returns:
     map10
@@ -424,12 +448,12 @@ def eval_for_map_with_feat(hp, model, embed_dir, query_path, ref_path,
     logger.info("hit_rate: {}\n".format(metrics["hit_rate"]))
     
     
-  if plotName:
-      path = os.path.dirname(plotName)
+  if plot_name:
+      path = os.path.dirname(plot_name)
       if path!= '':
-        assert os.path.isdir(path), f"Invalid plot path: {plotName}"
-      clusterPlot(dist_matrix,ref_label,plotName) 
-      logger.info("t-SNE plot saved to: {}".format(plotName))
+        assert os.path.isdir(path), f"Invalid plot path: {plot_name}"
+      _cluster_plot(dist_matrix,ref_label,plot_name) 
+      logger.info("t-SNE plot saved to: {}".format(plot_name))
 
   return metrics["mean_ap"], metrics["hit_rate"],  metrics["rank1"]
 
