@@ -8,7 +8,7 @@ See https://ar5iv.labs.arxiv.org/html/2306.09025 for the July 2023 research pape
 
 1. Either: 
     1. Apple computer with an Apple M-series chip
-    2. Other computer with an Nvidia GPU
+    2. Other computer with an Nvidia GPU (including free cloud options like Google Colab)
 2. python3 (minimum version 3.10, tested on 3.11)
 3. PyTorch with either CUDA or MPS support enabled.
 4. sox and therefore also a Java runtime
@@ -53,7 +53,7 @@ Specify the path where the training hyperparameters are available (in this case 
 
 `python -m tools.train egs/covers80/`
 
-This fork also added an optional --runid parameter so you can distinguish your training runs in TensorBoard in case you are experimenting:
+This fork also added an optional `--runid` parameter so you can distinguish your training runs in TensorBoard in case you are experimenting:
 
 `python -m tools.train egs/covers80/ --runid 'first try'`
 
@@ -63,7 +63,7 @@ To see the TensorBoard visualization of the training progress:
 
 Optionally edit the hparams.yaml configuration file in the folder 'egs/covers80/config' before starting a training run.
 
-This fork added an hparam.yaml setting of "early_stopping_patience" to support the added feature of early stopping (original CoverHunter defaulted to 10,000 epochs!).
+This fork added an hparam.yaml setting of `early_stopping_patience` to support the added feature of early stopping (original CoverHunter defaulted to 10,000 epochs!).
 
 Note: Don't use the `torchrun` launch command offered in original CoverHunter. In the single-computer Apple Silicon context, it is not only irrelevant, it actually slows down performance. In my tests it slowed down tools.train performance by about 20%.
 
