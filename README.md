@@ -47,7 +47,7 @@ CoverHunter includes a prepared configuration to run a training session on the C
 
 This fork added a train/validate/test data-splitting function in the extract_csi_features tool, along with corresponding new training hyperparameters. Note that CoverHunter used the terms "train/train-sample/dev" for train/validate/test.
 
-Specify the path where the training hyperparameters are available (in this case usinge the provided example for covers80) and where the model output will go, as the one required command-line parameter:
+Specify the path where the training hyperparameters are available (in this case using the provided example for covers80) and where the model output will go, as the one required command-line parameter:
 
 `python -m tools.train egs/covers80/`
 
@@ -85,7 +85,7 @@ See the "Training checkpoint output" section below for a description of the embe
 
 ## Coarse-to-Fine Alignment Training
 
-The command to launch the alignment script that CoverHunter included is:
+CoverHunter did not include an implementation of the coarse-to-fine alignment training described in the research paper. (Liu Feng confirmed to me that his employer considers it proprietary technology). But it did include this script which apparently could be useful as part of an implementation we could build ourselves. The command to launch the alignment script that CoverHunter included is:
 
 `python3 -m tools.alignment_for_frame pretrained_model data/covers80/full.txt data/covers80/alignment.txt`
 
