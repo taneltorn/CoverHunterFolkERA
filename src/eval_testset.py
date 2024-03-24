@@ -21,10 +21,12 @@ def _cluster_plot(dist_matrix, ref_labels, output_path):
     Generate t-SNE clustering PNG plot. 
     
     dist_matrix must be square.
+    
+    Cycle through marker-color combinations to reuse them as little as possible,
+    and to maximize color differentiation.
     """
     from sklearn.manifold import TSNE
     import matplotlib.pyplot as plt
-    import numpy as np
 
     model = TSNE(n_components=2, init='random', random_state=0)  # Adjust parameters as needed
     embedding = model.fit_transform(dist_matrix)
@@ -61,6 +63,7 @@ def _cluster_plot(dist_matrix, ref_labels, output_path):
 
     plt.title("t-SNE Visualization of Clustering")
     plt.savefig(output_path)
+
 
 def _calc_embed(model, query_loader, device, saved_dir=None):
   """ calculate audio embedding
@@ -250,7 +253,7 @@ def eval_for_map_with_feat(hp, model, embed_dir, query_path, ref_path,
                            query_in_ref_path=None, batch_size=128,
                            num_workers=1,
                            device='mps', logger=None,
-                           plot_name=''):
+                           plot_name='', dist_name=''):
   """compute map10 with trained model and query/ref loader(dataset loader
   can speed up process dramatically)
 
@@ -267,6 +270,7 @@ def eval_for_map_with_feat(hp, model, embed_dir, query_path, ref_path,
     device: "mps" or "cuda" or "cpu"
     logger:
     plot_name: if a path is provided, save t-SNE plot there
+    dist_name: if a path is provided, save dist_matrix there
 
   Returns:
     map10
@@ -385,6 +389,27 @@ def eval_for_map_with_feat(hp, model, embed_dir, query_path, ref_path,
   query_utt_label, query_embed, ref_utt_label, ref_embed,
   query_in_ref=query_in_ref)
 
+  if dist_name:
+      path = os.path.dirname(dist_name)
+      if path!= '':
+        assert os.path.isdir(path), f"Invalid dist_name path: {plot_name}"
+      if not dist_name.endswith('.npy'):
+        label_path = dist_name + '.reflabels'
+        dist_name += '.npy'
+      else:
+        label_path = dist_name[:-4] + '.reflabels'
+      np.save(dist_name, dist_matrix) 
+      np.save(label_path, ref_label)
+      logger.info("distance matrix saved to: {}".format(dist_name))
+      logger.info("ref labels saved to: {}".format(label_path))
+
+  if plot_name:
+      path = os.path.dirname(plot_name)
+      if path!= '':
+        assert os.path.isdir(path), f"Invalid plot path: {plot_name}"
+      _cluster_plot(dist_matrix,ref_label,plot_name) 
+      logger.info("t-SNE plot saved to: {}".format(plot_name))
+
   if logger:
     logger.info("Finish computing distance matrix and Start to compute map")
     logger.info(
@@ -399,13 +424,8 @@ def eval_for_map_with_feat(hp, model, embed_dir, query_path, ref_path,
     logger.info("rank1: {}".format(metrics["rank1"]))
     logger.info("hit_rate: {}\n".format(metrics["hit_rate"]))
     
-    
-  if plot_name:
-      path = os.path.dirname(plot_name)
-      if path!= '':
-        assert os.path.isdir(path), f"Invalid plot path: {plot_name}"
-      _cluster_plot(dist_matrix,ref_label,plot_name) 
-      logger.info("t-SNE plot saved to: {}".format(plot_name))
+
+
 
   return metrics["mean_ap"], metrics["hit_rate"],  metrics["rank1"]
 

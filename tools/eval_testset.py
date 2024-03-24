@@ -23,7 +23,8 @@ def _main():
   parser.add_argument('query_path')
   parser.add_argument('ref_path')
   parser.add_argument('-query_in_ref_path', default='', type=str)
-  parser.add_argument('-plot_name', default='', type=str, help='Save a t-SNE plot of the distance matrix')
+  parser.add_argument('-plot_name', default='', type=str, help='Save a t-SNE plot of the distance matrix to this path')
+  parser.add_argument('-dist_name', default='', type=str, help='Save the distance matrix to this path')
 
   args = parser.parse_args()
   model_dir = args.model_dir
@@ -57,8 +58,7 @@ def _main():
   mean_ap, hit_rate, rank1 = eval_for_map_with_feat(
     hp, model, embed_dir, query_path=query_path,
     ref_path=ref_path, query_in_ref_path=query_in_ref_path,
-    batch_size=64, logger=logger, plot_name=args.plot_name)
-  logger.info("Test, map:{} rank1:{}".format(mean_ap, rank1))
+    batch_size=64, logger=logger, plot_name=args.plot_name, dist_name=args.dist_name)
       
   return
 
