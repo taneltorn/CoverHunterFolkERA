@@ -18,7 +18,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from torch import nn
-from typeguard import check_argument_types
+# from typeguard import typechecked
 
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s %(levelname)s %(message)s')
@@ -794,6 +794,7 @@ class RelPositionMultiHeadedAttention(MultiHeadedAttention):
 
 
 # # *** Conv Module *** # #
+#@typechecked
 class ConvolutionModule(nn.Module):
   """ConvolutionModule in Conformer model."""
 
@@ -810,7 +811,6 @@ class ConvolutionModule(nn.Module):
             kernel_size (int): Kernel size of conv layers.
             causal (int): Whether use causal convolution or not
         """
-    assert check_argument_types()
     super().__init__()
 
     self.pointwise_conv1 = nn.Conv1d(
@@ -1103,6 +1103,7 @@ class ConformerEncoderLayer(torch.nn.Module):
     return x, mask, new_att_cache, new_cnn_cache
 
 
+#@typechecked
 class ConformerEncoder(torch.nn.Module):
   def __init__(
       self,
@@ -1163,7 +1164,6 @@ class ConformerEncoder(torch.nn.Module):
             use_dynamic_left_chunk (bool): whether use dynamic left chunk in
                 dynamic chunk training
         """
-    assert check_argument_types()
     logging.info("Init Conformer layers::")
     super().__init__()
     self._output_size = output_size

@@ -6,12 +6,10 @@
 
 import logging
 from typing import List
-import os
-import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from typeguard import check_argument_types
+# from typeguard import typechecked
 
 
 class CenterLoss(nn.Module):
@@ -52,7 +50,7 @@ class CenterLoss(nn.Module):
     distmat.addmm_(1, -2, x, self.centers.t())
 
     classes = torch.arange(self.num_classes).long()
-    classes = classes.to(device)
+    classes = classes.to(self.device)
     labels = labels.unsqueeze(1).expand(batch_size, self.num_classes)
     mask = labels.eq(classes.expand(batch_size, self.num_classes))
 
@@ -62,14 +60,13 @@ class CenterLoss(nn.Module):
     return loss
 
 
+# @typechecked
 class FocalLoss(nn.Module):
   """ Focal Loss implement for https://arxiv.org/abs/1708.02002 """
 
   def __init__(self, gamma: float = 2., alpha: List = None, num_cls: int = -1,
                reduction: str = 'mean', device='mps'):
-
     super(FocalLoss, self).__init__()
-    assert check_argument_types()
     if reduction not in ['mean', 'sum']:
       raise NotImplementedError(
         'Reduction {} not implemented.'.format(reduction))
