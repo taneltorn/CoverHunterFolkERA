@@ -47,7 +47,7 @@ CoverHunter includes a prepared configuration to run a training session on the C
 
 This fork added a train/validate/test data-splitting function in the extract_csi_features tool, along with corresponding new training hyperparameters. Note that CoverHunter used the terms "train/train-sample/dev" for train/validate/test.
 
-Specify the path to your training data as the one required command-line parameter:
+Specify the path where the training hyperparameters are available (in this case usinge the provided example for covers80) and where the model output will go, as the one required command-line parameter:
 
 `python -m tools.train egs/covers80/`
 
