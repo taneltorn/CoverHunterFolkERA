@@ -290,7 +290,7 @@ def _add_song_id(init_path, out_path, map_path=None):
   return
 
 
-def _split_data_by_song_id(input_path, train_path, val_path, test_path, hp):
+def _split_data_by_song_id(input_path, train_path, val_path, test_path, test_song_ids_path, hp):
   """
   Splits data into train and test sets based on song IDs using stratified sampling.
 
@@ -299,6 +299,7 @@ def _split_data_by_song_id(input_path, train_path, val_path, test_path, hp):
       train_path: Path to write the training data.
       val_path: Path to write the validation data.
       test_path: Path to write the testing data.
+      test_song_ids_path: Path to write a list of song_ids reserved for test
   """
   # percent of unique song IDs to include only in the val or test sets
   val_only_percent = hp['train-sample_unseen']
@@ -320,14 +321,14 @@ def _split_data_by_song_id(input_path, train_path, val_path, test_path, hp):
   num_songs = len(song_data)
   # ensure minimum of one if non-zero intended
   test_only_count = max(1, int(num_songs * test_only_percent)) if test_only_percent > 0 else 0
-  test_only_songs = random.sample(list(song_data.keys()), test_only_count)  # Randomly select songs for test only
+  # Randomly select songs for test only
+  test_only_songs = random.sample(list(song_data.keys()), test_only_count)
   remaining_songs = {song_id: samples for song_id, samples in song_data.items() if song_id not in test_only_songs}
 
   # Process songs for test only (all samples to test)
   test_data = []
   for song_id in test_only_songs:
     test_data.extend(song_data[song_id])
-#  del song_data[song_id]  # Remove from further processing
 
   # Separate songs for val-only and stratified split
   # ensure minimum of one if non-zero intended
@@ -375,6 +376,9 @@ def _split_data_by_song_id(input_path, train_path, val_path, test_path, hp):
     write_lines(val_path, [dict_to_line(sample) for sample in val_data]) 
   if len(test_data) > 0:
     write_lines(test_path, [dict_to_line(sample) for sample in test_data])  
+  if len(test_only_songs) > 0:
+    write_lines(test_song_ids_path, [dict_to_line(song) for song in test_only_songs])  
+
 
 # =============================================================================
 # Not needed
@@ -477,7 +481,7 @@ def _generate_csi_features(hp, feat_dir, start_stage, end_stage):
 
   # aug_speed_mode is a list like: [0.8, 0.9, 1.0, 1.1, 1.2]
   # do include 1.0 to include original speed.
-  # Anything between .99 and 1.01 will be ignored and just pass along the original file.
+  # Anything between .99 and 1.01 will be ignored, instead passing along the original file.
   sp_aug_path = os.path.join(feat_dir, "sp_aug.txt")
   if start_stage <= 3 <= end_stage:
     logging.info("Stage 3: speed augmentation")
@@ -539,7 +543,8 @@ def _generate_csi_features(hp, feat_dir, start_stage, end_stage):
     train_path = os.path.join(feat_dir,'train.txt')
     val_path = os.path.join(feat_dir,'train-sample.txt')
     test_path = os.path.join(feat_dir,'dev.txt')
-    _split_data_by_song_id(full_path,train_path,val_path,test_path, hp)
+    test_song_ids_path = os.path.join(feat_dir,'dev-only-song-ids.txt')
+    _split_data_by_song_id(full_path,train_path,val_path,test_path,test_song_ids_path, hp)
   return
 
 

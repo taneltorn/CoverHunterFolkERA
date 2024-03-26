@@ -228,7 +228,7 @@ def _main():
         embed_dir = os.path.join(model_dir,
                                  "embed_{}_{}".format(epoch, save_name))
         query_in_ref_path = hp_test.get("query_in_ref_path", None)
-        mean_ap, hit_rate, _ = eval_for_map_with_feat( # added _ to avoid unpacking error in original CoverHunter
+        mean_ap, hit_rate, _ = eval_for_map_with_feat(
           hp, model, embed_dir, query_path=hp_test["query_path"],
           ref_path=hp_test["ref_path"], query_in_ref_path=query_in_ref_path,
           batch_size=hp["batch_size"], device=device, logger=logger)

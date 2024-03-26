@@ -110,10 +110,10 @@ There are two different hparams.yaml files, each used at different stages.
 | --- | --- |
 |add_noise| Original CoverHunter provided the example of: <div>{<br> &nbsp; "prob": 0.75,<br> &nbsp; "sr": 16000,<br> &nbsp; "chunk": 3,<br> &nbsp; "name": "cqt_with_asr_noise",<br> &nbsp; "noise_path": "dataset/asr_as_noise/dataset.txt"<br>}<br>However, the CoverHunter repo did not include whatever might supposed to be in "dataset/asr_as_noise/dataset.txt" file nor does the CoverHunter research paper describe it. If that path does not exist in your project folder structure, then tools.extract_csi_features will just skip the stage of adding noise augmentation. At least for training successfully on Covers80, noise augmentation doesn't seem to be needed.|
 | aug_speed_mode | list of ratios used in tools.extract_csi_features for speed augmention of your raw training data. Example: [0.8, 0.9, 1.0, 1.1, 1.2] means use 80%, 90%, 100%, 110%, and 120% speed variants of your original audio data.|
-| train-sample_data_split | percent of training data to reserve for validation aka "train-sample" |
-| train-sample_unseen |percent of song_ids from training data to reserve exclusively for validation aka "train-sample" |
-| test_data_split | percent of training data to reserve for test aka "dev" |
-| test_data_unseen | percent of song_ids from training data to reserve exclusively for test aka "dev" |
+| train-sample_data_split | percent of training data to reserve for validation aka "train-sample" expressed as a fraction of 1. Example for 10%: 0.1 |
+| train-sample_unseen | percent of song_ids from training data to reserve exclusively for validation aka "train-sample" expressed as a fraction of 1. Example for 2%: 0.02 |
+| test_data_split | percent of training data to reserve for test aka "dev" expressed as a fraction of 1. Example for 10%: 0.1 |
+| test_data_unseen | percent of song_ids from training data to reserve exclusively for test aka "dev" expressed as a fraction of 1. Example for 2%: 0.02  |
 
 2. The one located in the "config" subfolder of the path you provide on the command line to tools.train uses all the other parameters listed below during training.
 

@@ -16,12 +16,15 @@ from src.utils import line_to_dict, dict_to_line
 from src.utils import read_lines, write_lines, RARE_DELIMITER
 
 
-def _cluster_plot(dist_matrix, ref_labels, output_path):
+def _cluster_plot(dist_matrix, ref_labels, output_path, test_only_labels=[],logger=None):
     """
     Generate t-SNE clustering PNG plot. 
     
     dist_matrix must be square.
-    
+    test_only_labels is an optional list of labels (song_ids) that will be marked in the plot
+        to visually distinguish samples of song IDs that were excluded from 
+        the training and validation datasets.
+  
     Cycle through marker-color combinations to reuse them as little as possible,
     and to maximize color differentiation.
     """
@@ -38,7 +41,7 @@ def _cluster_plot(dist_matrix, ref_labels, output_path):
     num_colors = len(unique_labels) // len(marker_styles)
     colors = plt.get_cmap(cmap_name, num_colors)(range(num_colors))
 
-    plt.figure(figsize=(15, 10))
+    plt.figure(figsize=(15, 15))
 
     color_dict = {}  # Dictionary to store color for each label
     marker_dict = {}  # Dictionary to store marker style for each label
@@ -48,21 +51,41 @@ def _cluster_plot(dist_matrix, ref_labels, output_path):
         color_dict[label] = colors[i % num_colors]  
         # Assign marker style for label
         marker_dict[label] = marker_styles[i % len(marker_styles)]  
+    print(test_only_labels)
 
     for i, label in enumerate(unique_labels):
         label_indices = np.where(ref_labels == label)[0]
         color = color_dict[label]
         marker = marker_dict[label]
+        if label in test_only_labels:
+            logger.info("test_only_label: {}".format(label))
+            # Loop through each coordinate for this label
+            for j in range(len(label_indices)):
+                x = embedding[label_indices[j], 0]
+                y = embedding[label_indices[j], 1]
+
+                plt.gca().add_artist(plt.Circle(
+                    (x, y),
+                    radius=0.4,
+                    color='black',
+                    linewidth=1,
+                    fill=False,
+                    zorder=2
+                ))
         plt.scatter(
             embedding[label_indices, 0],
             embedding[label_indices, 1],
             color=color,
             marker=marker,
             label=label
-        )
+            )
 
     plt.title("t-SNE Visualization of Clustering")
+    if test_only_labels:
+        plt.text(1, 1.02, "Circles = song_ids not seen in training", ha='right', va='bottom', transform=plt.gca().transAxes)
+
     plt.savefig(output_path)
+    plt.close()
 
 
 def _calc_embed(model, query_loader, device, saved_dir=None):
@@ -253,7 +276,7 @@ def eval_for_map_with_feat(hp, model, embed_dir, query_path, ref_path,
                            query_in_ref_path=None, batch_size=128,
                            num_workers=1,
                            device='mps', logger=None,
-                           plot_name='', dist_name=''):
+                           plot_name='', dist_name='', test_only_labels=[]):
   """compute map10 with trained model and query/ref loader(dataset loader
   can speed up process dramatically)
 
@@ -271,6 +294,7 @@ def eval_for_map_with_feat(hp, model, embed_dir, query_path, ref_path,
     logger:
     plot_name: if a path is provided, save t-SNE plot there
     dist_name: if a path is provided, save dist_matrix there
+    test_only_labels: see explanation in _cluster_plot()
 
   Returns:
     map10
@@ -407,7 +431,8 @@ def eval_for_map_with_feat(hp, model, embed_dir, query_path, ref_path,
       path = os.path.dirname(plot_name)
       if path!= '':
         assert os.path.isdir(path), f"Invalid plot path: {plot_name}"
-      _cluster_plot(dist_matrix,ref_label,plot_name) 
+      
+      _cluster_plot(dist_matrix,ref_label,plot_name,test_only_labels, logger) 
       logger.info("t-SNE plot saved to: {}".format(plot_name))
 
   if logger:
