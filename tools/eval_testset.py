@@ -23,8 +23,8 @@ def _main():
   parser.add_argument('query_path')
   parser.add_argument('ref_path')
   parser.add_argument('-query_in_ref_path', default='', type=str)
-  parser.add_argument('-test_only_labels', default='', type=str, help='Path to list of song_ids reserved for test dataset for use in t-SNE plot.')
   parser.add_argument('-plot_name', default='', type=str, help='Save a t-SNE plot of the distance matrix to this path')
+  parser.add_argument('-test_only_labels', default='', type=str, help='Path to list of song_ids reserved for test dataset for use in t-SNE plot.')
   parser.add_argument('-dist_name', default='', type=str, help='Save the distance matrix to this path')
 
   args = parser.parse_args()

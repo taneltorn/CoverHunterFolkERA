@@ -40,7 +40,6 @@ def _cluster_plot(dist_matrix, ref_labels, output_path, test_only_labels=[],logg
     marker_styles = ['o', 's', '^', 'p', 'x', 'D']
     num_colors = len(unique_labels) // len(marker_styles)
     colors = plt.get_cmap(cmap_name, num_colors)(range(num_colors))
-
     plt.figure(figsize=(15, 15))
 
     color_dict = {}  # Dictionary to store color for each label
@@ -84,6 +83,7 @@ def _cluster_plot(dist_matrix, ref_labels, output_path, test_only_labels=[],logg
     if test_only_labels:
         plt.text(1, 1.02, "Circles = song_ids not seen in training", ha='right', va='bottom', transform=plt.gca().transAxes)
 
+    plt.tight_layout()
     plt.savefig(output_path)
     plt.close()
 

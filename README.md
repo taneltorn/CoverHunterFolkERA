@@ -64,7 +64,7 @@ To see the TensorBoard visualization of the training progress:
 
 Optionally edit the `hparams.yaml` configuration file in the folder `egs/covers80/config` before starting a training run.
 
-This fork added an hparam.yaml setting of `early_stopping_patience` to support the added feature of early stopping (original CoverHunter defaulted to 10,000 epochs!).
+This fork added the hyperparameter `early_stopping_patience` to support the added feature of early stopping (original CoverHunter defaulted to 10,000 epochs!).
 
 Note: Don't use the `torchrun` launch command offered in original CoverHunter. In the single-computer Apple Silicon context, it is not only irrelevant, it actually slows down performance. In my tests it slowed down tools.train performance by about 20%.
 
@@ -90,7 +90,6 @@ This figure shows the results of training from scratch on the covers80 dataset w
 ![t-SNE plot for Covers80](tSNE-example.png)
 
 The optional `dist_name` argument is a path where you want to save the distance matrix and ref labels so that you can study the results separately, such as perhaps doing custom t-SNE plots, etc.
-
  
 See the "Training checkpoint output" section below for a description of the embeddings saved by the `eval_for_map_with_feat()` function called in this script. They are saved in a new subfolder of the `pretrained_model` folder named `embed_NN_tmp` where NN is the highest-numbered epoch subfolder in the `pretrained_model` folder.
 
