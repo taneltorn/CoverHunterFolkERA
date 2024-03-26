@@ -25,14 +25,14 @@ https://colab.research.google.com/drive/1HKVT3_0ioRPy7lrKzikGXXGysxZrHpOr?usp=sh
 
 Follow the example of the prepared Covers80 dataset included with the original CoverHunter. Directions here are for using that prepared data. See also the "dataset.txt format" heading below.
 
-1. Download and extract the contents of the covers80.tgz file from http://labrosa.ee.columbia.edu/projects/coversongs/covers80/
+1. Download and extract the contents of the `covers80.tgz` file from http://labrosa.ee.columbia.edu/projects/coversongs/covers80/
 2. Abandon the 2-level folder structure that came inside the covers80.tgz file, flattening so all the .mp3 files are in the same folder. One way to do this is:
-    1. In Terminal, go to the extracted "coversongs" folder as the current directory. Then: 
+    1. In Terminal, go to the extracted `coversongs` folder as the current directory. Then: 
     2. `cd covers32k && mv */* .; rm -r */`
 3. Convert all the provided .mp3 files to .wav format. One way to do this is:
     1. `setopt EXTENDED_GLOB; for f in *.mp3; do sox "$f" -r 16000 "${f%%.mp3}.wav" && rm "$f"; done`
-4. Move all these new .wav files to a new folder called "wav_16k" in the project "data/covers80" folder.
-5. You can delete the rest of the downloaded covers80.tgz contents.
+4. Move all these new .wav files to a new folder called `wav_16k` in the project's `data/covers80` folder.
+5. You can delete the rest of the downloaded `covers80.tgz` contents.
 
 ## Feature Extraction
 
@@ -42,13 +42,13 @@ From the project root folder, run:
 
 `python3 -m tools.extract_csi_features data/covers80/`
 
-Side note: I attempted MPS optimization of CQT feature extraction but failed. The main issue is that PyTorch MPS implementation is very incomplete for many of the tensor operations involved in this CQT implementation. Even the core fft() function just became available with torch torch-2.3.0.dev20240222 or higher. See my comments in extract_csi_features.py and cqt.py.
+Side note: I attempted MPS optimization of CQT feature extraction but failed. The main issue is that PyTorch MPS implementation is very incomplete for many of the tensor operations involved in this CQT implementation. Even the core `fft()` function just became available with PyTorch torch-2.3.0.dev20240222 or higher. See my comments in `extract_csi_features.py` and `cqt.py`.
 
 ## Training
 
 CoverHunter includes a prepared configuration to run a training session on the Covers80 dataset located in the 'egs/covers80' subfolder of the project. *Important note:* the default configuration that the CoverHunter authors provided was a nonsense or toy configuration that only demonstrated that you have a working project and environment. It used the same dataset for both training and validation, so by definition it rapidly converged and overfit.
 
-This fork added a train/validate/test data-splitting function in the extract_csi_features tool, along with corresponding new training hyperparameters. Note that CoverHunter used the terms "train/train-sample/dev" for train/validate/test.
+This fork added a train/validate/test data-splitting function in the extract_csi_features tool, along with corresponding new training hyperparameters. Note that CoverHunter used the terms "train / train-sample / dev" for train / validate / test.
 
 Specify the path where the training hyperparameters are available (in this case using the provided example for covers80) and where the model output will go, as the one required command-line parameter:
 
@@ -62,7 +62,7 @@ To see the TensorBoard visualization of the training progress:
 
 `tensorboard --logdir=egs/covers80/logs`
 
-Optionally edit the hparams.yaml configuration file in the folder 'egs/covers80/config' before starting a training run.
+Optionally edit the `hparams.yaml` configuration file in the folder `egs/covers80/config` before starting a training run.
 
 This fork added an hparam.yaml setting of `early_stopping_patience` to support the added feature of early stopping (original CoverHunter defaulted to 10,000 epochs!).
 
@@ -101,9 +101,9 @@ CoverHunter did not include an implementation of the coarse-to-fine alignment tr
 `python3 -m tools.alignment_for_frame pretrained_model data/covers80/full.txt data/covers80/alignment.txt`
 
 Arguments to pass to the script:
-1. Folder containing a pretrained model. For example if you use original CoverHunter's model from https://drive.google.com/file/d/1rDZ9CDInpxQUvXRLv87mr-hfDfnV7Y-j/view), unzip it, and move it to a folder that you rename to 'pretrained_model' at the top level of your project folder. That folder in turn must contain a 'pt_model' subfolder that contains the do_000[epoch] and g_000[epoch] checkpoint files.
-2. The output file from the feature-extraction script described above. It must include song_id attributes for each utt (unlike the raw 'dataset.txt' file that CoverHunter provided for covers80).
-3. The "alignment.txt" file will receive the output of this script.
+1. Folder containing a pretrained model. For example if you use original CoverHunter's model from https://drive.google.com/file/d/1rDZ9CDInpxQUvXRLv87mr-hfDfnV7Y-j/view), unzip it, and move it to a folder that you rename to `pretrained_model` at the top level of your project folder. That folder in turn must contain a `pt_model` subfolder that contains the do_000[epoch] and g_000[epoch] checkpoint files.
+2. The output file from the feature-extraction script described above. It must include `song_id` key-values for each `utt` (unlike the raw `dataset.txt` file that CoverHunter provided for covers80).
+3. The `alignment.txt` file will receive the output of this script.
 
 # Input and Output Files
 
@@ -191,6 +191,7 @@ That bug didn't prevent successful training, but fixing the bug did, until I dis
 
 Original CoverHunter also generated the following files, but were not used by their published codebase, so I commented out those functions:
 
+| filename | comments |
 | song_id_num.map | Text file, not used by train.py, maybe not by anything else? |
 | song_id.map | Text file, not used by train.py, maybe not by anything else? |
 | song_name_num.map | Text file, not used by train.py, maybe not by anything else? |
@@ -206,10 +207,10 @@ The `eval_for_map_with_feat()` function, called at the end of each epoch, also s
 
 ## query_in_ref
 
-The file you can prepare for the tools/eval_testset.py script to pass as the 4th parameter `query_in_ref_path` (CoverHunter did not provide an example file or documentation) assumes:
+The file you can prepare for the `tools/eval_testset.py` script to pass as the 4th parameter `query_in_ref_path` (CoverHunter did not provide an example file or documentation) assumes:
 - JSON or tab-delimited key:value format
-- The only line contains a single key 'query_in_ref' with a value that is itself a collection of tuples, where each tuple represents a mapping between an index in the query input file and an index in the reference input file.
-This mapping is only used by the _generate_dist_matrix function. That function explains: "List[(idx, idy), ...], means query[idx] is in ref[idy] so we skip that when computing mAP."
+- The only line contains a single key "query_in_ref" with a value that is itself a list of tuples, where each tuple represents a mapping between an index in the query input file and an index in the reference input file.
+This mapping is only used by `the _generate_dist_matrix()` function. That function explains: "List[(idx, idy), ...], means query[idx] is in ref[idy] so we skip that when computing mAP."
 
 # Code Map
 
