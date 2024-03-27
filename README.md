@@ -1,6 +1,6 @@
 # CoverHunterMPS
 
-Fork of [Liu Feng's CoverHunter](https://github.com/Liu-Feng-deeplearning/CoverHunter) project. Goals: Make it run, and run fast, on Apple Silicon or Nvidia GPUs. Document it better. And build it out as a useful toolset for music research generally.
+Fork of [Liu Feng's CoverHunter](https://github.com/Liu-Feng-deeplearning/CoverHunter) project. Goals: Make it run, and run fast, on any platform. Document it better. And build it out as a useful toolset for music research generally.
 
 See https://ar5iv.labs.arxiv.org/html/2306.09025 for the July 2023 research paper that accompanied the original CoverHunter repo.
 
