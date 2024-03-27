@@ -9,9 +9,11 @@ See https://ar5iv.labs.arxiv.org/html/2306.09025 for the July 2023 research pape
 1. Either: 
     1. Apple computer with an Apple M-series chip
     2. Other computer with an Nvidia GPU (including free cloud options like Google Colab)
-2. python3 (minimum version 3.10, tested on 3.11)
-3. PyTorch with either CUDA or MPS support enabled.
-4. sox and therefore also a Java runtime
+2. python3 (minimum version 3.10, tested on 3.11) with these libraries:
+    1. torch (compiled with CUDA or MPS or other GPU support as appropriate for your hardware)
+    2. librosa
+    3. Optional: tensorboard
+3. sox
 
 # Usage
 
@@ -62,7 +64,7 @@ To see the TensorBoard visualization of the training progress:
 
 `tensorboard --logdir=egs/covers80/logs`
 
-Optionally edit the `hparams.yaml` configuration file in the folder `egs/covers80/config` before starting a training run.
+Optionally edit the `hparams.yaml` configuration file in the folder `egs/covers80/config` before starting a training run. If you run into memory limits, start with decreasing the batch size from 64 to 32.
 
 This fork added the hyperparameter `early_stopping_patience` to support the added feature of early stopping (original CoverHunter defaulted to 10,000 epochs!).
 
