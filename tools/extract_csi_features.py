@@ -76,8 +76,11 @@ def _remove_line_with_same_dur(init_path, new_path) -> None:
 
 
 def sox_change_speed(inp_path, out_path, k):
-    cmd = "sox -q {} -t wav  -r 16000 -c 1 {} tempo {} " "> sox.log 2> sox.log".format(
-        remake_path_for_linux(inp_path), remake_path_for_linux(out_path), k
+    cmd = (
+        "sox -q {} -t wav  -r 16000 -c 1 {} tempo {} "
+        "> sox.log 2> sox.log".format(
+            remake_path_for_linux(inp_path), remake_path_for_linux(out_path), k
+        )
     )
 
     try:
@@ -172,7 +175,8 @@ def _extract_cqt_parallel(init_path, out_path, cqt_dir) -> None:
 
     with ProcessPoolExecutor() as executor:
         worker_args = [
-            (line_to_dict(line), cqt_dir) for line in read_lines(init_path, log=False)
+            (line_to_dict(line), cqt_dir)
+            for line in read_lines(init_path, log=False)
         ]
 
         for result in executor.map(_extract_cqt_worker, worker_args):
@@ -180,7 +184,8 @@ def _extract_cqt_parallel(init_path, out_path, cqt_dir) -> None:
             if len(dump_lines) % 1000 == 0:
                 logging.info(
                     "Extracted CQT for {} items: {}".format(
-                        len(dump_lines), result["utt"],
+                        len(dump_lines),
+                        result["utt"],
                     ),
                 )
 
@@ -232,7 +237,8 @@ def _extract_cqt_parallelMPS(init_path, out_path, cqt_dir) -> None:
             if len(dump_lines) % 1000 == 0:
                 logging.info(
                     "Extracted CQT for {} items: {}".format(
-                        len(dump_lines), result["utt"],
+                        len(dump_lines),
+                        result["utt"],
                     ),
                 )
 
@@ -252,10 +258,12 @@ def _extract_cqt_with_noise(init_path, full_path, cqt_dir, hp_noise) -> None:
         local_data = line_to_dict(line)
         wav_path = local_data["wav"]
         local_data["utt"] = local_data["utt"] + "{}noise_{}".format(
-            RARE_DELIMITER, hp_noise["name"],
+            RARE_DELIMITER,
+            hp_noise["name"],
         )
         local_data["feat"] = os.path.join(
-            cqt_dir, "{}.cqt.npy".format(local_data["utt"]),
+            cqt_dir,
+            "{}.cqt.npy".format(local_data["utt"]),
         )
 
         vol = random.choice(vol_lst)
@@ -276,7 +284,9 @@ def _extract_cqt_with_noise(init_path, full_path, cqt_dir, hp_noise) -> None:
         if len(dump_lines) % 1000 == 0:
             logging.info(
                 "Process cqt for {}items: {}, vol:{}".format(
-                    len(dump_lines), local_data["utt"], vol,
+                    len(dump_lines),
+                    local_data["utt"],
+                    vol,
                 ),
             )
 
@@ -304,7 +314,12 @@ def _add_song_id(init_path, out_path, map_path=None) -> None:
 
 
 def _split_data_by_song_id(
-    input_path, train_path, val_path, test_path, test_song_ids_path, hp,
+    input_path,
+    train_path,
+    val_path,
+    test_path,
+    test_song_ids_path,
+    hp,
 ) -> None:
     """
     Splits data into train and test sets based on song IDs using stratified sampling.
@@ -336,7 +351,9 @@ def _split_data_by_song_id(
     num_songs = len(song_data)
     # ensure minimum of one if non-zero intended
     test_only_count = (
-        max(1, int(num_songs * test_only_percent)) if test_only_percent > 0 else 0
+        max(1, int(num_songs * test_only_percent))
+        if test_only_percent > 0
+        else 0
     )
     # Randomly select songs for test only
     test_only_songs = random.sample(list(song_data.keys()), test_only_count)
@@ -354,10 +371,13 @@ def _split_data_by_song_id(
     # Separate songs for val-only and stratified split
     # ensure minimum of one if non-zero intended
     val_only_count = (
-        max(1, int(num_songs * val_only_percent)) if val_only_percent > 0 else 0
+        max(1, int(num_songs * val_only_percent))
+        if val_only_percent > 0
+        else 0
     )
     val_only_songs = random.sample(
-        list(remaining_songs.keys()), val_only_count,
+        list(remaining_songs.keys()),
+        val_only_count,
     )  # Randomly select songs for val only
     remaining_songs = {
         song_id: samples
@@ -380,21 +400,29 @@ def _split_data_by_song_id(
             random.shuffle(samples)
 
             # Calculate val split points based on train ratio and minimum samples (1)
-            min_samples = 1  # Ensure at least 1 sample in each set for remaining songs
+            min_samples = (
+                1  # Ensure at least 1 sample in each set for remaining songs
+            )
             val_split = int(len(samples) * val_ratio)
             val_split = max(
-                min_samples, val_split,
+                min_samples,
+                val_split,
             )  # Ensure at least min_samples in val
 
             # Calculate test split points based on train ratio and minimum samples (1)
-            min_samples = 1  # Ensure at least 1 sample in each set for remaining songs
+            min_samples = (
+                1  # Ensure at least 1 sample in each set for remaining songs
+            )
             test_split = int(len(samples) * test_ratio)
             test_split = max(
-                min_samples, test_split,
+                min_samples,
+                test_split,
             )  # Ensure at least min_samples in test
 
             remaining_val_data.extend(samples[:val_split])
-            remaining_test_data.extend(samples[val_split : val_split + test_split])
+            remaining_test_data.extend(
+                samples[val_split : val_split + test_split]
+            )
             train_data.extend(samples[val_split + test_split :])
 
         val_data.extend(remaining_val_data)
@@ -413,7 +441,8 @@ def _split_data_by_song_id(
         write_lines(test_path, [dict_to_line(sample) for sample in test_data])
     if len(test_only_songs) > 0:
         write_lines(
-            test_song_ids_path, [dict_to_line(song) for song in test_only_songs],
+            test_song_ids_path,
+            [dict_to_line(song) for song in test_only_songs],
         )
 
 
@@ -495,7 +524,10 @@ def _clean_lines(full_path, clean_path) -> None:
         }
         if "feat" in local_data:
             clean_data.update(
-                {"feat_len": local_data["feat_len"], "feat": local_data["feat"]},
+                {
+                    "feat_len": local_data["feat_len"],
+                    "feat": local_data["feat"],
+                },
             )
         else:
             clean_data.update(
@@ -518,14 +550,17 @@ def _generate_csi_features(hp, feat_dir, start_stage, end_stage) -> None:
 
     # aug_speed_mode is a list like: [0.8, 0.9, 1.0, 1.1, 1.2]
     # do include 1.0 to include original speed.
-    # Anything between .99 and 1.01 will be ignored, instead passing along the original file.
+    # Anything between .99 and 1.01 will be ignored, 
+    # instead passing along the original file.
     sp_aug_path = os.path.join(feat_dir, "sp_aug.txt")
     if start_stage <= 3 <= end_stage:
         logging.info("Stage 3: speed augmentation")
         if "aug_speed_mode" in hp and not os.path.exists(sp_aug_path):
             sp_dir = os.path.join(feat_dir, "sp_wav")
             #      _speed_aug(init_path, hp["aug_speed_mode"], sp_aug_path, sp_dir)
-            _speed_aug_parallel(init_path, hp["aug_speed_mode"], sp_aug_path, sp_dir)
+            _speed_aug_parallel(
+                init_path, hp["aug_speed_mode"], sp_aug_path, sp_dir
+            )
 
     new_full = False
     full_path = os.path.join(feat_dir, "full.txt")
@@ -553,15 +588,20 @@ def _generate_csi_features(hp, feat_dir, start_stage, end_stage) -> None:
         logging.info("Stage 5: add noise and extract cqt feature")
         noise_cqt_dir = os.path.join(feat_dir, "cqt_with_noise")
         _extract_cqt_with_noise(
-            full_path, full_path, noise_cqt_dir, hp_noise={"add_noise": hp_noise},
+            full_path,
+            full_path,
+            noise_cqt_dir,
+            hp_noise={"add_noise": hp_noise},
         )
 
-    # assumes song titles provided in dataset.txt are unique identifiers for the parent songs
+    # Assumes "song" values provided in dataset.txt are unique identifiers
+    # for the parent songs.
+    # song_id.map is a useful reference document, but not used in this project
     if start_stage <= 8 <= end_stage:
         logging.info("Stage 8: add song_id")
-        #    song_id_map_path = os.path.join(feat_dir, "song_id.map")
+        song_id_map_path = os.path.join(feat_dir, "song_id.map")
         if new_full or not os.path.exists(full_path):
-            _add_song_id(full_path, full_path)
+            _add_song_id(full_path, full_path, song_id_map_path)
 
     # =============================================================================
     # CoverHunter doesn't actually do anything with version_id or the .map files
@@ -587,7 +627,12 @@ def _generate_csi_features(hp, feat_dir, start_stage, end_stage) -> None:
         test_path = os.path.join(feat_dir, "dev.txt")
         test_song_ids_path = os.path.join(feat_dir, "dev-only-song-ids.txt")
         _split_data_by_song_id(
-            full_path, train_path, val_path, test_path, test_song_ids_path, hp,
+            full_path,
+            train_path,
+            val_path,
+            test_path,
+            test_song_ids_path,
+            hp,
         )
 
 
