@@ -815,11 +815,14 @@ class ConvolutionModule(nn.Module):
         causal: bool = False,
         bias: bool = True,
     ) -> None:
-        """Construct an ConvolutionModule object.
+        """Construct a ConvolutionModule object.
         Args:
             channels (int): The number of channels of conv layers.
             kernel_size (int): Kernel size of conv layers.
-            causal (int): Whether use causal convolution or not
+            activation (nn.Module) Default: ReLU
+            norm (str): Default "batch_norm"
+            causal (int): Whether to use causal convolution or not
+            bias (bool): Default True
         """
         super().__init__()
 
@@ -884,7 +887,7 @@ class ConvolutionModule(nn.Module):
                 (0, 0, 0) means fake mask.
             cache (torch.Tensor): left context cache, it is only
                 used in causal convolution (#batch, channels, cache_t),
-                (0, 0, 0) meas fake cache.
+                (0, 0, 0) means fake cache.
         Returns:
             torch.Tensor: Output tensor (#batch, time, channels).
         """
@@ -905,7 +908,7 @@ class ConvolutionModule(nn.Module):
             assert x.size(2) > self.lorder
             new_cache = x[:, :, -self.lorder :]
         else:
-            # It's better we just return None if no cache is required,
+            # It's better to just return None if no cache is required,
             # However, for JIT export, here we just fake one tensor instead of
             # None.
             new_cache = torch.zeros((0, 0, 0), dtype=x.dtype, device=x.device)
@@ -934,7 +937,7 @@ class PositionwiseFeedForward(torch.nn.Module):
     """Positionwise feed forward layer.
 
     FeedForward are appied on each position of the sequence.
-    The output dim is same with the input dim.
+    The output dim is same as the input dim.
 
     Args:
         idim (int): Input dimenstion.
@@ -982,7 +985,7 @@ class ConformerEncoderLayer(torch.nn.Module):
              instance.
             `PositionwiseFeedForward` instance can be used as the argument.
         conv_module (torch.nn.Module): Convolution module instance.
-            `ConvlutionModule` instance can be used as the argument.
+            `ConvolutionModule` instance can be used as the argument.
         dropout_rate (float): Dropout rate.
         normalize_before (bool):
             True: use layer_norm before each sub-block.
@@ -1144,20 +1147,20 @@ class ConformerEncoder(torch.nn.Module):
     ) -> None:
         """
         Args:
-            input_size (int): input dim
+            input_size (int): input dimensions
             output_size (int): dimension of attention
-            attention_heads (int): the number of heads of multi head attention
+            attention_heads (int): number of heads of multi-head attention
             linear_units (int): the hidden units number of position-wise feed
                 forward
             num_blocks (int): the number of decoder blocks
             dropout_rate (float): dropout rate
-            attention_dropout_rate (float): dropout rate in attention
             positional_dropout_rate (float): dropout rate after adding
                 positional encoding
-            input_layer (str): input layer type.
+            attention_dropout_rate (float): dropout rate in attention
+            input_layer (str): subsampling input layer type.
                 optional [linear, conv2d, conv2d6, conv2d8]
             pos_enc_layer_type (str): Encoder positional encoding layer type.
-                opitonal [abs_pos, scaled_abs_pos, rel_pos, no_pos]
+                optional [abs_pos, scaled_abs_pos, rel_pos, no_pos]
             normalize_before (bool):
                 True: use layer_norm before each sub-block of a layer.
                 False: use layer_norm after each sub-block of a layer.
@@ -1167,12 +1170,19 @@ class ConformerEncoder(torch.nn.Module):
                 False: x -> x + att(x)
             static_chunk_size (int): chunk size for static chunk training and
                 decoding
-            use_dynamic_chunk (bool): whether use dynamic chunk size for
-                training or not, You can only use fixed chunk(chunk_size > 0)
-                or dyanmic chunk size(use_dynamic_chunk = True)
+            use_dynamic_chunk (bool): whether to use dynamic chunk size for
+                training or not. You can only use fixed chunk (chunk_size > 0)
+                or dynamic chunk size (use_dynamic_chunk = True)
             global_cmvn (Optional[torch.nn.Module]): Optional GlobalCMVN module
-            use_dynamic_left_chunk (bool): whether use dynamic left chunk in
+            use_dynamic_left_chunk (bool): whether to use dynamic left chunk in
                 dynamic chunk training
+            positionwise_conv_kernel_size (default 1)
+            macaron_style (default True)
+            selfattention_layer_type (default "rel_selfattn")
+            activation_type (default "swish")
+            use_cnn_module (default True)
+            causal (default False)
+            cnn_module_norm (default "batch_norm")
         """
         logging.info("Init Conformer layers::")
         super().__init__()

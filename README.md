@@ -125,6 +125,18 @@ There are two different hparams.yaml files, each used at different stages.
 
 2. The one located in the "config" subfolder of the path you provide on the command line to tools.train uses all the other parameters listed below during training.
 
+### Data sources
+
+| key | value |
+| --- | --- |
+| covers80 | Test dataset for model evaluation purposes. "covers80" is the only example provided with the original CoverHunter.<br>Subparameters:<br>`query_path`: "data/covers80/full.txt"<br>`ref_path`: "data/covers80/full.txt"<br>`every_n_epoch_to_dev`: 1 # validate after every n epoch<br>These can apparently be the same path as `train_path` for doing self-similarity evaluation.|
+| dev_path | Compare train_path and train_sample_path. This dataset is used in each epoch to run the same validation calculation as with the train_sample_path. But these results are used for the early_stopping_patience calculation. Presumably one should include both classes and samples that were excluded from both train_path and train_sample_path. |
+| query_path | TBD:  |
+| ref_path | TBD: can apparently be the same path as train_path. Presumably for use during model evaluation and inference. |
+| train_path | path to a JSON file containing metadata about the data to be used for model training (See full.txt below for details) |
+| train_sample_path | path to a JSON file containing metadata about the data to be used for model validation. Compare dev_path above. Presumably one should include a balanced distribution of samples that are *not* included in the train_path dataset, but do include samples for the classes represented in the train_path dataset.(See full.txt below for details) 
+
+### Training parameters
 | key | value |
 | --- | --- |
 | batch_size | Usual "batch size" meaning in the field of machine learning. An important parameter to experiment with. |
@@ -133,16 +145,19 @@ There are two different hparams.yaml files, each used at different stages.
 | cqt: hop_size: | Fine-grained time resolution, measured as duration in seconds of each CQT spectrogram slice of the audio data. CoverHunter's covers80 setting is 0.04 with a comment "1s has 25 frames". 25 frames per second is hard-coded as an assumption into CoverHunter in various places. |
 | data_type | "cqt" (default) or "raw" or "mel". Unknown whether CoverHunter actually implemented anything but CQT-based training |
 | device | 'mps' or 'cuda', corresponding to your GPU hardware and PyTorch library support. Theoretically 'cpu' could work but untested and probably of no value. |
-| dev_path | Compare train_path and train_sample_path. This dataset is used in each epoch to run the same validation calculation as with the train_sample_path. But these results are used for the early_stopping_patience calculation. Presumably one should include both classes and samples that were excluded from both train_path and train_sample_path. |
 | early_stopping_patience | how many epochs to wait for validation loss to improve before early stopping |
 | mean_size | See chunk_s above. An integer used to multiply chunk lengths to define the length of the feature chunks used in many stages of the training process. |
 | mode | "random" (default) or "defined". Changes behavior when loading training data in chunks in AudioFeatDataset. "random" described in CoverHunter code as "cut chunk from feat from random start". "defined" described as "cut feat with 'start/chunk_len' info from line"|
 | m_per_class | From CoverHunter code comments: "m_per_class must divide batch_size without any remainder" and: "At every iteration, this will return m samples per class. For example, if dataloader's batch-size is 100, and m = 5, then 20 classes with 5 samples iter will be returned." |
-| query_path | TBD: can apparently be the same path as train_path |
-| ref_path | TBD: can apparently be the same path as train_path |
 | spec_augmentation | spectral(?) augmentation settings, used to generate temporary data augmentation on the fly during training. CoverHunter settings were:<br>random_erase:<br> &nbsp; prob: 0.5<br> &nbsp; erase_num: 4<br>roll_pitch:<br> &nbsp; prob: 0.5<br> &nbsp; shift_num: 12 |
-| train_path | path to a JSON file containing metadata about the data to be used for model training (See full.txt below for details) |
-| train_sample_path | path to a JSON file containing metadata about the data to be used for model validation. Compare dev_path above. Presumably one should include a balanced distribution of samples that are *not* included in the train_path dataset, but do include samples for the classes represented in the train_path dataset.(See full.txt below for details) |
+
+### Model parameters
+| key | value |
+| --- | --- |
+| embed_dim | 128 |
+| encoder | # model-encode<br>Subparameters:<br>attention_dim: 256 # "the hidden units number of position-wise feed-forward"<br>output_dims: 128<br>num_blocks: 6 # number of decoder blocks |
+| input_dim | 96 |
+
 
 ## dataset.txt
 
