@@ -112,11 +112,11 @@ Arguments to pass to the script:
 
 There are two different hparams.yaml files, each used at different stages. 
 
-1. The one located in the folder you provide on the command line to tools.extract_csi_features is used only by that script.
+1. The one located in the folder you provide on the command line to tools.extract_csi_features.py is used only by that script.
 
 | key | value |
 | --- | --- |
-|add_noise| Original CoverHunter provided the example of: <div>{<br> &nbsp; "prob": 0.75,<br> &nbsp; "sr": 16000,<br> &nbsp; "chunk": 3,<br> &nbsp; "name": "cqt_with_asr_noise",<br> &nbsp; "noise_path": "dataset/asr_as_noise/dataset.txt"<br>}<br>However, the CoverHunter repo did not include whatever might supposed to be in "dataset/asr_as_noise/dataset.txt" file nor does the CoverHunter research paper describe it. If that path does not exist in your project folder structure, then tools.extract_csi_features will just skip the stage of adding noise augmentation. At least for training successfully on Covers80, noise augmentation doesn't seem to be needed.|
+|add_noise| Original CoverHunter provided the example of: <div>{<br> &nbsp; `prob`: 0.75,<br> &nbsp; `sr`: 16000,<br> &nbsp; `chunk`: 3,<br> &nbsp; `name`: "cqt_with_asr_noise",<br> &nbsp; `noise_path`: "dataset/asr_as_noise/dataset.txt"<br>}<br>However, the CoverHunter repo did not include whatever might supposed to be in "dataset/asr_as_noise/dataset.txt" file nor does the CoverHunter research paper describe it. If that path does not exist in your project folder structure, then tools.extract_csi_features will just skip the stage of adding noise augmentation. At least for training successfully on Covers80, noise augmentation doesn't seem to be needed.|
 | aug_speed_mode | list of ratios used in tools.extract_csi_features for speed augmention of your raw training data. Example: [0.8, 0.9, 1.0, 1.1, 1.2] means use 80%, 90%, 100%, 110%, and 120% speed variants of your original audio data.|
 | train-sample_data_split | percent of training data to reserve for validation aka "train-sample" expressed as a fraction of 1. Example for 10%: 0.1 |
 | train-sample_unseen | percent of song_ids from training data to reserve exclusively for validation aka "train-sample" expressed as a fraction of 1. Example for 2%: 0.02 |
@@ -130,32 +130,32 @@ There are two different hparams.yaml files, each used at different stages.
 | key | value |
 | --- | --- |
 | covers80 | Test dataset for model evaluation purposes. "covers80" is the only example provided with the original CoverHunter.<br>Subparameters:<br>`query_path`: "data/covers80/full.txt"<br>`ref_path`: "data/covers80/full.txt"<br>`every_n_epoch_to_dev`: 1 # validate after every n epoch<br>These can apparently be the same path as `train_path` for doing self-similarity evaluation.|
-| dev_path | Compare train_path and train_sample_path. This dataset is used in each epoch to run the same validation calculation as with the train_sample_path. But these results are used for the early_stopping_patience calculation. Presumably one should include both classes and samples that were excluded from both train_path and train_sample_path. |
-| query_path | TBD:  |
-| ref_path | TBD: can apparently be the same path as train_path. Presumably for use during model evaluation and inference. |
+| dev_path | Compare `train_path` and `train_sample_path`. This dataset is used in each epoch to run the same validation calculation as with the `train_sample_path`. But these results are used for the `early_stopping_patience` calculation. Presumably one should include both classes and samples that were excluded from both `train_path` and `train_sample_path`. |
+| query_path | TBD: can apparently be the same path as `train_path`. Presumably for use during model evaluation and inference. |
+| ref_path | TBD: can apparently be the same path as `train_path`. Presumably for use during model evaluation and inference. |
 | train_path | path to a JSON file containing metadata about the data to be used for model training (See full.txt below for details) |
-| train_sample_path | path to a JSON file containing metadata about the data to be used for model validation. Compare dev_path above. Presumably one should include a balanced distribution of samples that are *not* included in the train_path dataset, but do include samples for the classes represented in the train_path dataset.(See full.txt below for details) 
+| train_sample_path | path to a JSON file containing metadata about the data to be used for model validation. Compare `dev_path` above. Presumably one should include a balanced distribution of samples that are *not* included in the `train_path` dataset, but do include samples for the classes represented in the `train_path` dataset.(See full.txt below for details) 
 
 ### Training parameters
 | key | value |
 | --- | --- |
 | batch_size | Usual "batch size" meaning in the field of machine learning. An important parameter to experiment with. |
-| chunk_frame | list of numbers used with mean_size. CoverHunter's covers80 config used [1125, 900, 675]. "chunk" references in this training script seem to be the chunks described in the time-domain pooling strategy part of their paper, not the chunks discussed in their coarse-to-fine alignment strategy. See chunk_s. | 
-| chunk_s | duration of a chunk_frame in seconds. Apparently you are supposed to manually calculate chunk_s = chunk_frame / frames-per-second * mean_size. I'm not sure why the script doesn't just calculate this itself using CQT hop-size to get frames-per-second? |
+| chunk_frame | list of numbers used with `mean_size`. CoverHunter's covers80 config used [1125, 900, 675]. "chunk" references in this training script seem to be the chunks described in the time-domain pooling strategy part of their paper, not the chunks discussed in their coarse-to-fine alignment strategy. See chunk_s. | 
+| chunk_s | duration of a `chunk_frame` in seconds. Apparently you are supposed to manually calculate `chunk_s` = `chunk_frame` / frames-per-second * `mean_size`. I'm not sure why the script doesn't just calculate this itself using CQT hop-size to get frames-per-second? |
 | cqt: hop_size: | Fine-grained time resolution, measured as duration in seconds of each CQT spectrogram slice of the audio data. CoverHunter's covers80 setting is 0.04 with a comment "1s has 25 frames". 25 frames per second is hard-coded as an assumption into CoverHunter in various places. |
 | data_type | "cqt" (default) or "raw" or "mel". Unknown whether CoverHunter actually implemented anything but CQT-based training |
 | device | 'mps' or 'cuda', corresponding to your GPU hardware and PyTorch library support. Theoretically 'cpu' could work but untested and probably of no value. |
 | early_stopping_patience | how many epochs to wait for validation loss to improve before early stopping |
-| mean_size | See chunk_s above. An integer used to multiply chunk lengths to define the length of the feature chunks used in many stages of the training process. |
+| mean_size | See `chunk_s` above. An integer used to multiply chunk lengths to define the length of the feature chunks used in many stages of the training process. |
 | mode | "random" (default) or "defined". Changes behavior when loading training data in chunks in AudioFeatDataset. "random" described in CoverHunter code as "cut chunk from feat from random start". "defined" described as "cut feat with 'start/chunk_len' info from line"|
 | m_per_class | From CoverHunter code comments: "m_per_class must divide batch_size without any remainder" and: "At every iteration, this will return m samples per class. For example, if dataloader's batch-size is 100, and m = 5, then 20 classes with 5 samples iter will be returned." |
-| spec_augmentation | spectral(?) augmentation settings, used to generate temporary data augmentation on the fly during training. CoverHunter settings were:<br>random_erase:<br> &nbsp; prob: 0.5<br> &nbsp; erase_num: 4<br>roll_pitch:<br> &nbsp; prob: 0.5<br> &nbsp; shift_num: 12 |
+| spec_augmentation | spectral(?) augmentation settings, used to generate temporary data augmentation on the fly during training. CoverHunter settings were:<br>`random_erase`:<br> &nbsp; `prob`: 0.5<br> &nbsp; `erase_num`: 4<br>`roll_pitch`:<br> &nbsp; `prob`: 0.5<br> &nbsp; `shift_num`: 12 |
 
 ### Model parameters
 | key | value |
 | --- | --- |
 | embed_dim | 128 |
-| encoder | # model-encode<br>Subparameters:<br>attention_dim: 256 # "the hidden units number of position-wise feed-forward"<br>output_dims: 128<br>num_blocks: 6 # number of decoder blocks |
+| encoder | # model-encode<br>Subparameters:<br>`attention_dim`: 256 # "the hidden units number of position-wise feed-forward"<br>`output_dims`: 128<br>`num_blocks`: 6 # number of decoder blocks |
 | input_dim | 96 |
 
 
@@ -195,11 +195,11 @@ That bug didn't prevent successful training, but fixing the bug did, until I dis
 | filename | comments |
 |---|---|
 | cqt_feat subfolder | Numpy array files of the CQT data for each file listed in full.txt. Needed by train.py |
-| data.init.txt | Copy of dataset.txt after sorting by ‘utt’ and de-duping. Not used by train.py |
+| data.init.txt | Copy of dataset.txt after sorting by `utt` and de-duping. Not used by train.py |
 | dev.txt | A subset of full.txt generated by the `_split_data_by_song_id()` function intended for use by train.py as the `dev` dataset. |
 | dev-only-song-ids.txt | Text file listing one song_id per line for each song_id that the train/val/test splitting function held out from train/val to be used exclusively in the test aka "dev" dataset. This file can be used by `eval_testset.py` to mark those samples in the t-SNE plot. |
 | full.txt | See above detailed description. Contains the entire dataset you provided in the input file. | 
-| song_id.map | Text file, with 2 columns per line, separated by a space, sorted alphabetically by the first column. First column is a distinct "song" string taken from dataset.txt. Second column is the "song_id" value assigned to that "song." |
+| song_id.map | Text file, with 2 columns per line, separated by a space, sorted alphabetically by the first column. First column is a distinct "song" string taken from dataset.txt. Second column is the `song_id` value assigned to that "song." |
 | sp_aug subfolder | Sox-modified wav speed variants of the raw training .wav files, at the speeds defined in hparams.yaml. Not used by train.py |
 | sp_aug.txt | Copy of data.init.txt but with addition of 1 new row for each augmented variant created in sp_aug/*.wav. Not used by train.py. |
 | train.txt | A subset of full.txt generated by the `_split_data_by_song_id()` function intended for use by train.py as the `train` dataset. |
