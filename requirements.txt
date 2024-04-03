@@ -1,0 +1,7 @@
+coverage
+librosa
+nnAudio
+PyYAML
+tensorboard
+torch
+torchaudio
