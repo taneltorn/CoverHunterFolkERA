@@ -3,7 +3,10 @@
 # datetime:2022/8/30 11:59 AM
 # software: PyCharm
 
-""" Conformer Structure from Wenet(Espnet) """
+""" 
+    Conformer Structure from Wenet(Espnet)
+    https://github.com/Xianchao-Wu/wenet-deep-sparse-conformer
+"""
 
 
 import logging
@@ -158,7 +161,7 @@ def make_pad_mask(lengths: torch.Tensor, max_len: int = 0) -> torch.Tensor:
 
 
 class Swish(torch.nn.Module):
-    """Construct an Swish object."""
+    """Construct a Swish object."""
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Return Swish activation function."""
@@ -239,7 +242,7 @@ class PositionalEncoding(torch.nn.Module):
         """For getting encoding in a streaming fashion
 
         Attention!!!!!
-        we apply dropout only once at the whole utterance level in a none
+        we apply dropout only once at the whole utterance level in a non
         streaming way, but will call this function several times with
         increasing input size in a streaming scenario, so the dropout will
         be applied several times.
@@ -936,11 +939,11 @@ class ConvolutionModule(nn.Module):
 class PositionwiseFeedForward(torch.nn.Module):
     """Positionwise feed forward layer.
 
-    FeedForward are appied on each position of the sequence.
+    FeedForward are applied on each position of the sequence.
     The output dim is same as the input dim.
 
     Args:
-        idim (int): Input dimenstion.
+        idim (int): Input dimension.
         hidden_units (int): The number of hidden units.
         dropout_rate (float): Dropout rate.
         activation (torch.nn.Module): Activation function
