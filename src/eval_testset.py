@@ -228,7 +228,7 @@ def _generate_dist_matrixMPS(
 # Original CoverHunter distance matrix function was very slow at scale.
 # It did not use multiprocessing (only one core of the CPU).
 # During use of the alignment_for_frame script it took
-# 12 minutes vs. 1.5 minutes on my M2 Max chip.
+# 12 minutes vs. 1.5 minutes on a M2 Max chip.
 # =============================================================================
 
 
@@ -452,8 +452,8 @@ def eval_for_map_with_feat(
             )
     elif logger:
         logger.info(
-            "Because query and ref have same path, "
-            "so skip to compute ref embedding",
+            "Because query and ref have the same path, "
+            "skip computing the ref embeddings",
         )
 
     query_utt_label, query_embed = _load_chunk_embed_from_dir(query_chunk_lines)

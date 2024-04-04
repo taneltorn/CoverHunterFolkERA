@@ -322,7 +322,8 @@ def _split_data_by_song_id(
     hp,
 ) -> None:
     """
-    Splits data into train and test sets based on song IDs using stratified sampling.
+    Splits data into train / validation / test sets
+	using stratified sampling based on song_id.
 
     Args:
         input_path: Path to the input data file.
@@ -347,9 +348,10 @@ def _split_data_by_song_id(
         song_data[song_id].append(local_data)
     logging.info("Number of distinct songs: %s", len(song_data))
 
-    # Separate songs for test-only and stratified split
     num_songs = len(song_data)
-    # ensure minimum of one if non-zero intended
+
+    # Separate songs for test-only and stratified split.
+	# Ensure minimum of one song in test only if non-zero requested.
     test_only_count = (
         max(1, int(num_songs * test_only_percent))
         if test_only_percent > 0
@@ -368,8 +370,8 @@ def _split_data_by_song_id(
     for song_id in test_only_songs:
         test_data.extend(song_data[song_id])
 
-    # Separate songs for val-only and stratified split
-    # ensure minimum of one if non-zero intended
+    # Separate songs for val-only and stratified split.
+    # Ensure minimum of one song in val only if non-zero requested
     val_only_count = (
         max(1, int(num_songs * val_only_percent))
         if val_only_percent > 0
