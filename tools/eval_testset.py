@@ -102,7 +102,7 @@ def _main() -> None:
         query_in_ref_path=query_in_ref_path,
         batch_size=64,
         logger=logger,
-        test_only_labels=test_only_labels,
+        test_only_labels=args.test_only_labels,
         plot_name=plot_name,
         dist_name=args.dist_name,
     )
