@@ -92,6 +92,8 @@ def _main() -> None:
     if args.test_only_labels:
         # convert list of song IDs from strings to integers as _cluster_plot() expects
         test_only_labels = [int(n) for n in read_lines(args.test_only_labels)]
+    else:
+        test_only_labels = None
 
     mean_ap, hit_rate, rank1 = eval_for_map_with_feat(
         hp,
@@ -102,7 +104,7 @@ def _main() -> None:
         query_in_ref_path=query_in_ref_path,
         batch_size=64,
         logger=logger,
-        test_only_labels=args.test_only_labels,
+        test_only_labels=test_only_labels,
         plot_name=plot_name,
         dist_name=args.dist_name,
     )

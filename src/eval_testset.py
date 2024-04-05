@@ -60,7 +60,7 @@ def _cluster_plot(
         color_dict[label] = colors[i % num_colors]
         # Assign marker style for label
         marker_dict[label] = marker_styles[i % len(marker_styles)]
-    print(test_only_labels)
+    print('test_only_labels: ',test_only_labels)
 
     for i, label in enumerate(unique_labels):
         label_indices = np.where(ref_labels == label)[0]
