@@ -541,7 +541,7 @@ def _clean_lines(full_path, clean_path) -> None:
 
 def _generate_csi_features(hp, feat_dir, start_stage, end_stage) -> None:
     data_path = os.path.join(feat_dir, "dataset.txt")
-    assert os.path.exists(data_path)
+    assert os.path.exists(data_path), "dataset.txt file not found"
 
     init_path = os.path.join(feat_dir, "data.init.txt")
     shutil.copy(data_path, init_path)
