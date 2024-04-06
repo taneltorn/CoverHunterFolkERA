@@ -61,7 +61,7 @@ This fork also added an optional `--runid` parameter so you can distinguish your
 
 `python -m tools.train egs/covers80/ --runid 'first try'`
 
-To see the TensorBoard visualization of the training progress:
+To see the TensorBoard live visualization of the model's progress during training, run this in a separate terminal window, from the root of the project folder, and then use the URL listed in the output to watch the TensorBoard:
 
 `tensorboard --logdir=egs/covers80/logs`
 
