@@ -30,21 +30,21 @@ from src.utils import (
 )
 
 
-def _sort_lines_by_utt(init_path, sorted_path) -> None:
+def _sort_lines_by_rec(init_path, sorted_path) -> None:
     dump_lines = read_lines(init_path, log=False)
-    dump_lines = sorted(dump_lines, key=lambda x: (line_to_dict(x)["utt"]))
+    dump_lines = sorted(dump_lines, key=lambda x: (line_to_dict(x)["rec"]))
     write_lines(sorted_path, dump_lines, log=True)
 
 
 def _remove_dup_line(init_path, new_path) -> None:
-    logging.info("Remove line with same utt")
+    logging.info("Remove line with same rec")
     old_line_num = len(read_lines(init_path, log=False))
-    utt_set = set()
+    rec_set = set()
     valid_lines = []
     for line in read_lines(init_path, log=False):
-        utt = line_to_dict(line)["utt"]
-        if utt not in utt_set:
-            utt_set.add(utt)
+        rec = line_to_dict(line)["rec"]
+        if rec not in rec_set:
+            rec_set.add(rec)
             valid_lines.append(line)
     logging.info(f"Filter stage: {old_line_num}->{len(valid_lines)}")
     write_lines(new_path, valid_lines)
@@ -109,19 +109,19 @@ def _speed_aug_worker(args):
     wav_path = line["wav"]
 
     if abs(speed - 1.0) > 0.01:
-        sp_utt = "sp_{}-{}".format(speed, line["utt"])
-        sp_wav_path = os.path.join(sp_dir, f"{sp_utt}.wav")
+        sp_rec = "sp_{}-{}".format(speed, line["rec"])
+        sp_wav_path = os.path.join(sp_dir, f"{sp_rec}.wav")
         if not os.path.exists(sp_wav_path):
             sox_change_speed(wav_path, sp_wav_path, speed)
     else:
-        sp_utt = line["utt"]
+        sp_rec = line["rec"]
         sp_wav_path = line["wav"]
 
     # added logic missing in original CoverHunter: modify dur_s
     # so that _cut_one_line_with_dur function slices augmented samples appropriately
     # since speed augmentation also changes duration
     line["dur_s"] = round(line["dur_s"] / speed, 2)
-    line["utt"] = sp_utt
+    line["rec"] = sp_rec
     line["wav"] = sp_wav_path
     return line
 
@@ -157,7 +157,7 @@ def _extract_cqt_worker_librosa(args):
     line, cqt_dir = args
     wav_path = line["wav"]
     py_cqt = PyCqt(sample_rate=16000, hop_size=0.04)
-    feat_path = os.path.join(cqt_dir, "{}.cqt.npy".format(line["utt"]))
+    feat_path = os.path.join(cqt_dir, "{}.cqt.npy".format(line["rec"]))
 
     if not os.path.exists(feat_path):
         y, sr = librosa.load(wav_path, sr=16000)  # y is a npy ndarray
@@ -175,7 +175,7 @@ def _extract_cqt_worker_librosa(args):
 def _extract_cqt_worker_torchaudio(args):
     line, cqt_dir, device = args
     wav_path = line["wav"]
-    feat_path = os.path.join(cqt_dir, "{}.cqt.npy".format(line["utt"]))
+    feat_path = os.path.join(cqt_dir, "{}.cqt.npy".format(line["rec"]))
 
     # CQT seems faster on mps, and CQT2010v2 faster on cuda
     if device == "mps":
@@ -238,7 +238,7 @@ def _extract_cqt_parallel(init_path, out_path, cqt_dir, device) -> None:
                 logging.info(
                     "Extracted CQT for {} items: {}".format(
                         len(dump_lines),
-                        result["utt"],
+                        result["rec"],
                     ),
                 )
 
@@ -257,13 +257,13 @@ def _extract_cqt_with_noise(init_path, full_path, cqt_dir, hp_noise) -> None:
     for line in read_lines(init_path, log=False):
         local_data = line_to_dict(line)
         wav_path = local_data["wav"]
-        local_data["utt"] = local_data["utt"] + "{}noise_{}".format(
+        local_data["rec"] = local_data["rec"] + "{}noise_{}".format(
             RARE_DELIMITER,
             hp_noise["name"],
         )
         local_data["feat"] = os.path.join(
             cqt_dir,
-            "{}.cqt.npy".format(local_data["utt"]),
+            "{}.cqt.npy".format(local_data["rec"]),
         )
 
         vol = random.choice(vol_lst)
@@ -285,7 +285,7 @@ def _extract_cqt_with_noise(init_path, full_path, cqt_dir, hp_noise) -> None:
             logging.info(
                 "Process cqt for {}items: {}, vol:{}".format(
                     len(dump_lines),
-                    local_data["utt"],
+                    local_data["rec"],
                     vol,
                 ),
             )
@@ -519,7 +519,7 @@ def _clean_lines(full_path, clean_path) -> None:
     for line in read_lines(full_path):
         local_data = line_to_dict(line)
         clean_data = {
-            "utt": local_data["utt"],
+            "rec": local_data["rec"],
             "song_id": local_data["song_id"],
             "song": local_data["song"],
             "version_id": local_data["version_id"],
@@ -547,7 +547,7 @@ def _generate_csi_features(hp, feat_dir, start_stage, end_stage) -> None:
     shutil.copy(data_path, init_path)
     if start_stage <= 0 <= end_stage:
         logging.info("Stage 0: data deduping")
-        _sort_lines_by_utt(init_path, init_path)
+        _sort_lines_by_rec(init_path, init_path)
         _remove_dup_line(init_path, init_path)
 
     # aug_speed_mode is a list like: [0.8, 0.9, 1.0, 1.1, 1.2]

@@ -113,7 +113,7 @@ CoverHunter did not include an implementation of the coarse-to-fine alignment tr
 
 Arguments to pass to the script:
 1. Folder containing a pretrained model. For example if you use original CoverHunter's model from https://drive.google.com/file/d/1rDZ9CDInpxQUvXRLv87mr-hfDfnV7Y-j/view), unzip it, and move it to a folder that you rename to `pretrained_model` at the top level of your project folder. That folder in turn must contain a `pt_model` subfolder that contains the do_000[epoch] and g_000[epoch] checkpoint files.
-2. The output file from the feature-extraction script described above. It must include `song_id` key-values for each `utt` (unlike the raw `dataset.txt` file that CoverHunter provided for covers80).
+2. The output file from the feature-extraction script described above. It must include `song_id` key-values for each `rec` (unlike the raw `dataset.txt` file that CoverHunter provided for covers80).
 3. The `alignment.txt` file will receive the output of this script.
 
 # Input and Output Files
@@ -174,7 +174,7 @@ There are two different hparams.yaml files, each used at different stages.
 A JSON formatted or tab-delimited key:value text file (see format defined in the utils.py::line_to_dict() function) expected by extract_csi_features.py that describes the training audio data, with one line per audio file.
 | key | value |
 | --- | --- |
-| utt | Unique identifier. Probably an abbreviation for "utterance," borrowed from speech-recognition ML work. Example "cover80_00000000_0_0". In a musical context we should call this a "performance." |
+| rec | Unique identifier. Abbreviation for "recording." CoverHunter originally used "utt" throughout, borrowing the term "utterance" from speech-recognition ML work which is where much of their code was adapted from. Example "cover80_00000000_0_0". In a musical context we could call this a "performance" rather than "utterance," but "recording" is objectively more accurate in this context, and envisions that this project might find use outside of musicology, too. |
 | wav | relative path to the raw audio file. Example: "data/covers80/wav_16k/annie_lennox+Medusa+03-A_Whiter_Shade_Of_Pale.wav" |
 | dur_s | duration of the audio file in seconds. Example 316.728 |
 | song | title of the song. Example "A_Whiter_Shade_Of_Pale" The `_add_song_id()` function in extract_csi_features assumes that this string is a unique identifier for the parent cover song (so it can't handle musically distinct songs that happen to have the same title). |
@@ -186,17 +186,17 @@ full.txt is the JSON-formatted training data catalog for tools.train.py, generat
 
 | key | value |
 | --- | --- |
-| utt | (see dataset.txt) |
+| rec | (see dataset.txt) |
 | wav | (see dataset.txt) |
 | dur_s |(see dataset.txt) |
 | song | (see dataset.txt) |
 | version | (see dataset.txt) |
-| feat | path to the CQT features of this utt stored as .npy array. Example: "data/covers80/cqt_feat/sp_0.8-cover80_00000146_71_0.cqt.npy" |
+| feat | path to the CQT features of this rec stored as .npy array. Example: "data/covers80/cqt_feat/sp_0.8-cover80_00000146_71_0.cqt.npy" |
 | feat_len | output of len(np.load(feat)). Example: 9198 |
-| song_id | internal, arbitrary unique identifier for the song. This is what teaches the model which utts (performances) are considered by humans to be the "same song." Example: 0 |
-| version_id | internal, arbitrary unique identifier for each artificially augmented variant of the original utt (performance). Example: 0 |
+| song_id | internal, arbitrary unique identifier for the song. This is what teaches the model which recs (recordings) are considered by humans to be the "same song." Example: 0 |
+| version_id | internal, arbitrary unique identifier for each artificially augmented variant of the original rec (performance). Example: 0 |
 
-Note: Original CoverHunter omitted the unmodified audio by accident due to a logic error at lines 104-112 of tools.extract_csi_features, by unintentionally appending the next value of `sp_utt` to the beginning of `local_data['utt']`. And if and only if the '1.0' member of the aug_speed_mode hyperparameter was not listed first, the result then was not only that the 1.0 variant was omitted, but also a duplicate copy of the 90% variant was created and included in the final output of full.txt in the end, both entries in full.txt pointing to the same cqt.npy file, just with different version_id values. 
+Note: Original CoverHunter omitted the unmodified audio by accident due to a logic error at lines 104-112 of tools.extract_csi_features, by unintentionally appending the next value of `sp_rec` to the beginning of `local_data['rec']`. And if and only if the '1.0' member of the aug_speed_mode hyperparameter was not listed first, the result then was not only that the 1.0 variant was omitted, but also a duplicate copy of the 90% variant was created and included in the final output of full.txt in the end, both entries in full.txt pointing to the same cqt.npy file, just with different version_id values. 
 
 That bug didn't prevent successful training, but fixing the bug did, until I discovered that because then, when the model was being fed the intended number of song versions (augmented from 1 to 5 instead of to 4 versions), CoverHunter's preset batch size of 16 became a barrier to success. Increasing the batch size hyperparameter to 32 and larger made a huge difference, resulting in much faster convergence and higher mAP than the original CoverHunter code.
 
@@ -210,7 +210,7 @@ Text file crosswalk between "song" (unique identifying string per song) and the 
 | filename | comments |
 |---|---|
 | cqt_feat subfolder | Numpy array files of the CQT data for each file listed in full.txt. Needed by train.py |
-| data.init.txt | Copy of dataset.txt after sorting by `utt` and de-duping. Not used by train.py |
+| data.init.txt | Copy of dataset.txt after sorting by `rec` and de-duping. Not used by train.py |
 | dev.txt | A subset of full.txt generated by the `_split_data_by_song_id()` function intended for use by train.py as the `dev` dataset. |
 | dev-only-song-ids.txt | Text file listing one song_id per line for each song_id that the train/val/test splitting function held out from train/val to be used exclusively in the test aka "dev" dataset. This file can be used by `eval_testset.py` to mark those samples in the t-SNE plot. |
 | full.txt | See above detailed description. Contains the entire dataset you provided in the input file. | 

@@ -400,7 +400,7 @@ class AudioFeatDataset(torch.utils.data.Dataset):
                 local_data = line_to_dict(line)
                 self._data.append(
                     (
-                        local_data["utt"],
+                        local_data["rec"],
                         local_data["song_id"],
                         local_data["feat"],
                         local_data["feat_len"],
@@ -414,7 +414,7 @@ class AudioFeatDataset(torch.utils.data.Dataset):
                     local_data["start"] = 0
                 self._data.append(
                     (
-                        local_data["utt"],
+                        local_data["rec"],
                         local_data["song_id"],
                         local_data["feat"],
                         local_data["start"],
@@ -445,7 +445,7 @@ class AudioFeatDataset(torch.utils.data.Dataset):
         return len(self._data)
 
     def __getitem__(self, idx):
-        utt, label, feat_path, len_or_start, chunk_len = self._data[idx]
+        rec, label, feat_path, len_or_start, chunk_len = self._data[idx]
 
         if self._mode == "random":
             feat_len = len_or_start
@@ -454,7 +454,7 @@ class AudioFeatDataset(torch.utils.data.Dataset):
             else:
                 start = 0
         elif self._mode == "defined":
-            utt, label, feat_path, start, chunk_len = self._data[idx]
+            rec, label, feat_path, start, chunk_len = self._data[idx]
         else:
             msg = "invalid mode".format()
             raise Exception(msg)
@@ -475,7 +475,7 @@ class AudioFeatDataset(torch.utils.data.Dataset):
 
         feat = torch.from_numpy(feat)
         label = torch.tensor(label).long()
-        return utt, feat, label
+        return rec, feat, label
 
 
 class MPerClassSampler(Sampler):

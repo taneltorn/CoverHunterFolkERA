@@ -18,35 +18,35 @@ class Aligner:
         for name in os.listdir(embed_dir):
             data_path = os.path.join(embed_dir, name)
             embed = np.load(data_path)
-            utt_name = name.replace(".npy", "")
-            self._memory_data[utt_name] = embed
+            rec_name = name.replace(".npy", "")
+            self._memory_data[rec_name] = embed
 
     def _get_shift_frame(self, data_i, data_j):
         assert data_i["song"] == data_j["song"]
-        utt_i = data_i["utt"]
-        utt_j = data_j["utt"]
-        if utt_i == utt_j:
+        rec_i = data_i["rec"]
+        rec_j = data_j["rec"]
+        if rec_i == rec_j:
             return 0
 
         idx_npy_i = {}
         for k, v in self._memory_data.items():
-            if utt_i in k:
+            if rec_i in k:
                 idx_i = int(k.split("▁start-")[1])
-                #         # assumes '▁start-' never occurs in an utt code
+                #         # assumes '▁start-' never occurs in an rec code
                 idx_npy_i[idx_i] = v
 
         idx_npy_j = {}
         for k, v in self._memory_data.items():
-            if k.startswith(utt_j):
+            if k.startswith(rec_j):
                 idx_j = int(k.split("▁start-")[1])
-                # assumes '▁start-' never occurs in an utt code
+                # assumes '▁start-' never occurs in an rec code
                 idx_npy_j[idx_j] = v
 
         res = []
         for idx_i, npy_i in idx_npy_i.items():
             all_distance = []
             for idx_j, npy_j in idx_npy_j.items():
-                if idx_i != idx_j and utt_i != utt_j:
+                if idx_i != idx_j and rec_i != rec_j:
                     all_distance.append((idx_j, np.linalg.norm(npy_i - npy_j)))
             all_distance = sorted(all_distance, key=lambda x: x[1])
             nearest_j = all_distance[0][0]
@@ -74,8 +74,8 @@ class Aligner:
                     dump_lines.append(
                         dict_to_line(
                             {
-                                "utt_i": local_data_i["utt"],
-                                "utt_j": local_data_j["utt"],
+                                "rec_i": local_data_i["rec"],
+                                "rec_j": local_data_j["rec"],
                                 "shift_frame_i_to_j": shift_frame,
                             },
                         ),

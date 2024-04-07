@@ -117,8 +117,8 @@ def _calc_embed(model, query_loader, device, saved_dir=None):
       saved_dir: To save embed to disk as npy
 
     Returns:
-      query_utt_label: List[(utt, label), ...],
-      query_embed: Dict, key is utt, value is List with embed of every chunk
+      query_rec_label: List[(rec, label), ...],
+      query_embed: Dict, key is rec, value is List with embed of every chunk
 
     """
     query_label = {}
@@ -126,7 +126,7 @@ def _calc_embed(model, query_loader, device, saved_dir=None):
     with torch.no_grad():
 
         for _j, batch in enumerate(query_loader):
-            utt_b, feat_b, label_b = batch
+            rec_b, feat_b, label_b = batch
             feat_b = batch[1].float().to(device)
             label_b = batch[2].long().to(device)
             embed_b, _ = model.inference(feat_b)
@@ -134,32 +134,32 @@ def _calc_embed(model, query_loader, device, saved_dir=None):
             embed_b = embed_b.cpu().numpy()
             label_b = label_b.cpu().numpy()
             for idx_embed in range(len(embed_b)):
-                utt = utt_b[idx_embed]
+                rec = rec_b[idx_embed]
                 embed = embed_b[idx_embed]
                 label = label_b[idx_embed]
 
                 assert np.shape(embed) == (model.get_embed_length(),), np.shape(embed)
 
-                if utt not in query_label:
-                    query_label[utt] = label
+                if rec not in query_label:
+                    query_label[rec] = label
                 else:
-                    assert query_label[utt] == label
+                    assert query_label[rec] == label
 
-                if utt not in query_embed:
-                    query_embed[utt] = []
-                query_embed[utt].append(embed)
+                if rec not in query_embed:
+                    query_embed[rec] = []
+                query_embed[rec].append(embed)
                 if saved_dir:
-                    saved_path = os.path.join(saved_dir, f"{utt}.npy")
+                    saved_path = os.path.join(saved_dir, f"{rec}.npy")
                     np.save(saved_path, embed)
-    query_utt_label = sorted(query_label.items())
-    return query_utt_label, query_embed
+    query_rec_label = sorted(query_label.items())
+    return query_rec_label, query_embed
 
 
 def _compute_distance_worker(args):
-    utt_query, utt_ref, query_embed, ref_embed = args
+    rec_query, rec_ref, query_embed, ref_embed = args
     to_choice = []
-    for embed_x in query_embed[utt_query]:
-        for embed_y in ref_embed[utt_ref]:
+    for embed_x in query_embed[rec_query]:
+        for embed_y in ref_embed[rec_ref]:
             embed_x = embed_x / np.linalg.norm(embed_x)
             embed_y = embed_y / np.linalg.norm(embed_y)
             cos_sim = embed_x.dot(embed_y)
@@ -169,15 +169,15 @@ def _compute_distance_worker(args):
 
 
 def _generate_dist_matrixMPS(
-    query_utt_label, query_embed, ref_utt_label=None, ref_embed=None, query_in_ref=None,
+    query_rec_label, query_embed, ref_rec_label=None, ref_embed=None, query_in_ref=None,
 ):
     """generate distance matrix from query/ref embedding
 
     Args:
-      query_utt_label: List[(utt, label), ...],
-      query_embed: Dict, key is utt, value is List with embed of every chunk
-      ref_utt_label: List[(utt, label), ...]
-      ref_embed: Dict, key is utt, value is List with embed of every chunk
+      query_rec_label: List[(rec, label), ...],
+      query_embed: Dict, key is rec, value is List with embed of every chunk
+      ref_rec_label: List[(rec, label), ...]
+      ref_embed: Dict, key is rec, value is List with embed of every chunk
       query_in_ref: List[(idx, idy), ...], means query[idx] is in ref[idy] so
                     we skip that when computing map
 
@@ -189,16 +189,16 @@ def _generate_dist_matrixMPS(
     """
     import multiprocessing
 
-    if ref_utt_label is None and ref_embed is None:
-        query_in_ref = [(i, i) for i in range(len(query_utt_label))]
-        ref_utt_label = query_utt_label
+    if ref_rec_label is None and ref_embed is None:
+        query_in_ref = [(i, i) for i in range(len(query_rec_label))]
+        ref_rec_label = query_rec_label
         ref_embed = query_embed
 
-    dist_matrix = np.zeros([len(query_utt_label), len(ref_utt_label)])
+    dist_matrix = np.zeros([len(query_rec_label), len(ref_rec_label)])
     args_list = [
-        (utt_query, utt_ref, query_embed, ref_embed)
-        for utt_query, _ in query_utt_label
-        for utt_ref, _ in ref_utt_label
+        (rec_query, rec_ref, query_embed, ref_embed)
+        for rec_query, _ in query_rec_label
+        for rec_ref, _ in ref_rec_label
     ]
 
     with multiprocessing.Pool() as pool:
@@ -207,8 +207,8 @@ def _generate_dist_matrixMPS(
     for (idx, idy), distance in zip(
         [
             (idx, idy)
-            for idx in range(len(query_utt_label))
-            for idy in range(len(ref_utt_label))
+            for idx in range(len(query_rec_label))
+            for idy in range(len(ref_rec_label))
         ],
         distances,
     ):
@@ -218,8 +218,8 @@ def _generate_dist_matrixMPS(
         for idx, idy in query_in_ref:
             dist_matrix[idx, idy] = -1  # will be skipped when computing map
 
-    query_label = [v for k, v in query_utt_label]
-    ref_label = [v for k, v in ref_utt_label]
+    query_label = [v for k, v in query_rec_label]
+    ref_label = [v for k, v in ref_rec_label]
 
     return dist_matrix, query_label, ref_label
 
@@ -233,19 +233,19 @@ def _generate_dist_matrixMPS(
 
 
 def _load_chunk_embed_from_dir(query_chunk_lines):
-    query_utt_label = []
+    query_rec_label = []
     query_embed = {}
-    utt_s = set()
+    rec_s = set()
     for line in query_chunk_lines:
         local_data = line_to_dict(line)
-        utt = local_data["utt"].split(f"-{RARE_DELIMITER}start-")[0]
+        rec = local_data["rec"].split(f"-{RARE_DELIMITER}start-")[0]
         label = local_data["song_id"]
-        if utt not in utt_s:
-            query_utt_label.append((utt, label))
-            utt_s.add(utt)
-            query_embed[utt] = []
-        query_embed[utt].append(np.load(local_data["embed"]))
-    return query_utt_label, query_embed
+        if rec not in rec_s:
+            query_rec_label.append((rec, label))
+            rec_s.add(rec)
+            query_embed[rec] = []
+        query_embed[rec].append(np.load(local_data["embed"]))
+    return query_rec_label, query_embed
 
 
 def _cut_one_line_with_dur(line, window_length_s, window_shift_s, hop_size=0.04):
@@ -263,7 +263,7 @@ def _cut_one_line_with_dur(line, window_length_s, window_shift_s, hop_size=0.04)
 
     """
     local_data = line_to_dict(line)
-    utt = local_data["utt"]
+    rec = local_data["rec"]
     if "dur_s" in local_data:
         dur_s = local_data["dur_s"]
     else:
@@ -274,7 +274,7 @@ def _cut_one_line_with_dur(line, window_length_s, window_shift_s, hop_size=0.04)
     while start_s + window_length_s < dur_s or start_s == 0:
         local_data["start_s"] = start_s
         local_data["start"] = int(start_s * 25)
-        local_data["utt"] = f"{utt}-{RARE_DELIMITER}start-{int(start_s)}"
+        local_data["rec"] = f"{rec}-{RARE_DELIMITER}start-{int(start_s)}"
         short_lines.append(dict_to_line(local_data))
         start_s += window_shift_s
     return short_lines
@@ -300,7 +300,7 @@ def _cut_lines_with_dur(init_lines, chunk_s, embed_dir):
         for short_line in short_lines:
             local_data = line_to_dict(short_line)
             local_data["embed"] = os.path.join(
-                embed_dir, "{}.npy".format(local_data["utt"]),
+                embed_dir, "{}.npy".format(local_data["rec"]),
             )
             chunk_lines.append(dict_to_line(local_data))
     return chunk_lines
@@ -329,8 +329,8 @@ def eval_for_map_with_feat(
       hp: dict contains hparams
       model: nnet model, should have method 'infer'
       embed_dir: dir for saving embedding, None for not saving anything
-      query_path: text file with query utt info
-      ref_path: text file with ref utt info
+      query_path: text file with query rec info
+      ref_path: text file with ref rec info
       query_in_ref_path: path to prepared query in ref index. None means that
           query index equals ref index
       batch_size: for nnet infer
@@ -396,7 +396,7 @@ def eval_for_map_with_feat(
     query_embed_dir = os.path.join(embed_dir, "query_embed")
     query_chunk_lines = _cut_lines_with_dur(query_lines, chunk_s, query_embed_dir)
     write_lines(os.path.join(embed_dir, "query.txt"), query_chunk_lines, False)
-    # select query utts for which there is not yet a saved embedding
+    # select query recs for which there is not yet a saved embedding
     to_calc_lines = [
         l for l in query_chunk_lines if not os.path.exists(line_to_dict(l)["embed"])
     ]
@@ -424,7 +424,7 @@ def eval_for_map_with_feat(
     ref_chunk_lines = _cut_lines_with_dur(ref_lines, chunk_s, ref_embed_dir)
     write_lines(os.path.join(embed_dir, "ref.txt"), ref_chunk_lines, False)
     if ref_path != query_path:
-        # select ref utts for which there is not yet a saved embedding
+        # select ref recs for which there is not yet a saved embedding
         to_calc_lines = [
             l for l in ref_chunk_lines if not os.path.exists(line_to_dict(l)["embed"])
         ]
@@ -456,19 +456,19 @@ def eval_for_map_with_feat(
             "skip computing the ref embeddings",
         )
 
-    query_utt_label, query_embed = _load_chunk_embed_from_dir(query_chunk_lines)
+    query_rec_label, query_embed = _load_chunk_embed_from_dir(query_chunk_lines)
     if ref_path == query_path:
-        ref_utt_label, ref_embed = None, None
+        ref_rec_label, ref_embed = None, None
     else:
-        ref_utt_label, ref_embed = _load_chunk_embed_from_dir(ref_chunk_lines)
+        ref_rec_label, ref_embed = _load_chunk_embed_from_dir(ref_chunk_lines)
     if logger:
         logger.info("Finish loading embedding and Start to compute dist matrix")
 
     # parallelized version for CoverHunterMPS
     dist_matrix, query_label, ref_label = _generate_dist_matrixMPS(
-        query_utt_label,
+        query_rec_label,
         query_embed,
-        ref_utt_label,
+        ref_rec_label,
         ref_embed,
         query_in_ref=query_in_ref,
     )
