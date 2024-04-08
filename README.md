@@ -45,7 +45,7 @@ From the project root folder, run:
 
 `python3 -m tools.extract_csi_features data/covers80/`
 
-Side note: I attempted MPS optimization of CQT feature extraction but failed. The main issue is that PyTorch MPS implementation is very incomplete for many of the tensor operations involved in this CQT implementation. Even the core `fft()` function just became available with PyTorch torch-2.3.0.dev20240222 or higher. See my comments in `extract_csi_features.py` and `cqt.py`.
+See "Input and Output Files" below for more information about what happens here.
 
 ## Training
 
@@ -77,7 +77,7 @@ The training script's output consists of checkpoint files and embedding vectors,
 
 This script evaluates your trained model by providing mAP and MR1 metrics and an optional t-SNE clustering plot (compare Fig. 3 in the CoverHunter paper).
 
-1. Have a pre-trained CoverHunter model's output checkpoint files available. You only need your best set (typically your highest-numbered one). If you use original CoverHunter's pre-trained model from https://drive.google.com/file/d/1rDZ9CDInpxQUvXRLv87mr-hfDfnV7Y-j/view), unzip it, and move it to a folder that you rename to, in this example, 'pretrained_model'.
+1. Have a pre-trained CoverHunter model's output checkpoint files available. You only need your best set (typically your highest-numbered one). If you use original CoverHunter's pre-trained model from https://drive.google.com/file/d/1rDZ9CDInpxQUvXRLv87mr-hfDfnV7Y-j/view), unzip it, and move it to a folder that you specify in step 3 below.
 2. Run your query data through `extract_csi_features.py`. In the `hparams.yaml` file for the feature extraction, turn off all augmentation. See `data/covers80_testset/hparams.yaml` for an example configuration to treat covers80 as the query data:<br> `python3 -m tools.extract_csi_features data/covers80_testset`<br>
 The important output from that is `full.txt` and the `cqt_feat` subfolder's contents.
 3. Run the evaluation script. This example assumes you are using the trained model you created in `egs/covers80` and you want to use all the optional features I added in this fork:<br>
