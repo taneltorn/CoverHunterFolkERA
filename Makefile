@@ -14,6 +14,9 @@ $(VENV)/bin/coverage: $(VENV)/bin/activate
 
 tests coverage: TESTS = `find tests/ -name 'test_*.py'`
 
+.PHONY: virtualenv
+virtualenv: $(VENV)/bin/activate
+
 .PHONY: tests
 tests: $(VENV)/bin/coverage
 	$(in_venv) $(PYTHON) -Wd -m unittest -c $(TESTS)

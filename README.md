@@ -9,12 +9,7 @@ See https://ar5iv.labs.arxiv.org/html/2306.09025 for the July 2023 research pape
 1. Either: 
     1. Apple computer with an Apple M-series chip
     2. Other computer with an Nvidia GPU (including free cloud options like Google Colab)
-2. python3 (minimum version 3.10, tested on 3.11) with these libraries:
-    1. torch torchaudio (compiled with CUDA or MPS or other GPU support as appropriate for your hardware)
-    2. librosa
-    3. nnAudio
-    4. Optional: tensorboard
-3. sox
+2. python3 (minimum version 3.10, tested on 3.11)
 
 # Usage
 
@@ -23,6 +18,16 @@ Either:
 
 - Or run this project in Google Colab, using this Colab notebook:
 https://colab.research.google.com/drive/1HKVT3_0ioRPy7lrKzikGXXGysxZrHpOr?usp=sharing
+
+## Install requirements
+
+1. The requirements.txt file contains the python dependencies of the
+   project. Run `python -m pip install requirements.txt` to install, or `make
+   virtualenv` to install the requirements in a virtualenv (the python3-venv package
+   must be installed).
+
+2. Install the `sox` package and its libraries. On some distribution, those
+   libraries come in a separate package, like `libsox-fmt-all`.
 
 ## Data Preparation
 
@@ -248,3 +253,8 @@ This mapping is only used by the `_generate_dist_matrix()` function. That functi
 Hand-made visualization of how core functions of this project interact with each other. Also includes additional beginner-friendly or verbose code-commenting that I didn't add to the project code.
 
 https://miro.com/app/board/uXjVNkDkn70=/ 
+
+# Unit tests
+
+Some unit tests can be run with `python3 -m unittest -c tests/test_*.py` from
+the repository root, or `make tests` if installed in a virtualenv.
