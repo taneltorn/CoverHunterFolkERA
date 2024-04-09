@@ -26,7 +26,7 @@ https://colab.research.google.com/drive/1HKVT3_0ioRPy7lrKzikGXXGysxZrHpOr?usp=sh
    virtualenv` to install the requirements in a virtualenv (the python3-venv package
    must be installed).
 
-2. Install the `sox` package and its libraries. On some distribution, those
+2. Install the `sox` package and its libraries. In some distributions, those
    libraries come in a separate package, like `libsox-fmt-all`.
 
 ## Data Preparation
@@ -133,6 +133,7 @@ There are two different hparams.yaml files, each used at different stages.
 | --- | --- |
 |add_noise| Original CoverHunter provided the example of: <div>{<br> &nbsp; `prob`: 0.75,<br> &nbsp; `sr`: 16000,<br> &nbsp; `chunk`: 3,<br> &nbsp; `name`: "cqt_with_asr_noise",<br> &nbsp; `noise_path`: "dataset/asr_as_noise/dataset.txt"<br>}<br>However, the CoverHunter repo did not include whatever might supposed to be in "dataset/asr_as_noise/dataset.txt" file nor does the CoverHunter research paper describe it. If that path does not exist in your project folder structure, then tools.extract_csi_features will just skip the stage of adding noise augmentation. At least for training successfully on Covers80, noise augmentation doesn't seem to be needed.|
 | aug_speed_mode | list of ratios used in tools.extract_csi_features for speed augmention of your raw training data. Example: [0.8, 0.9, 1.0, 1.1, 1.2] means use 80%, 90%, 100%, 110%, and 120% speed variants of your original audio data.|
+| device | 'mps' or 'cuda', corresponding to your GPU hardware and PyTorch library support. 'cpu' is not currently implemented but could be if needed. Original CoverHunter used CPU for this stage but was much slower. |
 | train-sample_data_split | percent of training data to reserve for validation aka "train-sample" expressed as a fraction of 1. Example for 10%: 0.1 |
 | train-sample_unseen | percent of song_ids from training data to reserve exclusively for validation aka "train-sample" expressed as a fraction of 1. Example for 2%: 0.02 |
 | test_data_split | percent of training data to reserve for test aka "dev" expressed as a fraction of 1. Example for 10%: 0.1 |
@@ -154,8 +155,8 @@ There are two different hparams.yaml files, each used at different stages.
 ### Training parameters
 | key | value |
 | --- | --- |
-| batch_size | Usual "batch size" meaning in the field of machine learning. An important parameter to experiment with. |
-| chunk_frame | list of numbers used with `mean_size`. CoverHunter's covers80 config used [1125, 900, 675]. "chunk" references in this training script might be the chunks described in the time-domain pooling strategy part of their paper, not the chunks discussed in their coarse-to-fine alignment strategy. Or mabye chunk_frame actually is referring only to the smaller "frames" described in the time-domain pooling strategy part of their paper. See chunk_s. | 
+| batch_size | Usual "batch size" meaning in the field of machine learning. An important parameter to experiment with. Original CoverHunter's preset batch size of 16 was no longer able to succeed at the covers80 training task after @alanngnet fixed an important logic error in extract_csi_features.py. Now only batch size 32 or larger works for covers80. |
+| chunk_frame | list of numbers used with `mean_size`. CoverHunter's covers80 config used [1125, 900, 675]. "chunk" references in this training script might be the chunks described in the time-domain pooling strategy part of their paper, not the chunks discussed in their coarse-to-fine alignment strategy. Or maybe chunk_frame actually is referring only to the smaller "frames" described in the time-domain pooling strategy part of their paper. See chunk_s. | 
 | chunk_s | duration of a `chunk_frame` in seconds. Apparently you are supposed to manually calculate `chunk_s` = `chunk_frame` / frames-per-second * `mean_size`. I'm not sure why the script doesn't just calculate this itself using CQT hop-size to get frames-per-second? |
 | cqt: hop_size: | Fine-grained time resolution, measured as duration in seconds of each CQT spectrogram slice of the audio data. CoverHunter's covers80 setting is 0.04 with a comment "1s has 25 frames". 25 frames per second is hard-coded as an assumption into CoverHunter in various places. |
 | data_type | "cqt" (default) or "raw" or "mel". Unknown whether CoverHunter actually implemented anything but CQT-based training |
@@ -200,10 +201,6 @@ full.txt is the JSON-formatted training data catalog for tools.train.py, generat
 | feat_len | output of len(np.load(feat)). Example: 9198 |
 | song_id | internal, arbitrary unique identifier for the song. This is what teaches the model which recs (recordings) are considered by humans to be the "same song." Example: 0 |
 | version_id | internal, arbitrary unique identifier for each artificially augmented variant of the original rec (performance). Example: 0 |
-
-Note: Original CoverHunter omitted the unmodified audio by accident due to a logic error at lines 104-112 of tools.extract_csi_features, by unintentionally appending the next value of `sp_rec` to the beginning of `local_data['rec']`. And if and only if the '1.0' member of the aug_speed_mode hyperparameter was not listed first, the result then was not only that the 1.0 variant was omitted, but also a duplicate copy of the 90% variant was created and included in the final output of full.txt in the end, both entries in full.txt pointing to the same cqt.npy file, just with different version_id values. 
-
-That bug didn't prevent successful training, but fixing the bug did, until I discovered that because then, when the model was being fed the intended number of song versions (augmented from 1 to 5 instead of to 4 versions), CoverHunter's preset batch size of 16 became a barrier to success. Increasing the batch size hyperparameter to 32 and larger made a huge difference, resulting in much faster convergence and higher mAP than the original CoverHunter code.
 
 ## song_id.map 
 
@@ -256,5 +253,8 @@ https://miro.com/app/board/uXjVNkDkn70=/
 
 # Unit tests
 
-Some unit tests can be run with `python3 -m unittest -c tests/test_*.py` from
-the repository root, or `make tests` if installed in a virtualenv.
+Unit tests are in progress, currently only with partial code coverage. Run them from
+the repository root using:
+`python3 -m unittest -c tests/test_*.py`
+or if you installed the project in a virtualenv:
+`make tests` 
