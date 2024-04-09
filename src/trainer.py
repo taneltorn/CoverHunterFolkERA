@@ -2,7 +2,6 @@
 
 import logging
 import random
-from contextlib import nullcontext
 
 import numpy as np
 import torch
@@ -77,50 +76,48 @@ def train_one_epoch(
     logger=None,
 ):
     """train one epoch with multi data_loader"""
-    model_context = nullcontext
     init_step = step
     model.train()  # torch.nn.Module.train sets model in training mode
     idx_loader = list(range(len(train_loader_lst)))
-    with model_context():
-        for batch_lst in zip(*train_loader_lst):
-            random.shuffle(idx_loader)
-            for idx in idx_loader:
-                batch = list(batch_lst)[idx]
-                if step % 1000 == 0:
-                    scheduler.step()
-                model.train()
-                _, feat, label = batch
-                feat = batch[1].float().to(device)
-                label = batch[2].long().to(device)
+    for batch_lst in zip(*train_loader_lst):
+        random.shuffle(idx_loader)
+        for idx in idx_loader:
+            batch = list(batch_lst)[idx]
+            if step % 1000 == 0:
+                scheduler.step()
+            model.train()
+            _, feat, label = batch
+            feat = batch[1].float().to(device)
+            label = batch[2].long().to(device)
 
-                optimizer.zero_grad()
-                total_loss, losses = model.compute_loss(feat, label)
+            optimizer.zero_grad()
+            total_loss, losses = model.compute_loss(feat, label)
 
-                total_loss.backward()
-                torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-                optimizer.step()
+            total_loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+            optimizer.step()
 
-                _loss_memory = {"lr": get_lr(optimizer)}
-                for key, value in losses.items():
-                    _loss_memory.update({key: value.item()})
-                _loss_memory.update({"total": total_loss.item()})
+            _loss_memory = {"lr": get_lr(optimizer)}
+            for key, value in losses.items():
+                _loss_memory.update({key: value.item()})
+            _loss_memory.update({"total": total_loss.item()})
 
-                if step % 100 == 0:
-                    log_info = f"Steps:{step:d}"
-                    for k, v in _loss_memory.items():
-                        if k == "lr":
-                            log_info += f" lr:{v:.6f}"
-                        else:
-                            log_info += f" {k}:{v:.3f}"
-                        if sw:
-                            sw.add_scalar(f"csi/{k}", v, step)
-                    if logger:
-                        logger.info(log_info)
-                step += 1
+            if step % 100 == 0:
+                log_info = f"Steps:{step:d}"
+                for k, v in _loss_memory.items():
+                    if k == "lr":
+                        log_info += f" lr:{v:.6f}"
+                    else:
+                        log_info += f" {k}:{v:.3f}"
+                    if sw:
+                        sw.add_scalar(f"csi/{k}", v, step)
+                if logger:
+                    logger.info(log_info)
+            step += 1
 
-                if train_step is not None:
-                    if (step - init_step) == train_step:
-                        return step
+            if train_step is not None:
+                if (step - init_step) == train_step:
+                    return step
     return step
 
 
