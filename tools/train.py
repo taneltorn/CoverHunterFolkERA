@@ -109,7 +109,7 @@ def _main() -> None:
         train_loader = DataLoader(
             train_dataset,
             num_workers=hp["num_workers"],
-            shuffle=(sampler is None),
+            shuffle=False,
             sampler=sampler,
             batch_size=hp["batch_size"],
             pin_memory=True,

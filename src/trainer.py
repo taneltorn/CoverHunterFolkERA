@@ -2,7 +2,6 @@
 
 import logging
 import random
-from contextlib import nullcontext
 
 import numpy as np
 import torch
@@ -77,50 +76,48 @@ def train_one_epoch(
     logger=None,
 ):
     """train one epoch with multi data_loader"""
-    model_context = nullcontext
     init_step = step
     model.train()  # torch.nn.Module.train sets model in training mode
     idx_loader = list(range(len(train_loader_lst)))
-    with model_context():
-        for batch_lst in zip(*train_loader_lst):
-            random.shuffle(idx_loader)
-            for idx in idx_loader:
-                batch = list(batch_lst)[idx]
-                if step % 1000 == 0:
-                    scheduler.step()
-                model.train()
-                _, feat, label = batch
-                feat = batch[1].float().to(device)
-                label = batch[2].long().to(device)
+    for batch_lst in zip(*train_loader_lst):
+        random.shuffle(idx_loader)
+        for idx in idx_loader:
+            batch = list(batch_lst)[idx]
+            if step % 1000 == 0:
+                scheduler.step()
+            model.train()
+            _, feat, label = batch
+            feat = batch[1].float().to(device)
+            label = batch[2].long().to(device)
 
-                optimizer.zero_grad()
-                total_loss, losses = model.compute_loss(feat, label)
+            optimizer.zero_grad()
+            total_loss, losses = model.compute_loss(feat, label)
 
-                total_loss.backward()
-                torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-                optimizer.step()
+            total_loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+            optimizer.step()
 
-                _loss_memory = {"lr": get_lr(optimizer)}
-                for key, value in losses.items():
-                    _loss_memory.update({key: value.item()})
-                _loss_memory.update({"total": total_loss.item()})
+            _loss_memory = {"lr": get_lr(optimizer)}
+            for key, value in losses.items():
+                _loss_memory.update({key: value.item()})
+            _loss_memory.update({"total": total_loss.item()})
 
-                if step % 100 == 0:
-                    log_info = f"Steps:{step:d}"
-                    for k, v in _loss_memory.items():
-                        if k == "lr":
-                            log_info += f" lr:{v:.6f}"
-                        else:
-                            log_info += f" {k}:{v:.3f}"
-                        if sw:
-                            sw.add_scalar(f"csi/{k}", v, step)
-                    if logger:
-                        logger.info(log_info)
-                step += 1
+            if step % 100 == 0:
+                log_info = f"Steps:{step:d}"
+                for k, v in _loss_memory.items():
+                    if k == "lr":
+                        log_info += f" lr:{v:.6f}"
+                    else:
+                        log_info += f" {k}:{v:.3f}"
+                    if sw:
+                        sw.add_scalar(f"csi/{k}", v, step)
+                if logger:
+                    logger.info(log_info)
+            step += 1
 
-                if train_step is not None:
-                    if (step - init_step) == train_step:
-                        return step
+            if train_step is not None:
+                if (step - init_step) == train_step:
+                    return step
     return step
 
 
@@ -170,63 +167,65 @@ def validate(
     return val_losses
 
 
-def _calc_label(model, query_loader):
-    query_label = {}
-    query_pred = {}
-    with torch.no_grad():
-        for _j, batch in enumerate(query_loader):
-            rec_b, anchor_b, label_b = batch
-            anchor_b = batch[1].float().to(model.device)
-            label_b = batch[2].long().to(model.device)
+# Unused
+# def _calc_label(model, query_loader):
+#     query_label = {}
+#     query_pred = {}
+#     with torch.no_grad():
+#         for _j, batch in enumerate(query_loader):
+#             rec_b, anchor_b, label_b = batch
+#             anchor_b = batch[1].float().to(model.device)
+#             label_b = batch[2].long().to(model.device)
 
-            _, pred_b = model.inference(anchor_b)
-            pred_b = pred_b.cpu().numpy()
-            label_b = label_b.cpu().numpy()
+#             _, pred_b = model.inference(anchor_b)
+#             pred_b = pred_b.cpu().numpy()
+#             label_b = label_b.cpu().numpy()
 
-            for idx_embed in range(len(pred_b)):
-                rec = rec_b[idx_embed]
-                pred_embed = pred_b[idx_embed]
-                pred_label = np.argmax(pred_embed)
-                prob = pred_embed[pred_label]
-                label = label_b[idx_embed]
-                assert np.shape(pred_embed) == (
-                    model.get_ce_embed_length(),
-                ), f"invalid embed shape:{np.shape(pred_embed)}"
-                if rec not in query_label:
-                    query_label[rec] = label
-                else:
-                    assert query_label[rec] == label
+#             for idx_embed in range(len(pred_b)):
+#                 rec = rec_b[idx_embed]
+#                 pred_embed = pred_b[idx_embed]
+#                 pred_label = np.argmax(pred_embed)
+#                 prob = pred_embed[pred_label]
+#                 label = label_b[idx_embed]
+#                 assert np.shape(pred_embed) == (
+#                     model.get_ce_embed_length(),
+#                 ), f"invalid embed shape:{np.shape(pred_embed)}"
+#                 if rec not in query_label:
+#                     query_label[rec] = label
+#                 else:
+#                     assert query_label[rec] == label
 
-                if rec not in query_pred:
-                    query_pred[rec] = []
-                query_pred[rec].append((pred_label, prob))
+#                 if rec not in query_pred:
+#                     query_pred[rec] = []
+#                 query_pred[rec].append((pred_label, prob))
 
-    query_rec_label = sorted(query_label.items())
-    return query_rec_label, query_pred
+#     query_rec_label = sorted(query_label.items())
+#     return query_rec_label, query_pred
 
 
-def _syn_pred_label(model, valid_loader, valid_name, sw=None, epoch_num=-1) -> None:
-    model.eval()
+# Unused
+# def _syn_pred_label(model, valid_loader, valid_name, sw=None, epoch_num=-1) -> None:
+#     model.eval()
 
-    query_rec_label, query_pred = _calc_label(model, valid_loader)
+#     query_rec_label, query_pred = _calc_label(model, valid_loader)
 
-    rec_right, rec_total = 0, 0
-    right, total = 0, 0
-    for rec, label in query_rec_label:
-        pred_lst = query_pred[rec]
-        total += len(pred_lst)
-        for pred, _ in pred_lst:
-            right = right + 1 if pred == label else right
+#     rec_right, rec_total = 0, 0
+#     right, total = 0, 0
+#     for rec, label in query_rec_label:
+#         pred_lst = query_pred[rec]
+#         total += len(pred_lst)
+#         for pred, _ in pred_lst:
+#             right = right + 1 if pred == label else right
 
-        rec_pred = sorted(pred_lst, key=lambda x: x[1], reverse=False)[0][0]
-        rec_total += 1
-        rec_right = rec_right + 1 if rec_pred == label else rec_right
+#         rec_pred = sorted(pred_lst, key=lambda x: x[1], reverse=False)[0][0]
+#         rec_total += 1
+#         rec_right = rec_right + 1 if rec_pred == label else rec_right
 
-    rec_acc = rec_right / rec_total
-    acc = right / total
-    if sw is not None:
-        sw.add_scalar(f"coi_{valid_name}/rec_acc", rec_acc, epoch_num)
-        sw.add_scalar(f"coi_{valid_name}/acc", acc, epoch_num)
+#     rec_acc = rec_right / rec_total
+#     acc = right / total
+#     if sw is not None:
+#         sw.add_scalar(f"coi_{valid_name}/rec_acc", rec_acc, epoch_num)
+#         sw.add_scalar(f"coi_{valid_name}/acc", acc, epoch_num)
 
-    logging.info(f"{valid_name} rec Acc: {rec_acc:.3f}, Total: {rec_total}")
-    logging.info(f"{valid_name} Acc: {acc:.3f}, Total: {total}")
+#     logging.info(f"{valid_name} rec Acc: {rec_acc:.3f}, Total: {rec_total}")
+#     logging.info(f"{valid_name} Acc: {acc:.3f}, Total: {total}")
