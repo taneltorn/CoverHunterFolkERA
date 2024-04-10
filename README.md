@@ -2,7 +2,16 @@
 
 Fork of [Liu Feng's CoverHunter](https://github.com/Liu-Feng-deeplearning/CoverHunter) project. Goals: Make it run, and run fast, on any platform. Document it better. And build it out as a useful toolset for music research generally.
 
-See https://ar5iv.labs.arxiv.org/html/2306.09025 for the July 2023 research paper that accompanied the original CoverHunter repo.
+See https://ar5iv.labs.arxiv.org/html/2306.09025 for the July 2023 research paper that accompanied the original CoverHunter code. From their abstract: 
+
+> Cover song identification (CSI) focuses on finding the same music with different versions in reference anchors given a query track. In this paper, we propose a novel system named CoverHunter that overcomes the shortcomings of existing detection schemes by exploring richer features with refined attention and alignments. [...] Experiments on several standard CSI datasets show that our method significantly improves over state-of-the-art methods [...].
+
+Our project intends to expand the utility of the CoverHunter model to address a wide range of musicological questions and needs, such as:
+- Identify known repertoire items in new, unfamiliar audio (basic CSI)
+- Discover and describe how to adapt training hyperparameters for specific musical cultures.
+- Make it easy for ethnomusicologists to train this model for specific musical cultures.
+- Adapt this model to go beyond CSI to learn and classify audio using other musical categories such as rhythms, styles, tunings, forms, etc.
+- Modify, confirm, or debunk established but currently merely subjectively defined musical concepts within specific musical cultures.
 
 # Requirements
 
@@ -255,6 +264,9 @@ https://miro.com/app/board/uXjVNkDkn70=/
 
 Unit tests are in progress, currently only with partial code coverage. Run them from
 the repository root using:
+
 `python3 -m unittest -c tests/test_*.py`
+
 or if you installed the project in a virtualenv:
+
 `make tests` 
