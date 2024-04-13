@@ -26,6 +26,7 @@ data/covers80_testset/ref.txt
 data/covers80_testset/train.txt
 data/covers80_testset/full.txt
 data/covers80_testset/sp_aug.txt
+data/reels50hard_testset/*
 egs/covers80/logs/
 egs/covers80/pt_model/
 egs/covers80/embed*

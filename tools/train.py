@@ -187,7 +187,8 @@ def _main() -> None:
 
     # test_set_list stores whichever members of all_test_set_list are listed in hparams.yaml
     # default CoverHunter only included "covers80"
-    all_test_set_list = ["covers80", "shs_test", "dacaos", "hymf_20", "hymf_100"]
+    # but also listed "shs_test", "dacaos", "hymf_20", "hymf_100"
+    all_test_set_list = ["covers80","reels50hard"]
     test_set_list = [d for d in all_test_set_list if d in hp]
 
     model = Model(hp).to(device)
