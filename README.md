@@ -252,7 +252,7 @@ The `eval_for_map_with_feat()` function, called at the end of each epoch, also s
 The file you can prepare for the `tools/eval_testset.py` script to pass as the 4th parameter `query_in_ref_path` (CoverHunter did not provide an example file or documentation) assumes:
 - JSON or tab-delimited key:value format
 - The only line contains a single key "query_in_ref" with a value that is itself a list of tuples, where each tuple represents a mapping between an index in the query input file and an index in the reference input file.
-This mapping is only used by the `_generate_dist_matrix()` function. That function explains: "List[(idx, idy), ...], means query[idx] is in ref[idy] so we skip that when computing mAP."
+This mapping is only used by the `_generate_dist_matrix()` function. That function explains: "List[(idx, idy), ...], means query[idx] is in ref[idy] so we skip that when computing mAP." idx and idy are the sequentially assigned index numbers to each rec in the order they appear in the query and ref data sources.
 
 # Code Map
 

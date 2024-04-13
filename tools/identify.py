@@ -55,7 +55,7 @@ def _get_feat(feat_path,hp,chunk_len):
 
 def _load_ref_embeds(ref_lines):
     """
-    adapted from src/eval_testset.py _load_chunk_embed_from_dir()
+    adapted from src/eval_testset.py _load_data_from_dir()
     
     returns dictionary of "label" -> embedding.npy associations
     """

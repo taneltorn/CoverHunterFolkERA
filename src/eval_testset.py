@@ -21,7 +21,11 @@ from src.utils import (
 
 
 def _cluster_plot(
-    dist_matrix, ref_labels, output_path, test_only_labels=None, logger=None,
+    dist_matrix,
+    ref_labels,
+    output_path,
+    test_only_labels=None,
+    logger=None,
 ) -> None:
     """
     Generate t-SNE clustering PNG plot.
@@ -40,7 +44,9 @@ def _cluster_plot(
     if test_only_labels is None:
         test_only_labels = []
     model = TSNE(
-        n_components=2, init="random", random_state=0,
+        n_components=2,
+        init="random",
+        random_state=0,
     )  # Adjust parameters as needed
     embedding = model.fit_transform(dist_matrix)
 
@@ -60,7 +66,7 @@ def _cluster_plot(
         color_dict[label] = colors[i % num_colors]
         # Assign marker style for label
         marker_dict[label] = marker_styles[i % len(marker_styles)]
-    print('test_only_labels: ',test_only_labels)
+    print("test_only_labels: ", test_only_labels)
 
     for i, label in enumerate(unique_labels):
         label_indices = np.where(ref_labels == label)[0]
@@ -138,7 +144,9 @@ def _calc_embed(model, query_loader, device, saved_dir=None):
                 embed = embed_b[idx_embed]
                 label = label_b[idx_embed]
 
-                assert np.shape(embed) == (model.get_embed_length(),), np.shape(embed)
+                assert np.shape(embed) == (
+                    model.get_embed_length(),
+                ), np.shape(embed)
 
                 if rec not in query_label:
                     query_label[rec] = label
@@ -169,7 +177,11 @@ def _compute_distance_worker(args):
 
 
 def _generate_dist_matrixMPS(
-    query_rec_label, query_embed, ref_rec_label=None, ref_embed=None, query_in_ref=None,
+    query_rec_label,
+    query_embed,
+    ref_rec_label=None,
+    ref_embed=None,
+    query_in_ref=None,
 ):
     """generate distance matrix from query/ref embedding
 
@@ -232,23 +244,25 @@ def _generate_dist_matrixMPS(
 # =============================================================================
 
 
-def _load_chunk_embed_from_dir(query_chunk_lines):
+def _load_data_from_dir(query_chunked_lines):
     query_rec_label = []
     query_embed = {}
-    rec_s = set()
-    for line in query_chunk_lines:
+    rec_set = set()
+    for line in query_chunked_lines:
         local_data = line_to_dict(line)
         rec = local_data["rec"].split(f"-{RARE_DELIMITER}start-")[0]
         label = local_data["song_id"]
-        if rec not in rec_s:
+        if rec not in rec_set:  # exclude duplicate recs
             query_rec_label.append((rec, label))
-            rec_s.add(rec)
+            rec_set.add(rec)
             query_embed[rec] = []
         query_embed[rec].append(np.load(local_data["embed"]))
     return query_rec_label, query_embed
 
 
-def _cut_one_line_with_dur(line, window_length_s, window_shift_s, hop_size=0.04):
+def _cut_one_line_with_dur(
+    line, window_length_s, window_shift_s, hop_size=0.04
+):
     """cut line with window_length_s
 
     If duration is smaller than window_length_s, return only one chunk.
@@ -281,26 +295,33 @@ def _cut_one_line_with_dur(line, window_length_s, window_shift_s, hop_size=0.04)
 
 
 def _cut_lines_with_dur(init_lines, chunk_s, embed_dir):
-    """cut line with duration: for every line, add "start" for signal start point
+    """
+    Cut lines with duration: For every init_line that is longer than chunk_s,
+    split into lines of max length chunk_s.
+    Add "start" to all lines for chunk starting point relative to original rec.
 
     Args:
       init_lines: list of all lines
-      chunk_s: float, second for every chunk
+      chunk_s: float, chunk duration in seconds
       embed_dir: embed dir to save embed array
 
     Returns:
-      chunk_lines: same with init_line beside "start"
+      chunk_lines: init_lines split as needed to respect chunk_s, and then
+      modified by _cut_one_line_with_dur
     """
     os.makedirs(embed_dir, exist_ok=True)
     chunk_lines = []
     for line in init_lines:
         short_lines = _cut_one_line_with_dur(
-            line, window_length_s=chunk_s, window_shift_s=chunk_s,
+            line,
+            window_length_s=chunk_s,
+            window_shift_s=chunk_s,
         )
         for short_line in short_lines:
             local_data = line_to_dict(short_line)
             local_data["embed"] = os.path.join(
-                embed_dir, "{}.npy".format(local_data["rec"]),
+                embed_dir,
+                "{}.npy".format(local_data["rec"]),
             )
             chunk_lines.append(dict_to_line(local_data))
     return chunk_lines
@@ -394,21 +415,30 @@ def eval_for_map_with_feat(
         query_in_ref = None
 
     query_embed_dir = os.path.join(embed_dir, "query_embed")
-    query_chunk_lines = _cut_lines_with_dur(query_lines, chunk_s, query_embed_dir)
-    write_lines(os.path.join(embed_dir, "query.txt"), query_chunk_lines, False)
+    query_chunked_lines = _cut_lines_with_dur(
+        query_lines, chunk_s, query_embed_dir
+    )
+    write_lines(
+        os.path.join(embed_dir, "query.txt"), query_chunked_lines, False
+    )
     # select query recs for which there is not yet a saved embedding
     to_calc_lines = [
-        l for l in query_chunk_lines if not os.path.exists(line_to_dict(l)["embed"])
+        l
+        for l in query_chunked_lines
+        if not os.path.exists(line_to_dict(l)["embed"])
     ]
     if logger:
         logger.info(
-            f"query chunk lines: {len(query_chunk_lines)}, to compute lines: {len(to_calc_lines)}",
+            f"query chunked lines: {len(query_chunked_lines)}, to compute lines: {len(to_calc_lines)}",
         )
     # generate any missing embeddings
     if len(to_calc_lines) > 0:
         data_loader = DataLoader(
             AudioFeatDataset(
-                hp, data_lines=to_calc_lines, mode="defined", chunk_len=infer_frame,
+                hp,
+                data_lines=to_calc_lines,
+                mode="defined",
+                chunk_len=infer_frame,
             ),
             num_workers=num_workers,
             shuffle=False,
@@ -421,21 +451,26 @@ def eval_for_map_with_feat(
         _calc_embed(model, data_loader, device, saved_dir=query_embed_dir)
 
     ref_embed_dir = os.path.join(embed_dir, "query_embed")
-    ref_chunk_lines = _cut_lines_with_dur(ref_lines, chunk_s, ref_embed_dir)
-    write_lines(os.path.join(embed_dir, "ref.txt"), ref_chunk_lines, False)
+    ref_chunked_lines = _cut_lines_with_dur(ref_lines, chunk_s, ref_embed_dir)
+    write_lines(os.path.join(embed_dir, "ref.txt"), ref_chunked_lines, False)
     if ref_path != query_path:
         # select ref recs for which there is not yet a saved embedding
         to_calc_lines = [
-            l for l in ref_chunk_lines if not os.path.exists(line_to_dict(l)["embed"])
+            l
+            for l in ref_chunked_lines
+            if not os.path.exists(line_to_dict(l)["embed"])
         ]
         if logger:
             logger.info(
-                f"ref chunk lines: {len(ref_chunk_lines)}, to compute lines: {len(to_calc_lines)}",
+                f"ref chunked lines: {len(ref_chunked_lines)}, to compute lines: {len(to_calc_lines)}",
             )
         if len(to_calc_lines) > 0:
             data_loader = DataLoader(
                 AudioFeatDataset(
-                    hp, data_lines=to_calc_lines, mode="defined", chunk_len=infer_frame,
+                    hp,
+                    data_lines=to_calc_lines,
+                    mode="defined",
+                    chunk_len=infer_frame,
                 ),
                 num_workers=num_workers,
                 shuffle=True,
@@ -456,13 +491,15 @@ def eval_for_map_with_feat(
             "skip computing the ref embeddings",
         )
 
-    query_rec_label, query_embed = _load_chunk_embed_from_dir(query_chunk_lines)
+    query_rec_label, query_embed = _load_data_from_dir(query_chunked_lines)
     if ref_path == query_path:
         ref_rec_label, ref_embed = None, None
     else:
-        ref_rec_label, ref_embed = _load_chunk_embed_from_dir(ref_chunk_lines)
+        ref_rec_label, ref_embed = _load_data_from_dir(ref_chunked_lines)
     if logger:
-        logger.info("Finish loading embedding and Start to compute dist matrix")
+        logger.info(
+            "Finished loading embedding. Start to compute distance matrix"
+        )
 
     # parallelized version for CoverHunterMPS
     dist_matrix, query_label, ref_label = _generate_dist_matrixMPS(
@@ -492,16 +529,22 @@ def eval_for_map_with_feat(
         if path != "":
             assert os.path.isdir(path), f"Invalid plot path: {plot_name}"
 
-        _cluster_plot(dist_matrix, ref_label, plot_name, test_only_labels, logger)
+        _cluster_plot(
+            dist_matrix, ref_label, plot_name, test_only_labels, logger
+        )
         logger.info(f"t-SNE plot saved to: {plot_name}")
 
     if logger:
-        logger.info("Finish computing distance matrix and Start to compute map")
+        logger.info(
+            "Finish computing distance matrix and Start to compute map"
+        )
         logger.info(
             f"Inp dist shape: {np.shape(dist_matrix)}, query: {len(query_label)}, ref: {len(ref_label)}",
         )
 
-    metrics = calc_map(dist_matrix, query_label, ref_label, topk=10000, verbose=0)
+    metrics = calc_map(
+        dist_matrix, query_label, ref_label, topk=10000, verbose=0
+    )
     if logger:
         logger.info("map: {}".format(metrics["mean_ap"]))
         logger.info("rank1: {}".format(metrics["rank1"]))
