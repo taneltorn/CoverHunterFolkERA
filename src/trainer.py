@@ -135,7 +135,7 @@ def validate(
     val_losses = {"count": 0}
     with torch.no_grad():
         for j, batch in enumerate(validation_loader):
-            rec, anchor, label = batch
+            perf, anchor, label = batch
             anchor = batch[1].float().to(device)
             label = batch[2].long().to(device)
 
@@ -144,7 +144,7 @@ def validate(
             if logger and j % 10 == 0:
                 logger.info(
                     "step-{} {} {} {} {}".format(
-                        j, rec[0], losses["ce_loss"].item(), anchor[0][0][0], label[0],
+                        j, perf[0], losses["ce_loss"].item(), anchor[0][0][0], label[0],
                     ),
                 )
 
@@ -173,7 +173,7 @@ def validate(
 #     query_pred = {}
 #     with torch.no_grad():
 #         for _j, batch in enumerate(query_loader):
-#             rec_b, anchor_b, label_b = batch
+#             perf_b, anchor_b, label_b = batch
 #             anchor_b = batch[1].float().to(model.device)
 #             label_b = batch[2].long().to(model.device)
 
@@ -182,7 +182,7 @@ def validate(
 #             label_b = label_b.cpu().numpy()
 
 #             for idx_embed in range(len(pred_b)):
-#                 rec = rec_b[idx_embed]
+#                 perf = perf_b[idx_embed]
 #                 pred_embed = pred_b[idx_embed]
 #                 pred_label = np.argmax(pred_embed)
 #                 prob = pred_embed[pred_label]
@@ -190,42 +190,42 @@ def validate(
 #                 assert np.shape(pred_embed) == (
 #                     model.get_ce_embed_length(),
 #                 ), f"invalid embed shape:{np.shape(pred_embed)}"
-#                 if rec not in query_label:
-#                     query_label[rec] = label
+#                 if perf not in query_label:
+#                     query_label[perf] = label
 #                 else:
-#                     assert query_label[rec] == label
+#                     assert query_label[perf] == label
 
-#                 if rec not in query_pred:
-#                     query_pred[rec] = []
-#                 query_pred[rec].append((pred_label, prob))
+#                 if perf not in query_pred:
+#                     query_pred[perf] = []
+#                 query_pred[perf].append((pred_label, prob))
 
-#     query_rec_label = sorted(query_label.items())
-#     return query_rec_label, query_pred
+#     query_perf_label = sorted(query_label.items())
+#     return query_perf_label, query_pred
 
 
 # Unused
 # def _syn_pred_label(model, valid_loader, valid_name, sw=None, epoch_num=-1) -> None:
 #     model.eval()
 
-#     query_rec_label, query_pred = _calc_label(model, valid_loader)
+#     query_perf_label, query_pred = _calc_label(model, valid_loader)
 
-#     rec_right, rec_total = 0, 0
+#     perf_right, perf_total = 0, 0
 #     right, total = 0, 0
-#     for rec, label in query_rec_label:
-#         pred_lst = query_pred[rec]
+#     for perf, label in query_perf_label:
+#         pred_lst = query_pred[perf]
 #         total += len(pred_lst)
 #         for pred, _ in pred_lst:
 #             right = right + 1 if pred == label else right
 
-#         rec_pred = sorted(pred_lst, key=lambda x: x[1], reverse=False)[0][0]
-#         rec_total += 1
-#         rec_right = rec_right + 1 if rec_pred == label else rec_right
+#         perf_pred = sorted(pred_lst, key=lambda x: x[1], reverse=False)[0][0]
+#         perf_total += 1
+#         perf_right = perf_right + 1 if perf_pred == label else perf_right
 
-#     rec_acc = rec_right / rec_total
+#     perf_acc = perf_right / perf_total
 #     acc = right / total
 #     if sw is not None:
-#         sw.add_scalar(f"coi_{valid_name}/rec_acc", rec_acc, epoch_num)
+#         sw.add_scalar(f"coi_{valid_name}/perf_acc", perf_acc, epoch_num)
 #         sw.add_scalar(f"coi_{valid_name}/acc", acc, epoch_num)
 
-#     logging.info(f"{valid_name} rec Acc: {rec_acc:.3f}, Total: {rec_total}")
+#     logging.info(f"{valid_name} perf Acc: {perf_acc:.3f}, Total: {perf_total}")
 #     logging.info(f"{valid_name} Acc: {acc:.3f}, Total: {total}")

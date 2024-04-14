@@ -75,7 +75,7 @@ def calc_map(
         if verbose > 0:
             top5_res = [x for x, _ in row][:5]
             print(
-                f"Debug:: {u}th, query song: {label_query[u]}, map: {per_map},  rank1: {per_rank1}, top5: {top5_res}",
+                f"Debug:: {u}th, query work: {label_query[u]}, map: {per_map},  rank1: {per_rank1}, top5: {top5_res}",
             )
         mean_ap += per_map
         top10 += per_top10

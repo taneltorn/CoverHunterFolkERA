@@ -30,21 +30,21 @@ from src.utils import (
 )
 
 
-def _sort_lines_by_rec(init_path, sorted_path) -> None:
+def _sort_lines_by_perf(init_path, sorted_path) -> None:
     dump_lines = read_lines(init_path, log=False)
-    dump_lines = sorted(dump_lines, key=lambda x: (line_to_dict(x)["rec"]))
+    dump_lines = sorted(dump_lines, key=lambda x: (line_to_dict(x)["perf"]))
     write_lines(sorted_path, dump_lines, log=True)
 
 
 def _remove_dup_line(init_path, new_path) -> None:
-    logging.info("Remove line with same rec")
+    logging.info("Remove line with same perf")
     old_line_num = len(read_lines(init_path, log=False))
-    rec_set = set()
+    perf_set = set()
     valid_lines = []
     for line in read_lines(init_path, log=False):
-        rec = line_to_dict(line)["rec"]
-        if rec not in rec_set:
-            rec_set.add(rec)
+        perf = line_to_dict(line)["perf"]
+        if perf not in perf_set:
+            perf_set.add(perf)
             valid_lines.append(line)
     logging.info(f"Filter stage: {old_line_num}->{len(valid_lines)}")
     write_lines(new_path, valid_lines)
@@ -66,7 +66,7 @@ def _remove_dup_line(init_path, new_path) -> None:
 
 # Unused
 # def _remove_line_with_same_dur(init_path, new_path) -> None:
-#     """remove line with same song-id and same dur-ms"""
+#     """remove line with same work-id and same dur-ms"""
 #     old_line_num = len(read_lines(init_path, log=False))
 #     dump_lines = []
 #     for line in read_lines(init_path, log=False):
@@ -109,19 +109,19 @@ def _speed_aug_worker(args):
     wav_path = line["wav"]
 
     if abs(speed - 1.0) > 0.01:
-        sp_rec = "sp_{}-{}".format(speed, line["rec"])
-        sp_wav_path = os.path.join(sp_dir, f"{sp_rec}.wav")
+        sp_perf = "sp_{}-{}".format(speed, line["perf"])
+        sp_wav_path = os.path.join(sp_dir, f"{sp_perf}.wav")
         if not os.path.exists(sp_wav_path):
             sox_change_speed(wav_path, sp_wav_path, speed)
     else:
-        sp_rec = line["rec"]
+        sp_perf = line["perf"]
         sp_wav_path = line["wav"]
 
     # added logic missing in original CoverHunter: modify dur_s
     # so that _cut_one_line_with_dur function slices augmented samples appropriately
     # since speed augmentation also changes duration
     line["dur_s"] = round(line["dur_s"] / speed, 2)
-    line["rec"] = sp_rec
+    line["perf"] = sp_perf
     line["wav"] = sp_wav_path
     return line
 
@@ -157,7 +157,7 @@ def _extract_cqt_worker_librosa(args):
     line, cqt_dir = args
     wav_path = line["wav"]
     py_cqt = PyCqt(sample_rate=16000, hop_size=0.04)
-    feat_path = os.path.join(cqt_dir, "{}.cqt.npy".format(line["rec"]))
+    feat_path = os.path.join(cqt_dir, "{}.cqt.npy".format(line["perf"]))
 
     if not os.path.exists(feat_path):
         y, sr = librosa.load(wav_path, sr=16000)  # y is a npy ndarray
@@ -175,7 +175,7 @@ def _extract_cqt_worker_librosa(args):
 def _extract_cqt_worker_torchaudio(args):
     line, cqt_dir, device = args
     wav_path = line["wav"]
-    feat_path = os.path.join(cqt_dir, "{}.cqt.npy".format(line["rec"]))
+    feat_path = os.path.join(cqt_dir, "{}.cqt.npy".format(line["perf"]))
 
     # CQT seems faster on mps, and CQT2010v2 faster on cuda
     if device == "mps":
@@ -238,7 +238,7 @@ def _extract_cqt_parallel(init_path, out_path, cqt_dir, device) -> None:
                 logging.info(
                     "Extracted CQT for {} items: {}".format(
                         len(dump_lines),
-                        result["rec"],
+                        result["perf"],
                     ),
                 )
 
@@ -257,13 +257,13 @@ def _extract_cqt_with_noise(init_path, full_path, cqt_dir, hp_noise) -> None:
     for line in read_lines(init_path, log=False):
         local_data = line_to_dict(line)
         wav_path = local_data["wav"]
-        local_data["rec"] = local_data["rec"] + "{}noise_{}".format(
+        local_data["perf"] = local_data["perf"] + "{}noise_{}".format(
             RARE_DELIMITER,
             hp_noise["name"],
         )
         local_data["feat"] = os.path.join(
             cqt_dir,
-            "{}.cqt.npy".format(local_data["rec"]),
+            "{}.cqt.npy".format(local_data["perf"]),
         )
 
         vol = random.choice(vol_lst)
@@ -285,7 +285,7 @@ def _extract_cqt_with_noise(init_path, full_path, cqt_dir, hp_noise) -> None:
             logging.info(
                 "Process cqt for {}items: {}, vol:{}".format(
                     len(dump_lines),
-                    local_data["rec"],
+                    local_data["perf"],
                     vol,
                 ),
             )
@@ -293,117 +293,117 @@ def _extract_cqt_with_noise(init_path, full_path, cqt_dir, hp_noise) -> None:
     write_lines(full_path, dump_lines)
 
 
-def _add_song_id(init_path, out_path, map_path=None) -> None:
-    """map format:: song_name->song_id"""
-    song_id_map = {}
+def _add_work_id(init_path, out_path, map_path=None) -> None:
+    """map format:: work_name->work_id"""
+    work_id_map = {}
     dump_lines = []
     for line in read_lines(init_path, log=False):
         local_data = line_to_dict(line)
-        song_name = local_data["song"]
-        if song_name not in song_id_map:
-            song_id_map[song_name] = len(song_id_map)
-        local_data["song_id"] = song_id_map[song_name]
+        work_name = local_data["work"]
+        if work_name not in work_id_map:
+            work_id_map[work_name] = len(work_id_map)
+        local_data["work_id"] = work_id_map[work_name]
         dump_lines.append(dict_to_line(local_data))
     write_lines(out_path, dump_lines)
 
     if map_path:
         dump_lines = []
-        for k, v in song_id_map.items():
+        for k, v in work_id_map.items():
             dump_lines.append(f"{k} {v}")
         write_lines(map_path, dump_lines)
 
 
-def _split_data_by_song_id(
+def _split_data_by_work_id(
     input_path,
     train_path,
     val_path,
     test_path,
-    test_song_ids_path,
+    test_work_ids_path,
     hp,
 ) -> None:
     """
     Splits data into train / validation / test sets
-	using stratified sampling based on song_id.
+	using stratified sampling based on work_id.
 
     Args:
         input_path: Path to the input data file.
         train_path: Path to write the training data.
         val_path: Path to write the validation data.
         test_path: Path to write the testing data.
-        test_song_ids_path: Path to write a list of song_ids reserved for test
+        test_work_ids_path: Path to write a list of work_ids reserved for test
     """
-    # percent of unique song IDs to include only in the val or test sets
+    # percent of unique work IDs to include only in the val or test sets
     val_only_percent = hp["train-sample_unseen"]
     test_only_percent = hp["test_data_unseen"]
     val_ratio = hp["train-sample_data_split"]
     test_ratio = hp["test_data_split"]
 
-    # Dictionary to store song ID counts and shuffled sample lists
-    song_data = {}
+    # Dictionary to store work ID counts and shuffled sample lists
+    work_data = {}
     for line in read_lines(input_path):
         local_data = line_to_dict(line)
-        song_id = local_data["song_id"]
-        if song_id not in song_data:
-            song_data[song_id] = []
-        song_data[song_id].append(local_data)
-    logging.info("Number of distinct songs: %s", len(song_data))
+        work_id = local_data["work_id"]
+        if work_id not in work_data:
+            work_data[work_id] = []
+        work_data[work_id].append(local_data)
+    logging.info("Number of distinct works: %s", len(work_data))
 
-    num_songs = len(song_data)
+    num_works = len(work_data)
 
-    # Separate songs for test-only and stratified split.
-	# Ensure minimum of one song in test only if non-zero requested.
+    # Separate works for test-only and stratified split.
+	# Ensure minimum of one work in test only if non-zero requested.
     test_only_count = (
-        max(1, int(num_songs * test_only_percent))
+        max(1, int(num_works * test_only_percent))
         if test_only_percent > 0
         else 0
     )
-    # Randomly select songs for test only
-    test_only_songs = random.sample(list(song_data.keys()), test_only_count)
-    remaining_songs = {
-        song_id: samples
-        for song_id, samples in song_data.items()
-        if song_id not in test_only_songs
+    # Randomly select works for test only
+    test_only_works = random.sample(list(work_data.keys()), test_only_count)
+    remaining_works = {
+        work_id: samples
+        for work_id, samples in work_data.items()
+        if work_id not in test_only_works
     }
 
-    # Process songs for test only (all samples to test)
+    # Process works for test only (all samples to test)
     test_data = []
-    for song_id in test_only_songs:
-        test_data.extend(song_data[song_id])
+    for work_id in test_only_works:
+        test_data.extend(work_data[work_id])
 
-    # Separate songs for val-only and stratified split.
-    # Ensure minimum of one song in val only if non-zero requested
+    # Separate works for val-only and stratified split.
+    # Ensure minimum of one work in val only if non-zero requested
     val_only_count = (
-        max(1, int(num_songs * val_only_percent))
+        max(1, int(num_works * val_only_percent))
         if val_only_percent > 0
         else 0
     )
-    val_only_songs = random.sample(
-        list(remaining_songs.keys()),
+    val_only_works = random.sample(
+        list(remaining_works.keys()),
         val_only_count,
-    )  # Randomly select songs for val only
-    remaining_songs = {
-        song_id: samples
-        for song_id, samples in remaining_songs.items()
-        if song_id not in val_only_songs
+    )  # Randomly select works for val only
+    remaining_works = {
+        work_id: samples
+        for work_id, samples in remaining_works.items()
+        if work_id not in val_only_works
     }
 
-    # Process songs for val only (all samples to val)
+    # Process works for val only (all samples to val)
     val_data = []
-    for song_id in val_only_songs:
-        val_data.extend(song_data[song_id])
+    for work_id in val_only_works:
+        val_data.extend(work_data[work_id])
 
     train_data, remaining_val_data, remaining_test_data = [], [], []
     if (
         val_ratio > 0 or test_ratio > 0
     ):  # don't bother if 0,0 like for testset CQT generation
-        # Stratified split for remaining songs
-        for song_id, samples in remaining_songs.items():
-            # Randomly shuffle samples for this song ID
+        # Stratified split for remaining works
+        for work_id, samples in remaining_works.items():
+            # Randomly shuffle samples for this work ID
             random.shuffle(samples)
 
             # Calculate val split points based on train ratio and minimum samples (1)
             min_samples = (
-                1  # Ensure at least 1 sample in each set for remaining songs
+                1  # Ensure at least 1 sample in each set for remaining works
             )
             val_split = int(len(samples) * val_ratio)
             val_split = max(
@@ -413,7 +413,7 @@ def _split_data_by_song_id(
 
             # Calculate test split points based on train ratio and minimum samples (1)
             min_samples = (
-                1  # Ensure at least 1 sample in each set for remaining songs
+                1  # Ensure at least 1 sample in each set for remaining works
             )
             test_split = int(len(samples) * test_ratio)
             test_split = max(
@@ -430,7 +430,7 @@ def _split_data_by_song_id(
         val_data.extend(remaining_val_data)
         test_data.extend(remaining_test_data)
     else:
-        train_data.extend(remaining_songs.items())
+        train_data.extend(remaining_works.items())
 
     logging.info("Number of samples in train: %s", len(train_data))
     logging.info("Number of samples in validate: %s", len(val_data))
@@ -441,10 +441,10 @@ def _split_data_by_song_id(
         write_lines(val_path, [dict_to_line(sample) for sample in val_data])
     if len(test_data) > 0:
         write_lines(test_path, [dict_to_line(sample) for sample in test_data])
-    if len(test_only_songs) > 0:
+    if len(test_only_works) > 0:
         write_lines(
-            test_song_ids_path,
-            [dict_to_line(song) for song in test_only_songs],
+            test_work_ids_path,
+            [dict_to_line(work) for work in test_only_works],
         )
 
 
@@ -452,16 +452,16 @@ def _split_data_by_song_id(
 # Not needed
 #
 # def _add_version_id(init_path, out_path):
-#   song_version_map = {}
+#   work_version_map = {}
 #   for line in read_lines(init_path, log=False):
 #     local_data = line_to_dict(line)
-#     song_id = local_data["song_id"]
-#     if song_id not in song_version_map.keys():
-#       song_version_map[song_id] = []
-#     song_version_map[song_id].append(local_data)
+#     work_id = local_data["work_id"]
+#     if work_id not in work_version_map.keys():
+#       work_version_map[work_id] = []
+#     work_version_map[work_id].append(local_data)
 #
 #   dump_lines = []
-#   for k, v_lst in song_version_map.items():
+#   for k, v_lst in work_version_map.items():
 #     for version_id, local_data in enumerate(v_lst):
 #       local_data["version_id"] = version_id
 #       dump_lines.append(dict_to_line(local_data))
@@ -469,44 +469,44 @@ def _split_data_by_song_id(
 #   return
 #
 #
-# def _extract_song_num(full_path, song_name_map_path, song_id_map_path):
-#   """add map of song_id:num and song_name:num"""
-#   song_id_num = {}
-#   max_song_id = 0
+# def _extract_work_num(full_path, work_name_map_path, work_id_map_path):
+#   """add map of work_id:num and work_name:num"""
+#   work_id_num = {}
+#   max_work_id = 0
 #   for line in read_lines(full_path):
 #     local_data = line_to_dict(line)
-#     song_id = local_data["song_id"]
-#     if song_id not in song_id_num.keys():
-#       song_id_num[song_id] = 0
-#     song_id_num[song_id] += 1
-#     if song_id >= max_song_id:
-#       max_song_id = song_id
-#   logging.info("max_song_id: {}".format(max_song_id))
+#     work_id = local_data["work_id"]
+#     if work_id not in work_id_num.keys():
+#       work_id_num[work_id] = 0
+#     work_id_num[work_id] += 1
+#     if work_id >= max_work_id:
+#       max_work_id = work_id
+#   logging.info("max_work_id: {}".format(max_work_id))
 #
-#   dump_data = list(song_id_num.items())
+#   dump_data = list(work_id_num.items())
 #   dump_data = sorted(dump_data)
 #   dump_lines = ["{} {}".format(k, v) for k, v in dump_data]
-#   write_lines(song_id_map_path, dump_lines, log=False)
+#   write_lines(work_id_map_path, dump_lines, log=False)
 #
-#   song_num = {}
+#   work_num = {}
 #   for line in read_lines(full_path, log=False):
 #     local_data = line_to_dict(line)
-#     song_id = local_data["song"]
-#     if song_id not in song_num.keys():
-#       song_num[song_id] = 0
-#     song_num[song_id] += 1
+#     work_id = local_data["work"]
+#     if work_id not in work_num.keys():
+#       work_num[work_id] = 0
+#     work_num[work_id] += 1
 #
-#   dump_data = list(song_num.items())
+#   dump_data = list(work_num.items())
 #   dump_data = sorted(dump_data)
 #   dump_lines = ["{} {}".format(k, v) for k, v in dump_data]
-#   write_lines(song_name_map_path, dump_lines, log=False)
+#   write_lines(work_name_map_path, dump_lines, log=False)
 #   return
 #
 #
-# def _sort_lines_by_song_id(full_path, sorted_path):
+# def _sort_lines_by_work_id(full_path, sorted_path):
 #   dump_lines = read_lines(full_path, log=False)
 #   dump_lines = sorted(dump_lines,
-#                       key=lambda x: (int(line_to_dict(x)["song_id"]),
+#                       key=lambda x: (int(line_to_dict(x)["work_id"]),
 #                                      int(line_to_dict(x)["version_id"])))
 #   write_lines(sorted_path, dump_lines, log=True)
 #   return
@@ -519,9 +519,9 @@ def _clean_lines(full_path, clean_path) -> None:
     for line in read_lines(full_path):
         local_data = line_to_dict(line)
         clean_data = {
-            "rec": local_data["rec"],
-            "song_id": local_data["song_id"],
-            "song": local_data["song"],
+            "perf": local_data["perf"],
+            "work_id": local_data["work_id"],
+            "work": local_data["work"],
             "version_id": local_data["version_id"],
         }
         if "feat" in local_data:
@@ -547,7 +547,7 @@ def _generate_csi_features(hp, feat_dir, start_stage, end_stage) -> None:
     shutil.copy(data_path, init_path)
     if start_stage <= 0 <= end_stage:
         logging.info("Stage 0: data deduping")
-        _sort_lines_by_rec(init_path, init_path)
+        _sort_lines_by_perf(init_path, init_path)
         _remove_dup_line(init_path, init_path)
 
     # aug_speed_mode is a list like: [0.8, 0.9, 1.0, 1.1, 1.2]
@@ -589,14 +589,14 @@ def _generate_csi_features(hp, feat_dir, start_stage, end_stage) -> None:
             hp_noise={"add_noise": hp_noise},
         )
 
-    # Assumes "song" values provided in dataset.txt are unique identifiers
-    # for the parent songs.
-    # song_id.map is a useful reference document, but not used in this project
+    # Assumes "work" values provided in dataset.txt are unique identifiers
+    # for the parent works.
+    # work_id.map is a useful reference document, but not used in this project
     if start_stage <= 8 <= end_stage:
-        logging.info("Stage 8: add song_id")
-        song_id_map_path = os.path.join(feat_dir, "song_id.map")
+        logging.info("Stage 8: add work_id")
+        work_id_map_path = os.path.join(feat_dir, "work_id.map")
         if new_full or not os.path.exists(full_path):
-            _add_song_id(full_path, full_path, song_id_map_path)
+            _add_work_id(full_path, full_path, work_id_map_path)
 
     # =============================================================================
     # CoverHunter doesn't actually do anything with version_id or the .map files
@@ -606,13 +606,13 @@ def _generate_csi_features(hp, feat_dir, start_stage, end_stage) -> None:
     #
     # if start_stage <= 10 <= end_stage:
     #   logging.info("Start stage 10: extract version num")
-    #   song_id_map_path = os.path.join(feat_dir, "song_id_num.map")
-    #   song_num_map_path = os.path.join(feat_dir, "song_name_num.map")
-    #   _extract_song_num(full_path, song_num_map_path, song_id_map_path)
+    #   work_id_map_path = os.path.join(feat_dir, "work_id_num.map")
+    #   work_num_map_path = os.path.join(feat_dir, "work_name_num.map")
+    #   _extract_work_num(full_path, work_num_map_path, work_id_map_path)
     #
     # if start_stage <= 11 <= end_stage:
     #   logging.info("Stage 11: clean for unused keys")
-    #   _sort_lines_by_song_id(full_path, full_path)
+    #   _sort_lines_by_work_id(full_path, full_path)
     # =============================================================================
 
     if start_stage <= 13 <= end_stage:
@@ -620,13 +620,13 @@ def _generate_csi_features(hp, feat_dir, start_stage, end_stage) -> None:
         train_path = os.path.join(feat_dir, "train.txt")
         val_path = os.path.join(feat_dir, "train-sample.txt")
         test_path = os.path.join(feat_dir, "dev.txt")
-        test_song_ids_path = os.path.join(feat_dir, "dev-only-song-ids.txt")
-        _split_data_by_song_id(
+        test_work_ids_path = os.path.join(feat_dir, "dev-only-work-ids.txt")
+        _split_data_by_work_id(
             full_path,
             train_path,
             val_path,
             test_path,
-            test_song_ids_path,
+            test_work_ids_path,
             hp,
         )
 

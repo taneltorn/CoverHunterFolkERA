@@ -400,8 +400,8 @@ class AudioFeatDataset(torch.utils.data.Dataset):
                 local_data = line_to_dict(line)
                 self._data.append(
                     (
-                        local_data["rec"],
-                        local_data["song_id"],
+                        local_data["perf"],
+                        local_data["work_id"],
                         local_data["feat"],
                         local_data["feat_len"],
                         chunk_len,
@@ -414,8 +414,8 @@ class AudioFeatDataset(torch.utils.data.Dataset):
                     local_data["start"] = 0
                 self._data.append(
                     (
-                        local_data["rec"],
-                        local_data["song_id"],
+                        local_data["perf"],
+                        local_data["work_id"],
                         local_data["feat"],
                         local_data["start"],
                         chunk_len,
@@ -445,7 +445,7 @@ class AudioFeatDataset(torch.utils.data.Dataset):
         return len(self._data)
 
     def __getitem__(self, idx):
-        rec, label, feat_path, len_or_start, chunk_len = self._data[idx]
+        perf, label, feat_path, len_or_start, chunk_len = self._data[idx]
 
         if self._mode == "random":
             feat_len = len_or_start
@@ -454,7 +454,7 @@ class AudioFeatDataset(torch.utils.data.Dataset):
             else:
                 start = 0
         elif self._mode == "defined":
-            rec, label, feat_path, start, chunk_len = self._data[idx]
+            perf, label, feat_path, start, chunk_len = self._data[idx]
         else:
             msg = "invalid mode".format()
             raise Exception(msg)
@@ -475,7 +475,7 @@ class AudioFeatDataset(torch.utils.data.Dataset):
 
         feat = torch.from_numpy(feat)
         label = torch.tensor(label).long()
-        return rec, feat, label
+        return perf, feat, label
 
 
 class MPerClassSampler(Sampler):
@@ -557,7 +557,7 @@ class MPerClassSampler(Sampler):
         labels_to_indices = {}
         for index, line in enumerate(data_lines):
             local_data = line_to_dict(line)
-            label = local_data["song_id"]
+            label = local_data["work_id"]
 
             if label not in labels_to_indices:
                 labels_to_indices[label] = []

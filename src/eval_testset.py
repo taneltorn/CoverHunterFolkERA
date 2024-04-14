@@ -31,8 +31,8 @@ def _cluster_plot(
     Generate t-SNE clustering PNG plot.
 
     dist_matrix must be square.
-    test_only_labels is an optional list of labels (song_ids) that will be marked in the plot
-        to visually distinguish samples of song IDs that were excluded from
+    test_only_labels is an optional list of labels (work_ids) that will be marked in the plot
+        to visually distinguish samples of work IDs that were excluded from
         the training and validation datasets.
 
     Cycle through marker-color combinations to reuse them as little as possible,
@@ -102,7 +102,7 @@ def _cluster_plot(
         plt.text(
             1,
             1.02,
-            "Circles = song_ids not seen in training",
+            "Circles = work_ids not seen in training",
             ha="right",
             va="bottom",
             transform=plt.gca().transAxes,
@@ -123,8 +123,8 @@ def _calc_embed(model, query_loader, device, saved_dir=None):
       saved_dir: To save embed to disk as npy
 
     Returns:
-      query_rec_label: List[(rec, label), ...],
-      query_embed: Dict, key is rec, value is List with embed of every chunk
+      query_perf_label: List[(perf, label), ...],
+      query_embed: Dict, key is perf, value is List with embed of every chunk
 
     """
     query_label = {}
@@ -132,7 +132,7 @@ def _calc_embed(model, query_loader, device, saved_dir=None):
     with torch.no_grad():
 
         for _j, batch in enumerate(query_loader):
-            rec_b, feat_b, label_b = batch
+            perf_b, feat_b, label_b = batch
             feat_b = batch[1].float().to(device)
             label_b = batch[2].long().to(device)
             embed_b, _ = model.inference(feat_b)
@@ -140,7 +140,7 @@ def _calc_embed(model, query_loader, device, saved_dir=None):
             embed_b = embed_b.cpu().numpy()
             label_b = label_b.cpu().numpy()
             for idx_embed in range(len(embed_b)):
-                rec = rec_b[idx_embed]
+                perf = perf_b[idx_embed]
                 embed = embed_b[idx_embed]
                 label = label_b[idx_embed]
 
@@ -148,26 +148,26 @@ def _calc_embed(model, query_loader, device, saved_dir=None):
                     model.get_embed_length(),
                 ), np.shape(embed)
 
-                if rec not in query_label:
-                    query_label[rec] = label
+                if perf not in query_label:
+                    query_label[perf] = label
                 else:
-                    assert query_label[rec] == label
+                    assert query_label[perf] == label
 
-                if rec not in query_embed:
-                    query_embed[rec] = []
-                query_embed[rec].append(embed)
+                if perf not in query_embed:
+                    query_embed[perf] = []
+                query_embed[perf].append(embed)
                 if saved_dir:
-                    saved_path = os.path.join(saved_dir, f"{rec}.npy")
+                    saved_path = os.path.join(saved_dir, f"{perf}.npy")
                     np.save(saved_path, embed)
-    query_rec_label = sorted(query_label.items())
-    return query_rec_label, query_embed
+    query_perf_label = sorted(query_label.items())
+    return query_perf_label, query_embed
 
 
 def _compute_distance_worker(args):
-    rec_query, rec_ref, query_embed, ref_embed = args
+    perf_query, perf_ref, query_embed, ref_embed = args
     to_choice = []
-    for embed_x in query_embed[rec_query]:
-        for embed_y in ref_embed[rec_ref]:
+    for embed_x in query_embed[perf_query]:
+        for embed_y in ref_embed[perf_ref]:
             embed_x = embed_x / np.linalg.norm(embed_x)
             embed_y = embed_y / np.linalg.norm(embed_y)
             cos_sim = embed_x.dot(embed_y)
@@ -177,21 +177,21 @@ def _compute_distance_worker(args):
 
 
 def _generate_dist_matrixMPS(
-    query_rec_label,
+    query_perf_label,
     query_embed,
-    ref_rec_label=None,
+    ref_perf_label=None,
     ref_embed=None,
     query_in_ref=None,
 ):
-    """generate distance matrix from query/ref embedding
+    """generate distance matrix from query and ref embeddings
 
     Args:
-      query_rec_label: List[(rec, label), ...],
-      query_embed: Dict, key is rec, value is List with embed of every chunk
-      ref_rec_label: List[(rec, label), ...]
-      ref_embed: Dict, key is rec, value is List with embed of every chunk
+      query_perf_label: List[(perf, label), ...],
+      query_embed: Dict, key is perf, value is List with embedding of every chunk
+      ref_perf_label: List[(perf, label), ...]
+      ref_embed: Dict, key is perf, value is List with embedding of every chunk
       query_in_ref: List[(idx, idy), ...], means query[idx] is in ref[idy] so
-                    we skip that when computing map
+                    we skip that when computing mAP
 
     Returns:
       dist_matrix: [numpy.ndarray]
@@ -201,16 +201,16 @@ def _generate_dist_matrixMPS(
     """
     import multiprocessing
 
-    if ref_rec_label is None and ref_embed is None:
-        query_in_ref = [(i, i) for i in range(len(query_rec_label))]
-        ref_rec_label = query_rec_label
+    if ref_perf_label is None and ref_embed is None:
+        query_in_ref = [(i, i) for i in range(len(query_perf_label))]
+        ref_perf_label = query_perf_label
         ref_embed = query_embed
 
-    dist_matrix = np.zeros([len(query_rec_label), len(ref_rec_label)])
+    dist_matrix = np.zeros([len(query_perf_label), len(ref_perf_label)])
     args_list = [
-        (rec_query, rec_ref, query_embed, ref_embed)
-        for rec_query, _ in query_rec_label
-        for rec_ref, _ in ref_rec_label
+        (perf_query, perf_ref, query_embed, ref_embed)
+        for perf_query, _ in query_perf_label
+        for perf_ref, _ in ref_perf_label
     ]
 
     with multiprocessing.Pool() as pool:
@@ -219,8 +219,8 @@ def _generate_dist_matrixMPS(
     for (idx, idy), distance in zip(
         [
             (idx, idy)
-            for idx in range(len(query_rec_label))
-            for idy in range(len(ref_rec_label))
+            for idx in range(len(query_perf_label))
+            for idy in range(len(ref_perf_label))
         ],
         distances,
     ):
@@ -228,36 +228,35 @@ def _generate_dist_matrixMPS(
 
     if query_in_ref:
         for idx, idy in query_in_ref:
-            dist_matrix[idx, idy] = -1  # will be skipped when computing map
+            dist_matrix[idx, idy] = -1  # will be skipped when computing mAP
 
-    query_label = [v for k, v in query_rec_label]
-    ref_label = [v for k, v in ref_rec_label]
+    query_label = [v for k, v in query_perf_label]
+    ref_label = [v for k, v in ref_perf_label]
 
     return dist_matrix, query_label, ref_label
 
-
 # =============================================================================
-# Original CoverHunter distance matrix function was very slow at scale.
+# The original CoverHunter distance matrix function was very slow at scale.
 # It did not use multiprocessing (only one core of the CPU).
-# During use of the alignment_for_frame script it took
-# 12 minutes vs. 1.5 minutes on a M2 Max chip.
+# During use of the alignment_for_frame script, on a M2 Max chip, the old
+# version took 12 minutes vs. 1.5 minutes for this new version.
 # =============================================================================
 
 
 def _load_data_from_dir(query_chunked_lines):
-    query_rec_label = []
+    query_perf_label = []
     query_embed = {}
-    rec_set = set()
+    perf_set = set()
     for line in query_chunked_lines:
         local_data = line_to_dict(line)
-        rec = local_data["rec"].split(f"-{RARE_DELIMITER}start-")[0]
-        label = local_data["song_id"]
-        if rec not in rec_set:  # exclude duplicate recs
-            query_rec_label.append((rec, label))
-            rec_set.add(rec)
-            query_embed[rec] = []
-        query_embed[rec].append(np.load(local_data["embed"]))
-    return query_rec_label, query_embed
+        perf = local_data["perf"].split(f"-{RARE_DELIMITER}start-")[0]
+        label = local_data["work_id"]
+        if perf not in perf_set:  # exclude duplicate perfs
+            query_perf_label.append((perf, label))
+            perf_set.add(perf)
+            query_embed[perf] = []
+        query_embed[perf].append(np.load(local_data["embed"]))
+    return query_perf_label, query_embed
 
 
 def _cut_one_line_with_dur(
@@ -277,7 +276,7 @@ def _cut_one_line_with_dur(
 
     """
     local_data = line_to_dict(line)
-    rec = local_data["rec"]
+    perf = local_data["perf"]
     if "dur_s" in local_data:
         dur_s = local_data["dur_s"]
     else:
@@ -288,7 +287,7 @@ def _cut_one_line_with_dur(
     while start_s + window_length_s < dur_s or start_s == 0:
         local_data["start_s"] = start_s
         local_data["start"] = int(start_s * 25)
-        local_data["rec"] = f"{rec}-{RARE_DELIMITER}start-{int(start_s)}"
+        local_data["perf"] = f"{perf}-{RARE_DELIMITER}start-{int(start_s)}"
         short_lines.append(dict_to_line(local_data))
         start_s += window_shift_s
     return short_lines
@@ -298,7 +297,7 @@ def _cut_lines_with_dur(init_lines, chunk_s, embed_dir):
     """
     Cut lines with duration: For every init_line that is longer than chunk_s,
     split into lines of max length chunk_s.
-    Add "start" to all lines for chunk starting point relative to original rec.
+    Add "start" to all lines for chunk starting point relative to original perf.
 
     Args:
       init_lines: list of all lines
@@ -321,7 +320,7 @@ def _cut_lines_with_dur(init_lines, chunk_s, embed_dir):
             local_data = line_to_dict(short_line)
             local_data["embed"] = os.path.join(
                 embed_dir,
-                "{}.npy".format(local_data["rec"]),
+                "{}.npy".format(local_data["perf"]),
             )
             chunk_lines.append(dict_to_line(local_data))
     return chunk_lines
@@ -350,8 +349,8 @@ def eval_for_map_with_feat(
       hp: dict contains hparams
       model: nnet model, should have method 'infer'
       embed_dir: dir for saving embedding, None for not saving anything
-      query_path: text file with query rec info
-      ref_path: text file with ref rec info
+      query_path: text file with query perf info
+      ref_path: text file with ref perf info
       query_in_ref_path: path to prepared query in ref index. None means that
           query index equals ref index
       batch_size: for nnet infer
@@ -421,7 +420,7 @@ def eval_for_map_with_feat(
     write_lines(
         os.path.join(embed_dir, "query.txt"), query_chunked_lines, False
     )
-    # select query recs for which there is not yet a saved embedding
+    # select query perfs for which there is not yet a saved embedding
     to_calc_lines = [
         l
         for l in query_chunked_lines
@@ -454,7 +453,7 @@ def eval_for_map_with_feat(
     ref_chunked_lines = _cut_lines_with_dur(ref_lines, chunk_s, ref_embed_dir)
     write_lines(os.path.join(embed_dir, "ref.txt"), ref_chunked_lines, False)
     if ref_path != query_path:
-        # select ref recs for which there is not yet a saved embedding
+        # select ref perfs for which there is not yet a saved embedding
         to_calc_lines = [
             l
             for l in ref_chunked_lines
@@ -491,11 +490,11 @@ def eval_for_map_with_feat(
             "skip computing the ref embeddings",
         )
 
-    query_rec_label, query_embed = _load_data_from_dir(query_chunked_lines)
+    query_perf_label, query_embed = _load_data_from_dir(query_chunked_lines)
     if ref_path == query_path:
-        ref_rec_label, ref_embed = None, None
+        ref_perf_label, ref_embed = None, None
     else:
-        ref_rec_label, ref_embed = _load_data_from_dir(ref_chunked_lines)
+        ref_perf_label, ref_embed = _load_data_from_dir(ref_chunked_lines)
     if logger:
         logger.info(
             "Finished loading embedding. Start to compute distance matrix"
@@ -503,9 +502,9 @@ def eval_for_map_with_feat(
 
     # parallelized version for CoverHunterMPS
     dist_matrix, query_label, ref_label = _generate_dist_matrixMPS(
-        query_rec_label,
+        query_perf_label,
         query_embed,
-        ref_rec_label,
+        ref_perf_label,
         ref_embed,
         query_in_ref=query_in_ref,
     )

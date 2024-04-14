@@ -34,7 +34,7 @@ def _main() -> None:
         "-test_only_labels",
         default="",
         type=str,
-        help="Path to list of song_ids reserved for test dataset for use in t-SNE plot.",
+        help="Path to list of work_ids reserved for test dataset for use in t-SNE plot.",
     )
     parser.add_argument(
         "-dist_name", default="", type=str, help="Save the distance matrix to this path",
@@ -90,7 +90,7 @@ def _main() -> None:
         plot_name = ""
 
     if args.test_only_labels:
-        # convert list of song IDs from strings to integers as _cluster_plot() expects
+        # convert list of work IDs from strings to integers as _cluster_plot() expects
         test_only_labels = [int(n) for n in read_lines(args.test_only_labels)]
     else:
         test_only_labels = None

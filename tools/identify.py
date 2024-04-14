@@ -62,8 +62,8 @@ def _load_ref_embeds(ref_lines):
     ref_embeds = {}
     for line in ref_lines:
         local_data=line_to_dict(line)
-        rec = local_data["rec"].split(f"-{RARE_DELIMITER}start-")[0]
-        label = local_data["song_id"]
+        perf = local_data["perf"].split(f"-{RARE_DELIMITER}start-")[0]
+        label = local_data["work_id"]
         ref_embeds[label] = np.load(local_data["embed"])
     return ref_embeds
 
