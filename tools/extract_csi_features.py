@@ -37,7 +37,7 @@ def _sort_lines_by_perf(init_path, sorted_path) -> None:
 
 
 def _remove_dup_line(init_path, new_path) -> None:
-    logging.info("Remove line with same perf")
+    """Skip lines having the same perf"""
     old_line_num = len(read_lines(init_path, log=False))
     perf_set = set()
     valid_lines = []
@@ -128,7 +128,7 @@ def _speed_aug_worker(args):
 
 def _speed_aug_parallel(init_path, aug_speed_lst, aug_path, sp_dir) -> None:
     """add items with speed argument wav"""
-    logging.info(f"speed factor: {aug_speed_lst}")
+    logging.info(f"speed factors: {aug_speed_lst}")
     os.makedirs(sp_dir, exist_ok=True)
     total_lines = read_lines(init_path, log=False)
     dump_lines = []
@@ -188,12 +188,14 @@ def _extract_cqt_worker_torchaudio(args):
         signal = signal.to(device)
         signal = (
             signal
-            / torch.max(torch.tensor(0.001).to(device), torch.max(torch.abs(signal)))
+            / torch.max(
+                torch.tensor(0.001).to(device), torch.max(torch.abs(signal))
+            )
             * 0.999
         )
-        signal = transform(16000, hop_length=640, n_bins=96, fmin=32, verbose=False).to(
-            device
-        )(signal)
+        signal = transform(
+            16000, hop_length=640, n_bins=96, fmin=32, verbose=False
+        ).to(device)(signal)
         signal = signal + 1e-9
         signal = signal.squeeze(0)
 
@@ -222,7 +224,6 @@ def worker(args):
 
 
 def _extract_cqt_parallel(init_path, out_path, cqt_dir, device) -> None:
-    logging.info("Extract CQT features")
     os.makedirs(cqt_dir, exist_ok=True)
     dump_lines = []
 
@@ -246,7 +247,7 @@ def _extract_cqt_parallel(init_path, out_path, cqt_dir, device) -> None:
 
 
 def _extract_cqt_with_noise(init_path, full_path, cqt_dir, hp_noise) -> None:
-    logging.info("Extract Cqt feature with noise argumentation")
+    logging.info("Extract CQT features with noise argumentation")
     os.makedirs(cqt_dir, exist_ok=True)
 
     py_cqt = PyCqt(sample_rate=16000, hop_size=0.04)
@@ -294,7 +295,7 @@ def _extract_cqt_with_noise(init_path, full_path, cqt_dir, hp_noise) -> None:
 
 
 def _add_work_id(init_path, out_path, map_path=None) -> None:
-    """map format:: work_name->work_id"""
+    """map format:: work_id -> work """
     work_id_map = {}
     dump_lines = []
     for line in read_lines(init_path, log=False):
@@ -309,7 +310,7 @@ def _add_work_id(init_path, out_path, map_path=None) -> None:
     if map_path:
         dump_lines = []
         for k, v in work_id_map.items():
-            dump_lines.append(f"{k} {v}")
+            dump_lines.append(f"{v} {k}")
         write_lines(map_path, dump_lines)
 
 
@@ -323,7 +324,7 @@ def _split_data_by_work_id(
 ) -> None:
     """
     Splits data into train / validation / test sets
-	using stratified sampling based on work_id.
+        using stratified sampling based on work_id.
 
     Args:
         input_path: Path to the input data file.
@@ -351,7 +352,7 @@ def _split_data_by_work_id(
     num_works = len(work_data)
 
     # Separate works for test-only and stratified split.
-	# Ensure minimum of one work in test only if non-zero requested.
+    # Ensure minimum of one work in test only if non-zero requested.
     test_only_count = (
         max(1, int(num_works * test_only_percent))
         if test_only_percent > 0
@@ -552,7 +553,7 @@ def _generate_csi_features(hp, feat_dir, start_stage, end_stage) -> None:
 
     # aug_speed_mode is a list like: [0.8, 0.9, 1.0, 1.1, 1.2]
     # do include 1.0 to include original speed.
-    # Anything between .99 and 1.01 will be ignored, 
+    # Anything between .99 and 1.01 will be ignored,
     # instead passing along the original file.
     sp_aug_path = os.path.join(feat_dir, "sp_aug.txt")
     if start_stage <= 3 <= end_stage:
@@ -571,7 +572,9 @@ def _generate_csi_features(hp, feat_dir, start_stage, end_stage) -> None:
         if not os.path.exists(full_path):
             new_full = True
             cqt_dir = os.path.join(feat_dir, "cqt_feat")
-            _extract_cqt_parallel(sp_aug_path, full_path, cqt_dir, hp["device"])
+            _extract_cqt_parallel(
+                sp_aug_path, full_path, cqt_dir, hp["device"]
+            )
 
     # noise augmentation was default off for CoverHunter
     hp_noise = hp.get("add_noise", None)
@@ -580,7 +583,7 @@ def _generate_csi_features(hp, feat_dir, start_stage, end_stage) -> None:
         and hp_noise
         and os.path.exists(hp_noise["noise_path"])
     ):
-        logging.info("Stage 5: add noise and extract cqt feature")
+        logging.info("Stage 5: add noise and extract cqt features")
         noise_cqt_dir = os.path.join(feat_dir, "cqt_with_noise")
         _extract_cqt_with_noise(
             full_path,
