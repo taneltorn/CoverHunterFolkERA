@@ -1,17 +1,13 @@
 import logging
 import os
-import random
 import unittest
 
-import numpy as np
 import torch
-from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
 from src.model import Model
-from src.trainer import train_one_epoch, validate
-from src.scheduler import UserDefineExponentialLR
-from src.dataset import AudioFeatDataset, MPerClassSampler
+
+from src.trainer import Trainer
 
 
 class TestTrainer(unittest.TestCase):
@@ -27,9 +23,15 @@ class TestTrainer(unittest.TestCase):
         self.hp = {
             "batch_size": 32,
             # XXX: add reduced sample data in tests or dedicated dir, maybe try with train-sample
+            "covers80": {
+                "query_path": "data/covers80/full.txt",
+                "ref_path": "data/covers80/full.txt",
+                "every_n_epoch_to_dev": 1,
+            },
             "train_path": "data/covers80/train.txt",
             "dev_path": "data/covers80/dev.txt",
             "chunk_frame": [1125, 900, 675],
+            "chunk_s": 135,
             "mode": "random",
             "learning_rate": 0.001,
             "mean_size": 3,
@@ -59,105 +61,28 @@ class TestTrainer(unittest.TestCase):
                 "weight": 0,
             },
         }
-        log_path = os.path.join("/tmp", "cover_hunter_logs")
-        os.makedirs(log_path, exist_ok=True)
-        self.sw = SummaryWriter(log_path)
+        self.log_path = "/tmp/cover_hunter_logs"
+        self.checkpoint_dir = "/tmp/cover_hunter_logs"
+        self.model_dir = "/tmp/cover_hunter_logs"
+        self.sw = SummaryWriter(self.log_path)
 
-    def _test_train(self, device, epochs):
+    def _test_train(self, device, max_epochs):
         # XXX: find ways to speed this up
         self.hp["device"] = device
-        self.model = Model(self.hp).to(device)
-        self.optimizer = torch.optim.AdamW(
-            self.model.parameters(),
-            self.hp["learning_rate"],
-            betas=[self.hp["adam_b1"], self.hp["adam_b2"]],
-        )
-        self.scheduler = UserDefineExponentialLR(
-            self.optimizer,
-            gamma=self.hp["lr_decay"],
-            min_lr=self.hp["min_lr"],
-            last_epoch=-1,
-        )
-        self.train_loader_lst = []
-        for chunk_len in self.hp["chunk_frame"]:
-            train_dataset = AudioFeatDataset(
-                self.hp,
-                self.hp["train_path"],
-                train=True,
-                mode=self.hp["mode"],
-                chunk_len=chunk_len * self.hp["mean_size"],
-                logger=None,
-            )
-            sampler = MPerClassSampler(
-                data_path=self.hp["train_path"],
-                m=self.hp["m_per_class"],
-                batch_size=self.hp["batch_size"],
-                distribute=False,
-                logger=None,
-            )
-            train_loader = DataLoader(
-                train_dataset,
-                num_workers=self.hp["num_workers"],
-                shuffle=(sampler is None),
-                sampler=sampler,
-                batch_size=self.hp["batch_size"],
-                pin_memory=True,
-                drop_last=True,
-            )
-            self.train_loader_lst.append(train_loader)
-
-        infer_len = self.hp["chunk_frame"][0] * self.hp["mean_size"]
-        dataset = AudioFeatDataset(
+        self.trainer = Trainer(
             self.hp,
-            self.hp["dev_path"],
-            chunk_len=infer_len,
-            mode=self.hp["mode"],
-            logger=None,
+            Model,
+            device,
+            self.log_path,
+            self.checkpoint_dir,
+            self.model_dir,
+            only_eval=False,
+            first_eval=False,
         )
-        sampler = MPerClassSampler(
-            data_path=self.hp["dev_path"],
-            m=self.hp["m_per_class"],
-            batch_size=self.hp["batch_size"],
-            distribute=False,
-            logger=None,
-        )
-        self.dev_loader = DataLoader(
-            dataset,
-            num_workers=1,
-            shuffle=False,
-            sampler=sampler,
-            batch_size=self.hp["batch_size"],
-            pin_memory=True,
-            collate_fn=None,
-            drop_last=False,
-        )
-
-        step = 1
-        for _epoch in range(1, 1 + epochs):
-            train_step = None
-            step = train_one_epoch(
-                self.model,
-                self.optimizer,
-                self.scheduler,
-                self.train_loader_lst,
-                step,
-                train_step=train_step,
-                device=device,
-                sw=self.sw,
-                logger=None,
-            )
-
-        dev_res = validate(
-            self.model,
-            self.dev_loader,
-            "dev",
-            epoch_num=_epoch,
-            device=device,
-            sw=self.sw,
-            logger=None,
-        )
-        validation_loss = dev_res["ce_loss"] / dev_res["count"]
-        return validation_loss
+        self.trainer.summary_writer = self.sw
+        self.trainer.configure_optimizer()
+        self.trainer.configure_scheduler()
+        self.trainer.train(max_epochs=max_epochs)
 
     @unittest.skipUnless(torch.cuda.is_available(), "No GPU was detected")
     def test_train_cuda(self):
@@ -166,22 +91,30 @@ class TestTrainer(unittest.TestCase):
 
         XXX: train more times on a smaller batch, in a temporary directory.
         """
-        _validation_loss = self._test_train("cuda", 1)
+        self._test_train("cuda", 1)
 
     @unittest.skipUnless(torch.backends.mps.is_available(), "No MPS was detected")
     def test_train_mps(self):
         """
         Ensure that one round of training is working without exception (mps version).
         """
-        _validation_loss = self._test_train("mps", 1)
+        self._test_train("mps", 1)
 
     def _test_logging(self, device):
         with unittest.mock.patch.object(self.sw, "add_scalar") as add_scalar_mock:
             self._test_train(device, 1)
 
         expected_calls = [
-            unittest.mock.call("csi_dev/ce_loss", unittest.mock.ANY, 1),
-            unittest.mock.call("csi_dev/tri_loss", unittest.mock.ANY, 1),
+            # 1 because the step is logged for csi
+            unittest.mock.call("csi/lr", unittest.mock.ANY, 1),
+            unittest.mock.call("csi/ce_loss", unittest.mock.ANY, 1),
+            unittest.mock.call("csi/tri_loss", unittest.mock.ANY, 1),
+            unittest.mock.call("csi/total", unittest.mock.ANY, 1),
+            # 0 because the epoch is logged for the rest
+            unittest.mock.call("csi_dev/ce_loss", unittest.mock.ANY, 0),
+            unittest.mock.call("csi_dev/tri_loss", unittest.mock.ANY, 0),
+            unittest.mock.call("mAP/covers80", unittest.mock.ANY, 0),
+            unittest.mock.call("hit_rate/covers80", unittest.mock.ANY, 0),
         ]
         add_scalar_mock.assert_has_calls(expected_calls)
 

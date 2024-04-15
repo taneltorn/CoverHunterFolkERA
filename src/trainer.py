@@ -1,15 +1,350 @@
 #!/usr/bin/env python3
 
 import logging
+import os
 import random
+import time
 
 import numpy as np
 import torch
+from torch.utils.data import DataLoader
+from torch.utils.tensorboard import SummaryWriter
 
+from src.dataset import AudioFeatDataset, MPerClassSampler
+from src.eval_testset import eval_for_map_with_feat
 from src.pytorch_utils import get_lr, scan_and_load_checkpoint
+from src.scheduler import UserDefineExponentialLR
 
 # setting this to False in Apple Silicon context showed negligible impact.
 torch.backends.cudnn.benchmark = True
+
+
+# test_set_list stores whichever members of all_test_set_list are listed in hparams.yaml
+# default CoverHunter only included "covers80"
+# but also listed "shs_test", "dacaos", "hymf_20", "hymf_100"
+ALL_TEST_SETS = ["covers80", "reels50hard"]
+
+
+class Trainer:
+    def __init__(
+        self,
+        hp,
+        model,
+        device,
+        log_path,
+        checkpoint_dir,
+        model_dir,
+        only_eval,
+        first_eval,
+    ):
+        """
+        Trainer class to organize the training methods.
+
+        Args:
+        ----
+          hp: dict
+            The hyperparameters as a dict.
+          model: Model
+            The model class that will be used.
+          device: torch.device
+            The device that will be used for computation.
+          log_path: str
+            The summary writer log path.
+          checkpoint_dir: str
+            The directory where the model is saved to / loaded from.
+          only_eval: bool
+            If set, run only once.
+          first_eval: bool
+            if set, don't train the first time.
+
+        """
+        self.hp = hp
+        self.model = model(hp).to(device)
+        self.device = device
+        self.model_dir = model_dir
+        self.checkpoint_dir = checkpoint_dir
+        self.logger = logging.getLogger("Trainer")
+        self.only_eval = only_eval
+        self.first_eval = first_eval
+        self.best_validation_loss = float("inf")
+        self.early_stopping_counter = 0
+        self.test_sets = [d for d in ALL_TEST_SETS if d in hp]
+
+        self.training_data = []
+        infer_len = hp["chunk_frame"][0] * hp["mean_size"]
+        for chunk_len in hp["chunk_frame"]:
+            self.training_data.append(
+                DataLoader(
+                    AudioFeatDataset(
+                        hp,
+                        hp["train_path"],
+                        train=True,
+                        mode=hp["mode"],
+                        chunk_len=chunk_len * hp["mean_size"],
+                        logger=self.logger,
+                    ),
+                    num_workers=hp["num_workers"],
+                    shuffle=False,
+                    sampler=MPerClassSampler(
+                        data_path=hp["train_path"],
+                        m=hp["m_per_class"],
+                        batch_size=hp["batch_size"],
+                        distribute=False,
+                        logger=self.logger,
+                    ),
+                    batch_size=hp["batch_size"],
+                    pin_memory=True,
+                    drop_last=True,
+                )
+            )
+
+        # At inference stage, we only use chunk with fixed length
+        self.logger.info("Init train-sample and dev data loader")
+        self.sample_training_data = None
+        if "train_sample_path" in hp:
+            self.sample_training_data = DataLoader(
+                AudioFeatDataset(
+                    hp,
+                    hp["train_sample_path"],
+                    train=False,
+                    chunk_len=infer_len,
+                    mode=hp["mode"],
+                    logger=self.logger,
+                ),
+                num_workers=1,
+                shuffle=False,
+                sampler=MPerClassSampler(
+                    data_path=hp["train_sample_path"],
+                    # m=hp["m_per_class"],
+                    m=1,
+                    batch_size=hp["batch_size"],
+                    distribute=False,
+                    logger=self.logger,
+                ),
+                batch_size=hp["batch_size"],
+                pin_memory=True,
+                collate_fn=None,
+                drop_last=False,
+            )
+
+        self.dev_data = None
+        if "dev_path" in hp:
+            self.dev_data = DataLoader(
+                AudioFeatDataset(
+                    hp,
+                    hp["dev_path"],
+                    chunk_len=infer_len,
+                    mode=hp["mode"],
+                    logger=self.logger,
+                ),
+                num_workers=1,
+                shuffle=False,
+                sampler=MPerClassSampler(
+                    data_path=hp["dev_path"],
+                    m=hp["m_per_class"],
+                    batch_size=hp["batch_size"],
+                    distribute=False,
+                    logger=self.logger,
+                ),
+                batch_size=hp["batch_size"],
+                pin_memory=True,
+                collate_fn=None,
+                drop_last=False,
+            )
+
+        self.epoch = -1
+        self.step = 1
+
+        self.summary_writer = None
+        os.makedirs(log_path, exist_ok=True)
+        if not only_eval:
+            self.summary_writer = SummaryWriter(log_path)
+
+    def configure_optimizer(self):
+        """
+        Configure the model optimizer.
+        """
+        self.optimizer = torch.optim.AdamW(
+            self.model.parameters(),
+            self.hp["learning_rate"],
+            betas=[self.hp["adam_b1"], self.hp["adam_b2"]],
+        )
+
+    def configure_scheduler(self):
+        """
+        Configure the model scheduler.
+        """
+        self.scheduler = UserDefineExponentialLR(
+            self.optimizer,
+            gamma=self.hp["lr_decay"],
+            min_lr=self.hp["min_lr"],
+            last_epoch=self.epoch,
+        )
+
+    def load_model(self, advanced=False):
+        """
+        Load the current model from checkpoint_dir.
+        """
+        self.step, self.epoch = load_checkpoint(
+            self.model,
+            self.optimizer,
+            self.checkpoint_dir,
+            advanced=advanced,
+        )
+
+    def save_model(self):
+        """
+        Save the current model to checkpoint_dir.
+        """
+        if self.epoch % self.hp.get("every_n_epoch_to_save", 1) != 0:
+            return
+
+        save_checkpoint(
+            self.model,
+            self.optimizer,
+            self.step,
+            self.epoch,
+            self.checkpoint_dir,
+        )
+
+    def train_epoch(self, epoch, first_eval):
+        """
+        Train for the given epoch.
+
+        Skip it if first_eval is set.
+        """
+        if first_eval:
+            return
+
+        train_step = None
+        start = time.time()
+        self.epoch = epoch
+        self.logger.info("Start to train for epoch %d", self.epoch)
+        self.step = train_one_epoch(
+            self.model,
+            self.optimizer,
+            self.scheduler,
+            self.training_data,
+            self.step,
+            train_step=train_step,
+            device=self.device,
+            sw=self.summary_writer,
+            logger=self.logger,
+        )
+        self.logger.info(
+            "Time for train epoch %d step %d is %.1fs",
+            self.epoch,
+            self.step,
+            time.time() - start,
+        )
+
+    def validate_one(self, data_type):
+        """
+        Validate for the given data_type (can be train-sample or dev).
+
+        Do it only every "every_n_epoch_to_dev".
+        """
+        if not self.epoch % self.hp.get("every_n_epoch_to_dev", 1) == 0:
+            return
+
+        start = time.time()
+
+        if data_type == "train-sample":
+            data = self.sample_training_data
+        elif data_type == "dev":
+            data = self.dev_data
+
+        if not data:
+            return
+
+        self.logger.info("compute %s at epoch-%d", data_type, self.epoch)
+
+        res = validate(
+            self.model,
+            data,
+            data_type,
+            epoch_num=self.epoch,
+            device=self.device,
+            sw=self.summary_writer,
+            logger=self.logger,
+        )
+        validation_loss = res["ce_loss"] / res["count"]
+        self.logger.info("count:%d, avg_ce_loss:%d", res["count"], validation_loss)
+
+        self.logger.info("Time for %s is %.1fs\n", data_type, time.time() - start)
+
+        if data_type == "dev":
+            if validation_loss < self.best_validation_loss:
+                self.best_validation_loss = validation_loss
+                self.early_stopping_counter = 0
+            else:
+                self.early_stopping_counter += 1
+
+    def eval_and_log(self):
+        """
+        Validate the data types, evaluate the result and log.
+        """
+        self.validate_one("train-sample")
+        self.validate_one("dev")
+
+        valid_testlist = []
+        for testset_name in self.test_sets:
+            hp_test = self.hp[testset_name]
+            if self.epoch % hp_test.get("every_n_epoch_to_dev", 1) == 0:
+                valid_testlist.append(testset_name)
+
+        for testset_name in valid_testlist:
+            hp_test = self.hp[testset_name]
+            self.logger.info("Compute %s at epoch: %s", testset_name, self.epoch)
+
+            start = time.time()
+            save_name = hp_test.get("save_name", testset_name)
+            embed_dir = os.path.join(self.model_dir, f"embed_{self.epoch}_{save_name}")
+            query_in_ref_path = hp_test.get("query_in_ref_path", None)
+            mean_ap, hit_rate, _ = eval_for_map_with_feat(
+                self.hp,
+                self.model,
+                embed_dir,
+                query_path=hp_test["query_path"],
+                ref_path=hp_test["ref_path"],
+                query_in_ref_path=query_in_ref_path,
+                batch_size=self.hp["batch_size"],
+                device=self.device,
+                logger=self.logger,
+            )
+
+            self.summary_writer.add_scalar(f"mAP/{testset_name}", mean_ap, self.epoch)
+            self.summary_writer.add_scalar(
+                f"hit_rate/{testset_name}", hit_rate, self.epoch
+            )
+            self.logger.info(
+                "Test %s, hit_rate:%s, map:%s", testset_name, hit_rate, mean_ap
+            )
+            self.logger.info(
+                "Time for test-%s is %d sec\n", testset_name, int(time.time() - start)
+            )
+
+    def train(self, max_epochs):
+        """
+        Train the model for max_epochs.
+        """
+        first_eval = self.first_eval
+        for epoch in range(max(0, 1 + self.epoch), max_epochs):
+            self.train_epoch(epoch, first_eval)
+            self.eval_and_log()
+            self.save_model()
+            if self.early_stopping_counter >= self.hp.get(
+                "early_stopping_patience", 10000
+            ):
+                self.logger.info(
+                    "Early stopping at epoch %d due to lack of avg_ce_loss"
+                    "(focal aka cross-entropy loss) improvement.",
+                    self.epoch,
+                )
+                return
+            if self.only_eval:
+                return
+            first_eval = False
 
 
 def save_checkpoint(model, optimizer, step, epoch, checkpoint_dir) -> None:
@@ -38,9 +373,7 @@ def load_checkpoint(model, optimizer=None, checkpoint_dir=None, advanced=False):
     if state_dict_g:
         if advanced:
             model_dict = model.state_dict()
-            valid_dict = {
-                k: v for k, v in state_dict_g.items() if k in model_dict
-            }
+            valid_dict = {k: v for k, v in state_dict_g.items() if k in model_dict}
             model_dict.update(valid_dict)
             model.load_state_dict(model_dict)
             for k in model_dict:
@@ -102,7 +435,7 @@ def train_one_epoch(
                 _loss_memory.update({key: value.item()})
             _loss_memory.update({"total": total_loss.item()})
 
-            if step % 100 == 0:
+            if step == 1 or step % 100 == 0:
                 log_info = f"Steps:{step:d}"
                 for k, v in _loss_memory.items():
                     if k == "lr":
@@ -144,7 +477,11 @@ def validate(
             if logger and j % 10 == 0:
                 logger.info(
                     "step-{} {} {} {} {}".format(
-                        j, perf[0], losses["ce_loss"].item(), anchor[0][0][0], label[0],
+                        j,
+                        perf[0],
+                        losses["ce_loss"].item(),
+                        anchor[0][0][0],
+                        label[0],
                     ),
                 )
 
