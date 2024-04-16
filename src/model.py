@@ -16,18 +16,24 @@ from src.utils import load_hparams
 
 
 class AttentiveStatisticsPooling(torch.nn.Module):
-    """This class implements an attentive statistic pooling layer for each channel.
-    It returns the concatenated mean and std of the input tensor.
-
-    Arguments
-    ---------
-    channels: int
-        The number of input channels.
-    output_channels: int
-        The number of output channels.
+    """
+    Implement an attentive statistic pooling layer for each channel.
     """
 
     def __init__(self, channels, output_channels) -> None:
+        """
+        Implement an attentive statistic pooling layer for each channel.
+
+        It returns the concatenated mean and std of the input tensor.
+
+        Arguments:
+        ---------
+          channels: int
+            The number of input channels.
+          output_channels: int
+            The number of output channels.
+
+        """
         super().__init__()
 
         self._eps = 1e-12
@@ -36,7 +42,9 @@ class AttentiveStatisticsPooling(torch.nn.Module):
         self._conv = Conv1d(in_channels=channels, out_channels=channels, kernel_size=1)
         self._final_layer = torch.nn.Linear(channels * 2, output_channels, bias=False)
         logging.info(
-            f"Init AttentiveStatisticsPooling with {channels}->{output_channels}",
+            "Init AttentiveStatisticsPooling with %s->%s",
+            channels,
+            output_channels,
         )
 
     @staticmethod
@@ -46,13 +54,15 @@ class AttentiveStatisticsPooling(torch.nn.Module):
         return mean, std
 
     def forward(self, x: torch.Tensor):
-        """Calculates mean and std for a batch (input tensor).
+        """
+        Calculate mean and std for a batch (input tensor).
 
         Args:
-          x : torch.Tensor
-              Tensor of shape [N, L, C].
-        """
+        ----
+          x: torch.Tensor
+            Tensor of shape [N, L, C].
 
+        """
         x = x.transpose(1, 2)
         L = x.shape[-1]
         lengths = torch.ones(x.shape[0], device=x.device)
@@ -76,14 +86,18 @@ class AttentiveStatisticsPooling(torch.nn.Module):
     def forward_with_mask(
         self, x: torch.Tensor, lengths: Optional[torch.Tensor] = None,
     ):
-        """Calculates mean and std for a batch (input tensor).
+        """
+        Calculate mean and std for a batch (input tensor).
 
-        Not used in CoverHunter
+        Not used in CoverHunter.
 
         Args:
-          x : torch.Tensor
-              Tensor of shape [N, C, L].
+        ----
+          x: torch.Tensor
+            Tensor of shape [N, C, L].
           lengths:
+            The length of the masks (to be verified).
+
         """
         L = x.shape[-1]
 
@@ -125,26 +139,25 @@ class AttentiveStatisticsPooling(torch.nn.Module):
         dtype: Optional[torch.dtype] = None,
         device: Optional[torch.device] = None,
     ):
-        """Creates a binary mask for each sequence.
+        """
+        Create a binary mask for each sequence.
 
-        Arguments
-        ---------
-        length : torch.LongTensor
+        Args:
+        ----
+          length: torch.LongTensor
             Containing the length of each sequence in the batch. Must be 1D.
-        max_len : int
+          max_len: int
             Max length for the mask, also the size of the second dimension.
-        dtype : torch.dtype, default: None
+          dtype: torch.dtype, default: None
             The dtype of the generated mask.
-        device: torch.device, default: None
+          device: torch.device, default: None
             The device to put the mask variable.
 
-        Returns
+        Returns:
         -------
-        mask : tensor
+          mask: tensor
             The binary mask.
 
-        Example
-        -------
         """
         assert len(length.shape) == 1
 
@@ -164,21 +177,27 @@ class AttentiveStatisticsPooling(torch.nn.Module):
 
 
 class Model(torch.nn.Module):
-    """Csi Backbone Model:
-        Batch-norm
-        Conformer-Encoder(x6 or x4)
-        Global-Avg-Pool
-        Resize and linear
-        Bn-neck
-
-    Loss:
-      Focal-loss(ce) + Triplet-loss + Center-loss
-
-    Args:
-      hp: Dict with all parameters
-    """
 
     def __init__(self, hp: Dict) -> None:
+        """
+        Implement Csi Backbone Model.
+
+        Steps:
+          Batch-norm
+          Conformer-Encoder(x6 or x4)
+          Global-Avg-Pool
+          Resize and linear
+          Bn-neck
+
+        Loss:
+          Focal-loss(ce) + Triplet-loss + Center-loss.
+
+        Args:
+        ----
+          hp: dict
+            The hyperparameters.
+
+        """
         super().__init__()
         self._hp = hp
         self._epoch = 0
@@ -191,12 +210,13 @@ class Model(torch.nn.Module):
             num_blocks=hp["encoder"]["num_blocks"],
         )
 
-        if hp["encoder"]["output_dims"] != hp["embed_dim"]:
-            self._embed_lo = torch.nn.Linear(
-                hp["encoder"]["output_dims"], hp["embed_dim"],
-            )
-        else:
-            self._embed_lo = None
+        # Unused
+        #if hp["encoder"]["output_dims"] != hp["embed_dim"]:
+        #    self._embed_lo = torch.nn.Linear(
+        #        hp["encoder"]["output_dims"], hp["embed_dim"],
+        #    )
+        #else:
+        #    self._embed_lo = None
 
         # Bottleneck
         self._bottleneck = torch.nn.BatchNorm1d(hp["embed_dim"])
@@ -231,13 +251,16 @@ class Model(torch.nn.Module):
             feat_dim=hp["embed_dim"],
             device=hp["device"],
         )
-        logging.info(f"Model size: {self.model_size() / 1000 / 1000:.3f}M \n")
+        logging.info("Model size: %.3fM\n", self.model_size() / 1000 / 1000)
 
     def load_model_parameters(
         self, model_dir, epoch_num=-1, device="mps", advanced=False,
     ):
-        """load parameters from pt model, and return model epoch,
-        if advanced, model can has different variables from saved"""
+        """
+        Load parameters from pt model, and return model epoch.
+
+        If advanced is set, the model can have different variables from saved.
+        """
         if epoch_num == -1:
             model_path, epoch_num = get_latest_model(model_dir, "g_")
         else:
@@ -254,25 +277,30 @@ class Model(torch.nn.Module):
             self.load_state_dict(model_dict)
             for k in model_dict:
                 if k not in state_dict_g:
-                    logging.warning(f"{k} not be initialized")
+                    logging.warning("%s not initialized", k)
         else:
             self.load_state_dict(state_dict_g)
 
         self.eval()
         self._epoch = epoch_num
         logging.info(
-            f"Successful init model with epoch-{self._epoch}, device:{device}\n",
+            "Successful init model with epoch-%d, device:%s\n",
+            self._epoch,
+            device
         )
         return self._epoch
 
-    def save_model_parameters(self, g_checkpoint_path) -> None:
-        torch.save({"generator": self.state_dict()}, g_checkpoint_path)
+    # Unused
+    #def save_model_parameters(self, g_checkpoint_path) -> None:
+    #    torch.save({"generator": self.state_dict()}, g_checkpoint_path)
 
-    def get_epoch_num(self):
-        return self._epoch
+    # Unused
+    #def get_epoch_num(self):
+    #    return self._epoch
 
-    def get_step_num(self):
-        return self._step
+    # Unused
+    #def get_step_num(self):
+    #    return self._step
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """feat[b, frame_size, feat_size] -> embed[b, embed_dim]"""
@@ -295,7 +323,7 @@ class Model(torch.nn.Module):
     def compute_loss(
         self, anchor: torch.Tensor, label: torch.Tensor,
     ) -> Tuple[torch.Tensor, Dict]:
-        """compute ce and triplet loss"""
+        """Compute ce and triplet loss."""
         f_t = self.forward(anchor)
         # print("f_t", f_t)
 
@@ -310,13 +338,13 @@ class Model(torch.nn.Module):
         tri_weight = self._hp["triplet"]["weight"]
         if tri_weight > 0.01:
             tri_loss = self._triplet_loss(f_t, label)
-            loss = loss + tri_loss * tri_weight
+            loss += tri_loss * tri_weight
             loss_dict.update({"tri_loss": tri_loss})
 
         cen_weight = self._hp["center"]["weight"]
         if cen_weight > 0.0:
             cen_loss = self._center_loss(f_t, label)
-            loss = loss + cen_loss * cen_weight
+            loss += cen_loss * cen_weight
             loss_dict.update({"cen_loss": cen_loss})
         return loss, loss_dict
 
@@ -331,57 +359,21 @@ class Model(torch.nn.Module):
     def get_embed_length(self) -> int:
         return self._hp["embed_dim"]
 
-    def get_ce_embed_length(self) -> int:
-        return self._hp["ce"]["output_dims"]
+    # Unused
+    #def get_ce_embed_length(self) -> int:
+    #    return self._hp["ce"]["output_dims"]
 
     def model_size(self) -> int:
         return sum(p.numel() for p in self.parameters())
 
-    def dump_torch_script(self, dump_path) -> None:
-        script_model = torch.jit.script(self)
-        script_model.save(dump_path)
-        logging.info(f"Export model successfully, see {dump_path}")
+    # Unused
+    #def dump_torch_script(self, dump_path) -> None:
+    #    script_model = torch.jit.script(self)
+    #    script_model.save(dump_path)
+    #    logging.info(f"Export model successfully, see {dump_path}")
 
-    @torch.jit.export
-    def compute_embed(self, feat: torch.Tensor) -> torch.Tensor:
-        with torch.no_grad():
-            return self.forward(feat)
-
-
-def _test_model() -> None:
-    hp_path = "src/hparams.yaml"
-    hp = load_hparams(hp_path)
-    match hp["device"]:
-        case "mps":
-            assert (
-                torch.backends.mps.is_available()
-            ), "You requested 'mps' device in your hyperparameters but you are not running on an Apple M-series chip or have not compiled PyTorch for MPS support."
-            device = torch.device("mps")
-        case "cuda":
-            assert (
-                torch.cuda.is_available()
-            ), "You requested 'cuda' device in your hyperparameters but you do have a CUDA-compatible GPU available."
-            device = torch.device("cuda")
-        case _:
-            print(
-                "You set device: ",
-                hp["device"],
-                " in your hyperparameters but that is not a valid option.",
-            )
-            sys.exit()
-    model = Model(hp).float().to(device)
-    batch_size = 4
-    feat_size = hp["input_dim"]
-    time_size = 1500
-    feat = (
-        torch.from_numpy(np.random.random([batch_size, time_size, feat_size]))
-        .float()
-        .to(device)
-    )
-    label = torch.from_numpy(2000 * np.random.random([batch_size])).long().to(device)
-    loss = model.compute_loss(feat, label)
-    print("loss:", loss)
-
-
-if __name__ == "__main__":
-    _test_model()
+    # Unused
+    #@torch.jit.export
+    #def compute_embed(self, feat: torch.Tensor) -> torch.Tensor:
+    #    with torch.no_grad():
+    #        return self.forward(feat)
