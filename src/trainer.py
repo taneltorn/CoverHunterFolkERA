@@ -489,13 +489,13 @@ def validate(
             for key, value in losses.items():
                 if key not in val_losses:
                     val_losses[key] = 0.0
-                val_losses[key] += losses[key].item()
+                val_losses[key] += value.item()
 
         log_str = f"{valid_name}: "
         for key, value in val_losses.items():
             if key == "count":
                 continue
-            value = value / (val_losses["count"])
+            value = value / val_losses["count"]
             log_str = log_str + f"{key}-{value:.3f} "
             if sw is not None:
                 sw.add_scalar(f"csi_{valid_name}/{key}", value, epoch_num)
