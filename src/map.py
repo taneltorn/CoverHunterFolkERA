@@ -3,9 +3,14 @@
 # datetime:2022/7/15 9:19 AM
 # software: PyCharm
 
+
+import logging
 from typing import Dict, List
 
 import numpy as np
+
+
+LOGGER = logging.getLogger(__name__)
 
 
 def calc_map(
@@ -71,12 +76,18 @@ def calc_map(
             per_map = per_map / version_cnt
 
         if per_rank1 > 1:  # added filter to make logging output more readable
-            print("XX per_rank1:", per_rank1)
+            LOGGER.info("XX per_rank1: %d", per_rank1)
         if verbose > 0:
             top5_res = [x for x, _ in row][:5]
-            print(
-                f"Debug:: {u}th, query work: {label_query[u]}, map: {per_map},  rank1: {per_rank1}, top5: {top5_res}",
+            LOGGER.debug(
+                "Debug:: %dth, query work: %s, map: %s rank1: %s, top5: %s",
+                u,
+                label_query[u],
+                per_map,
+                per_rank1,
+                top5_res,
             )
+
         mean_ap += per_map
         top10 += per_top10
         rank1 += per_rank1
