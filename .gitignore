@@ -27,9 +27,11 @@ data/covers80_testset/train.txt
 data/covers80_testset/full.txt
 data/covers80_testset/sp_aug.txt
 data/reels50hard_testset/*
+data/reels50easy_testset/*
 egs/covers80/logs/
 egs/covers80/pt_model/
 egs/covers80/embed*
 egs/covers80.*
 pretrained_model/
 egs/covers80/tSNE*
+sox.log

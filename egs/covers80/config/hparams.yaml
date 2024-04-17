@@ -10,18 +10,25 @@ covers80:
   ref_path: "data/covers80/full.txt"
   every_n_epoch_to_dev: 1  # validate after every n epoch
 
+# Download the reels50easy dataset from https://www.irishtune.info/public/MLdata.htm
+# and then you can uncomment the next 4 lines.
+#reels50easy:
+#  query_path: "data/reels50easy_testset/full.txt"  # path to your bench
+#  ref_path: "data/reels50easy_testset/full.txt"
+#  every_n_epoch_to_dev: 1
+
 # Download the reels50hard dataset from https://www.irishtune.info/public/MLdata.htm
 # and then you can uncomment the next 4 lines.
-# reels50hard:
+#reels50hard:
 #  query_path: "data/reels50hard_testset/full.txt"  # path to your bench
 #  ref_path: "data/reels50hard_testset/full.txt"
-#  every_n_epoch_to_dev: 2
+#  every_n_epoch_to_dev: 1
 
 #shs_test:
 #  query_path: "egs/shs100k/test.txt"
 #  ref_path: "egs/shs100k/test.txt"
 #  every_n_epoch_to_dev: 2 # validate after every n epoch
-#
+
 #da-tacos: (see https://github.com/MTG/da-tacos)
 #  query_path: "egs/benchmark_query.txt"
 #  ref_path: "egs/benchmark_ref.txt"

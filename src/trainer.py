@@ -20,9 +20,9 @@ torch.backends.cudnn.benchmark = True
 
 
 # test_set_list stores whichever members of all_test_set_list are listed in hparams.yaml
-# default CoverHunter only included "covers80"
-# but also listed "shs_test", "dacaos", "hymf_20", "hymf_100"
-ALL_TEST_SETS = ["covers80", "reels50hard"]
+# default CoverHunter only included a configuration for "covers80"
+# but also listed "shs_test", "dacaos" (presumably a typo for da-tacos), "hymf_20", "hymf_100"
+ALL_TEST_SETS = ["covers80", "reels50easy", "reels50hard"]
 
 
 class Trainer:
@@ -269,9 +269,13 @@ class Trainer:
             logger=self.logger,
         )
         validation_loss = res["ce_loss"] / res["count"]
-        self.logger.info("count:%d, avg_ce_loss:%d", res["count"], validation_loss)
+        self.logger.info(
+            "count:%d, avg_ce_loss:%d", res["count"], validation_loss
+        )
 
-        self.logger.info("Time for %s is %.1fs\n", data_type, time.time() - start)
+        self.logger.info(
+            "Time for %s is %.1fs\n", data_type, time.time() - start
+        )
 
         if data_type == "dev":
             if validation_loss < self.best_validation_loss:
@@ -295,11 +299,15 @@ class Trainer:
 
         for testset_name in valid_testlist:
             hp_test = self.hp[testset_name]
-            self.logger.info("Compute %s at epoch: %s", testset_name, self.epoch)
+            self.logger.info(
+                "Compute %s at epoch: %s", testset_name, self.epoch
+            )
 
             start = time.time()
             save_name = hp_test.get("save_name", testset_name)
-            embed_dir = os.path.join(self.model_dir, f"embed_{self.epoch}_{save_name}")
+            embed_dir = os.path.join(
+                self.model_dir, f"embed_{self.epoch}_{save_name}"
+            )
             query_in_ref_path = hp_test.get("query_in_ref_path", None)
             mean_ap, hit_rate, _ = eval_for_map_with_feat(
                 self.hp,
@@ -313,7 +321,9 @@ class Trainer:
                 logger=self.logger,
             )
 
-            self.summary_writer.add_scalar(f"mAP/{testset_name}", mean_ap, self.epoch)
+            self.summary_writer.add_scalar(
+                f"mAP/{testset_name}", mean_ap, self.epoch
+            )
             self.summary_writer.add_scalar(
                 f"hit_rate/{testset_name}", hit_rate, self.epoch
             )
@@ -321,7 +331,9 @@ class Trainer:
                 "Test %s, hit_rate:%s, map:%s", testset_name, hit_rate, mean_ap
             )
             self.logger.info(
-                "Time for test-%s is %d sec\n", testset_name, int(time.time() - start)
+                "Time for test-%s is %d sec\n",
+                testset_name,
+                int(time.time() - start),
             )
 
     def train(self, max_epochs):
@@ -367,13 +379,17 @@ def save_checkpoint(model, optimizer, step, epoch, checkpoint_dir) -> None:
     logging.info(f"save step:{step}, epoch:{epoch}")
 
 
-def load_checkpoint(model, optimizer=None, checkpoint_dir=None, advanced=False):
+def load_checkpoint(
+    model, optimizer=None, checkpoint_dir=None, advanced=False
+):
     state_dict_g = scan_and_load_checkpoint(checkpoint_dir, "g_")
     state_dict_do = scan_and_load_checkpoint(checkpoint_dir, "do_")
     if state_dict_g:
         if advanced:
             model_dict = model.state_dict()
-            valid_dict = {k: v for k, v in state_dict_g.items() if k in model_dict}
+            valid_dict = {
+                k: v for k, v in state_dict_g.items() if k in model_dict
+            }
             model_dict.update(valid_dict)
             model.load_state_dict(model_dict)
             for k in model_dict:
