@@ -159,7 +159,7 @@ There are two different hparams.yaml files, each used at different stages.
 | query_path | TBD: can apparently be the same path as `train_path`. Presumably for use during model evaluation and inference. |
 | ref_path | TBD: can apparently be the same path as `train_path`. Presumably for use during model evaluation and inference. |
 | train_path | path to a JSON file containing metadata about the data to be used for model training (See full.txt below for details) |
-| train_sample_path | path to a JSON file containing metadata about the data to be used for model validation. Compare `test_path` above. Presumably one should include a balanced distribution of samples that are *not* included in the `train_path` dataset, but do include samples for the classes represented in the `train_path` dataset.(See full.txt below for details) 
+| val_path | path to a JSON file containing metadata about the data to be used for model validation. Compare `test_path` above. Presumably one should include a balanced distribution of samples that are *not* included in the `train_path` dataset, but do include samples for the classes represented in the `train_path` dataset.(See full.txt below for details) 
 
 ### Training parameters
 | key | value |

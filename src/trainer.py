@@ -101,11 +101,11 @@ class Trainer:
         # At inference stage, we only use chunk with fixed length
         self.logger.info("Init val and test data loader")
         self.sample_training_data = None
-        if "train_sample_path" in hp:
+        if "val_path" in hp:
             self.sample_training_data = DataLoader(
                 AudioFeatDataset(
                     hp,
-                    hp["train_sample_path"],
+                    hp["val_path"],
                     train=False,
                     chunk_len=infer_len,
                     mode=hp["mode"],
@@ -114,7 +114,7 @@ class Trainer:
                 num_workers=1,
                 shuffle=False,
                 sampler=MPerClassSampler(
-                    data_path=hp["train_sample_path"],
+                    data_path=hp["val_path"],
                     # m=hp["m_per_class"],
                     m=1,
                     batch_size=hp["batch_size"],
