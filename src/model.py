@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import logging
-import sys
 from typing import Dict, Optional, Tuple
 
 import numpy as np
@@ -12,7 +11,6 @@ from src.loss import CenterLoss, FocalLoss, HardTripletLoss
 from src.module.conformer import ConformerEncoder
 from src.module.layers import Conv1d, Linear
 from src.pytorch_utils import get_latest_model, get_model_with_epoch
-from src.utils import load_hparams
 
 
 class AttentiveStatisticsPooling(torch.nn.Module):
@@ -308,7 +306,7 @@ class Model(torch.nn.Module):
         assert x.dtype == torch.float32, "Input tensor must be of type float32"
         # for mps debugging only
         # confirmed float32 as of 2/10/2024 during train
-        # but not during train-sample
+        # but not during val
 
         x = self._global_cmvn(x.transpose(1, 2)).transpose(1, 2)
         xs_lens = (

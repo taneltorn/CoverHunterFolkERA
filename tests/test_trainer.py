@@ -1,5 +1,4 @@
 import logging
-import os
 import unittest
 
 import torch
@@ -22,14 +21,14 @@ class TestTrainer(unittest.TestCase):
         logging.disable(logging.CRITICAL)
         self.hp = {
             "batch_size": 32,
-            # XXX: add reduced sample data in tests or dedicated dir, maybe try with train-sample
+            # XXX: add reduced sample data in tests or dedicated dir, maybe try with val
             "covers80": {
                 "query_path": "data/covers80/full.txt",
                 "ref_path": "data/covers80/full.txt",
-                "every_n_epoch_to_dev": 1,
+                "every_n_epoch_to_test": 1,
             },
             "train_path": "data/covers80/train.txt",
-            "dev_path": "data/covers80/dev.txt",
+            "test_path": "data/covers80/test.txt",
             "chunk_frame": [1125, 900, 675],
             "chunk_s": 135,
             "mode": "random",
@@ -111,8 +110,8 @@ class TestTrainer(unittest.TestCase):
             unittest.mock.call("csi/tri_loss", unittest.mock.ANY, 1),
             unittest.mock.call("csi/total", unittest.mock.ANY, 1),
             # 0 because the epoch is logged for the rest
-            unittest.mock.call("csi_dev/ce_loss", unittest.mock.ANY, 0),
-            unittest.mock.call("csi_dev/tri_loss", unittest.mock.ANY, 0),
+            unittest.mock.call("csi_test/ce_loss", unittest.mock.ANY, 0),
+            unittest.mock.call("csi_test/tri_loss", unittest.mock.ANY, 0),
             unittest.mock.call("mAP/covers80", unittest.mock.ANY, 0),
             unittest.mock.call("hit_rate/covers80", unittest.mock.ANY, 0),
         ]

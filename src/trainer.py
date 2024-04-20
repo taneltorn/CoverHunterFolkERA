@@ -99,7 +99,7 @@ class Trainer:
             )
 
         # At inference stage, we only use chunk with fixed length
-        self.logger.info("Init train-sample and dev data loader")
+        self.logger.info("Init val and test data loader")
         self.sample_training_data = None
         if "train_sample_path" in hp:
             self.sample_training_data = DataLoader(
@@ -127,12 +127,12 @@ class Trainer:
                 drop_last=False,
             )
 
-        self.dev_data = None
-        if "dev_path" in hp:
-            self.dev_data = DataLoader(
+        self.test_data = None
+        if "test_path" in hp:
+            self.test_data = DataLoader(
                 AudioFeatDataset(
                     hp,
-                    hp["dev_path"],
+                    hp["test_path"],
                     chunk_len=infer_len,
                     mode=hp["mode"],
                     logger=self.logger,
@@ -140,7 +140,7 @@ class Trainer:
                 num_workers=1,
                 shuffle=False,
                 sampler=MPerClassSampler(
-                    data_path=hp["dev_path"],
+                    data_path=hp["test_path"],
                     m=hp["m_per_class"],
                     batch_size=hp["batch_size"],
                     distribute=False,
@@ -240,19 +240,19 @@ class Trainer:
 
     def validate_one(self, data_type):
         """
-        Validate for the given data_type (can be train-sample or dev).
+        Validate for the given data_type (can be val or test).
 
-        Do it only every "every_n_epoch_to_dev".
+        Do it only every "every_n_epoch_to_test".
         """
-        if not self.epoch % self.hp.get("every_n_epoch_to_dev", 1) == 0:
+        if not self.epoch % self.hp.get("every_n_epoch_to_test", 1) == 0:
             return
 
         start = time.time()
 
-        if data_type == "train-sample":
+        if data_type == "val":
             data = self.sample_training_data
-        elif data_type == "dev":
-            data = self.dev_data
+        elif data_type == "test":
+            data = self.test_data
 
         if not data:
             return
@@ -277,7 +277,7 @@ class Trainer:
             "Time for %s is %.1fs\n", data_type, time.time() - start
         )
 
-        if data_type == "dev":
+        if data_type == "test":
             if validation_loss < self.best_validation_loss:
                 self.best_validation_loss = validation_loss
                 self.early_stopping_counter = 0
@@ -288,13 +288,13 @@ class Trainer:
         """
         Validate the data types, evaluate the result and log.
         """
-        self.validate_one("train-sample")
-        self.validate_one("dev")
+        self.validate_one("val")
+        self.validate_one("test")
 
         valid_testlist = []
         for testset_name in self.test_sets:
             hp_test = self.hp[testset_name]
-            if self.epoch % hp_test.get("every_n_epoch_to_dev", 1) == 0:
+            if self.epoch % hp_test.get("every_n_epoch_to_test", 1) == 0:
                 valid_testlist.append(testset_name)
 
         for testset_name in valid_testlist:

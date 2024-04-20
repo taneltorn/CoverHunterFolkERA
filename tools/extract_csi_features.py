@@ -334,9 +334,9 @@ def _split_data_by_work_id(
         test_work_ids_path: Path to write a list of work_ids reserved for test
     """
     # percent of unique work IDs to include only in the val or test sets
-    val_only_percent = hp["train-sample_unseen"]
+    val_only_percent = hp["val_unseen"]
     test_only_percent = hp["test_data_unseen"]
-    val_ratio = hp["train-sample_data_split"]
+    val_ratio = hp["val_data_split"]
     test_ratio = hp["test_data_split"]
 
     # Dictionary to store work ID counts and shuffled sample lists
@@ -621,9 +621,9 @@ def _generate_csi_features(hp, feat_dir, start_stage, end_stage) -> None:
     if start_stage <= 13 <= end_stage:
         logging.info("Stage 13:Split data into train / validate / test sets")
         train_path = os.path.join(feat_dir, "train.txt")
-        val_path = os.path.join(feat_dir, "train-sample.txt")
-        test_path = os.path.join(feat_dir, "dev.txt")
-        test_work_ids_path = os.path.join(feat_dir, "dev-only-work-ids.txt")
+        val_path = os.path.join(feat_dir, "val.txt")
+        test_path = os.path.join(feat_dir, "test.txt")
+        test_work_ids_path = os.path.join(feat_dir, "test-only-work-ids.txt")
         _split_data_by_work_id(
             full_path,
             train_path,

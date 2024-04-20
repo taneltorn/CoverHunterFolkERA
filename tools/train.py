@@ -86,10 +86,10 @@ def _main() -> None:
     # (model.join), that means we do not need to wait one step of all gpu to
     # complete. Pytorch distribution support variable trained samples of different
     # gpus.
-    # And also, we compute train-sample/dev/testset on different gpu within epoch.
-    # For example: we compute dev at rank0 when epoch 1, when dev is computing,
+    # And also, we compute val/test/testset on different gpu within epoch.
+    # For example: we compute test at rank0 when epoch 1, when test is computing,
     # rank1 is going on training and update parameters. When epoch 2, we change
-    # to compute dev at rank1, to make sure all ranks run the same train steps
+    # to compute test at rank1, to make sure all ranks run the same train steps
     # almost.
 
     checkpoint_dir = os.path.join(model_dir, "pt_model")

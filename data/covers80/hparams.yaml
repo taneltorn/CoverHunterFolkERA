@@ -7,8 +7,7 @@
   "noise_path": "dataset/asr_as_noise/dataset.txt"
 }
 "device": "mps"
-"train-sample_data_split": 0.1 # percent of training data to reserve for validation aka "train-sample"
-"train-sample_unseen": 0.02 # percent of work_ids from training data to reserve exclusively for validation aka "train-sample"
-"test_data_split": 0.1 # percent of training data to reserve for test aka "dev"
-"test_data_unseen": 0.04 # percent of work_ids from training data to reserve exclusively for test aka "dev"
-
+"val_data_split": 0.1 # percent of training data to reserve for validation aka "val"
+"val_unseen": 0.02 # percent of work_ids from training data to reserve exclusively for validation aka "val"
+"test_data_split": 0.1 # percent of training data to reserve for test
+"test_data_unseen": 0.04 # percent of work_ids from training data to reserve exclusively for test

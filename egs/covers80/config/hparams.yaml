@@ -1,41 +1,41 @@
 
 ### Training data paths
 train_path: "data/covers80/train.txt"
-train_sample_path: "data/covers80/train-sample.txt"
-dev_path: "data/covers80/dev.txt"
+val_path: "data/covers80/val.txt"
+test_path: "data/covers80/test.txt"
 
-### optional test datasets used in the "dev" (test) phases of training epochs
+### optional external test datasets used in the test phase of training epochs
 covers80:
   query_path: "data/covers80/full.txt"
   ref_path: "data/covers80/full.txt"
-  every_n_epoch_to_dev: 1  # validate after every n epoch
+  every_n_epoch_to_test: 1  # validate after every n epoch
 
 # Download the reels50easy dataset from https://www.irishtune.info/public/MLdata.htm
 # and then you can uncomment the next 4 lines.
 #reels50easy:
 #  query_path: "data/reels50easy_testset/full.txt"  # path to your bench
 #  ref_path: "data/reels50easy_testset/full.txt"
-#  every_n_epoch_to_dev: 1
+#  every_n_epoch_to_test: 1
 
 # Download the reels50hard dataset from https://www.irishtune.info/public/MLdata.htm
 # and then you can uncomment the next 4 lines.
 #reels50hard:
 #  query_path: "data/reels50hard_testset/full.txt"  # path to your bench
 #  ref_path: "data/reels50hard_testset/full.txt"
-#  every_n_epoch_to_dev: 1
+#  every_n_epoch_to_test: 1
 
 #shs_test:
 #  query_path: "egs/shs100k/test.txt"
 #  ref_path: "egs/shs100k/test.txt"
-#  every_n_epoch_to_dev: 2 # validate after every n epoch
+#  every_n_epoch_to_test: 2 # validate after every n epoch
 
 #da-tacos: (see https://github.com/MTG/da-tacos)
 #  query_path: "egs/benchmark_query.txt"
 #  ref_path: "egs/benchmark_ref.txt"
 #  query_in_ref_path: "egs/datacos/query_in_ref.txt"
-#  every_n_epoch_to_dev: 2  # validate after every n epoch
+#  every_n_epoch_to_test: 2  # validate after every n epoch
 
-every_n_epoch_to_dev: 1  # validate after every n epoch
+every_n_epoch_to_test: 1  # validate after every n epoch
 every_n_epoch_to_save: 1  # save model after every n epoch
 
 ### Dataset parameters
