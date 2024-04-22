@@ -63,23 +63,23 @@ See "Input and Output Files" below for more information about what happens here.
 
 ## Training
 
-CoverHunter includes a prepared configuration to run a training session on the Covers80 dataset located in the 'egs/covers80' subfolder of the project. *Important note:* the default configuration that the CoverHunter authors provided was a nonsense or toy configuration that only demonstrated that you have a working project and environment. It used the same dataset for both training and validation, so by definition it rapidly converged and overfit.
+CoverHunter includes a prepared configuration to run a training session on the Covers80 dataset located in the 'training/covers80' subfolder of the project. *Important note:* the default configuration that the CoverHunter authors provided was a nonsense or toy configuration that only demonstrated that you have a working project and environment. It used the same dataset for both training and validation, so by definition it rapidly converged and overfit.
 
 This fork added a train/validate/test data-splitting function in the extract_csi_features tool, along with corresponding new data-preparation hyperparameters.
 
 Specify the path where the training hyperparameters are available (in this case using the provided example for covers80) and where the model output will go, as the one required command-line parameter:
 
-`python -m tools.train egs/covers80/`
+`python -m tools.train training/covers80/`
 
 This fork also added an optional `--runid` parameter so you can distinguish your training runs in TensorBoard in case you are experimenting:
 
-`python -m tools.train egs/covers80/ --runid 'first try'`
+`python -m tools.train training/covers80/ --runid 'first try'`
 
 To see the TensorBoard live visualization of the model's progress during training, run this in a separate terminal window, from the root of the project folder, and then use the URL listed in the output to watch the TensorBoard:
 
-`tensorboard --logdir=egs/covers80/logs`
+`tensorboard --logdir=training/covers80/logs`
 
-Optionally edit the `hparams.yaml` configuration file in the folder `egs/covers80/config` before starting a training run. If you run into memory limits, start with decreasing the batch size from 64 to 32.
+Optionally edit the `hparams.yaml` configuration file in the folder `training/covers80/config` before starting a training run. If you run into memory limits, start with decreasing the batch size from 64 to 32.
 
 This fork added the hyperparameter `early_stopping_patience` to support the added feature of early stopping (original CoverHunter defaulted to 10,000 epochs!).
 
@@ -94,8 +94,8 @@ This script evaluates your trained model by providing mAP and MR1 metrics and an
 1. Have a pre-trained CoverHunter model's output checkpoint files available. You only need your best set (typically your highest-numbered one). If you use original CoverHunter's pre-trained model from https://drive.google.com/file/d/1rDZ9CDInpxQUvXRLv87mr-hfDfnV7Y-j/view), unzip it, and move it to a folder that you specify in step 3 below.
 2. Run your query data through `extract_csi_features.py`. In the `hparams.yaml` file for the feature extraction, turn off all augmentation. See `data/covers80_testset/hparams.yaml` for an example configuration to treat covers80 as the query data:<br> `python3 -m tools.extract_csi_features data/covers80_testset`<br>
 The important output from that is `full.txt` and the `cqt_feat` subfolder's contents.
-3. Run the evaluation script. This example assumes you are using the trained model you created in `egs/covers80` and you want to use all the optional features I added in this fork:<br>
-`python3 -m tools.eval_testset egs/covers80 data/covers80_testset/full.txt data/covers80_testset/full.txt -plot_name="egs/covers80/tSNE.png" -dist_name='distmatrix' -test_only_labels='data/covers80/test-only-work-ids.txt'`
+3. Run the evaluation script. This example assumes you are using the trained model you created in `training/covers80` and you want to use all the optional features I added in this fork:<br>
+`python3 -m tools.eval_testset training/covers80 data/covers80_testset/full.txt data/covers80_testset/full.txt -plot_name="training/covers80/tSNE.png" -dist_name='distmatrix' -test_only_labels='data/covers80/test-only-work-ids.txt'`
 
 CoverHunter only shared an evaluation example for the case when query and reference data are identical, presumably to do a self-similarity evaluation of the model. But there is an optional 4th parameter for `query_in_ref_path` that would be relevant if query and reference are not identical. See the "query_in_ref" heading below under "Input and Output Files."
 
@@ -115,7 +115,7 @@ See the "Training checkpoint output" section below for a description of the embe
 After you have trained a model and run the evaluation script, you can use the model to identify any music you give it. Provide the music input to the tools.identify.py script by creating a one-line text file that has the metadata about the music, following the format of the text files generated by tools.extract_csi_features.py. For example, you could select any of the entries in the data/covers80/full.txt file, like a speed-augmented version of one of the 80 works
  
 Example for covers80:
-`python -m tools.identify egs/covers80 target.txt -top=10`
+`python -m tools.identify training/covers80 target.txt -top=10`
 
 To interpret the output, use the data/covers80/work_id.map text file to see which `work_id` goes with which `work`. Good news: even the bare-bones demo of training from scratch on covers80 shows that CoverHunter does a very good job of identifying versions (covers) of those 80 pop songs.
 
@@ -244,7 +244,7 @@ Original CoverHunter also generated the following files, but were not used by th
 
 ## Training checkpoint output
 
-Using the default configuration, training saves checkpoints after each epoch in the egs/covers80 folder.
+Using the default configuration, training saves checkpoints after each epoch in the training/covers80 folder.
 
 The `pt_model` subfolder gets two files per epoch: do_000000NN and g_000000NN where NN=epoch number. The do_ files contain the AdamW optimizer state. The g_ files contain the model's state dictionary. "g" might be an abbreviation for "generator" given that a transformer architecture is involved?
 

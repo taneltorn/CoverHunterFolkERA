@@ -12,7 +12,7 @@ MVP proof-of-concept. Assumptions:
         in the model's "embed_...tmp/query_embed" folder
 
 Example:
-python -m tools.identify egs/covers80 target.txt -top=10
+python -m tools.identify training/covers80 target.txt -top=10
 
 model_path is the relative path that expects a subfolder "pt_model" containing checkpoint files and the abovementioned tmp/query_embed/ folder of reference embeddings.
 
