@@ -99,6 +99,7 @@ def _main() -> None:
         hp,
         model,
         embed_dir,
+        device=device,
         query_path=query_path,
         ref_path=ref_path,
         query_in_ref_path=query_in_ref_path,
