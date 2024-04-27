@@ -21,7 +21,8 @@ random.seed(1)
 
 def _float_signal_to_int16(signal):
     signal = signal * 32768
-    return np.int16(signal)
+    signal = np.int16(signal)
+    return signal
 
 
 class SignalAug:
@@ -182,7 +183,8 @@ class SignalAug:
         status = process_handle.returncode
         if status > 0:
             logging.info("status:{}, err:{}".format(status, err.decode("utf-8")))
-        return out
+        signal = out
+        return signal
 
     @staticmethod
     def _change_pitch(signal, pitch_factor):
@@ -234,10 +236,10 @@ class SignalAug:
         out, err = process_handle.communicate(x.T.tobytes(order="F"))
         if process_handle.returncode != 0:
             return signal
-
-        return np.frombuffer(out, dtype=np.int16)
+        out = np.frombuffer(out, dtype=np.int16)
         # print("status:", status)
         # print("err:", err.decode("utf-8"))
+        return out
 
     def augmentation(self, signal):
         """vanilla signal[N] -> augmentation signal[N]"""
@@ -541,7 +543,7 @@ class MPerClassSampler(Sampler):
 
     def _split_label_randoms(self, seed):
         split_label = []
-        global_label = list(self._labels_to_indices.keys()).copy()
+        global_label = list(self._labels_to_indices.keys())
         random.Random(seed).shuffle(global_label)
         split_label.append(global_label)
 

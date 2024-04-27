@@ -79,6 +79,7 @@ class AttentiveStatisticsPooling(torch.nn.Module):
         attn = attn.masked_fill(mask == 0, float("-inf"))  # Filter out zero-padding
         attn = F.softmax(attn, dim=2)
         mean, std = self._compute_statistics(x, attn, self._eps)
+        # returns pooled statistics
         return self._final_layer(torch.cat((mean, std), dim=1))
 
     def forward_with_mask(
@@ -301,7 +302,11 @@ class Model(torch.nn.Module):
     #    return self._step
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """feat[b, frame_size, feat_size] -> embed[b, embed_dim]"""
+        """
+        feat[b, frame_size, feat_size] -> embed[b, embed_dim]
+        
+        Modifies x in the calling scope's context.
+        """
 
         assert x.dtype == torch.float32, "Input tensor must be of type float32"
         # for mps debugging only
@@ -315,7 +320,8 @@ class Model(torch.nn.Module):
             .long()
         )
         x, _ = self._encoder(x, xs_lens=xs_lens, decoding_chunk_size=-1)
-        return self._pool_layer(x)
+        x = self._pool_layer(x)
+        return x
 
     #  @torch.jit.ignore
     def compute_loss(
