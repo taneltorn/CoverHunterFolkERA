@@ -543,7 +543,7 @@ class MPerClassSampler(Sampler):
 
     def _split_label_randoms(self, seed):
         split_label = []
-        global_label = list(self._labels_to_indices.keys())
+        global_label = list(self._labels_to_indices.keys()).copy()
         random.Random(seed).shuffle(global_label)
         split_label.append(global_label)
 
