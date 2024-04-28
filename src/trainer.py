@@ -277,7 +277,7 @@ class Trainer:
             "Time for %s is %.1fs\n", data_type, time.time() - start
         )
 
-        if data_type == "test":
+        if data_type == "val":
             if validation_loss < self.best_validation_loss:
                 self.best_validation_loss = validation_loss
                 self.early_stopping_counter = 0
