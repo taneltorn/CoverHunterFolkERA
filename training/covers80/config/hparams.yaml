@@ -41,7 +41,7 @@ every_n_epoch_to_save: 1  # save model after every n epoch
 ### Dataset parameters
 data_type: "cqt"  # raw or cqt or mel
 chunk_frame: [1125, 900, 675]
-chunk_s: 135  # = 1125 / 25 * 3
+chunk_s: 135  # = chunk_frame[0] / 25 * mean_size
 mode: "random"
 mean_size: 3
 m_per_class: 8

@@ -387,7 +387,7 @@ def eval_for_map_with_feat(
         infer_frame = hp["chunk_frame"] * hp["mean_size"]
 
     chunk_s = hp["chunk_s"]
-    # assumes 25 frames per second
+    # assumes resolution of 25 features per second (hop length 0.04s)
     assert (
         infer_frame == chunk_s * 25
     ), f"Error for mismatch of chunk_frame and chunk_s: {infer_frame}!={chunk_s}*25"
