@@ -20,7 +20,10 @@ Collaborators are welcome at any time! That includes:
 - Neural network designers
 - Data scientists
 - Data source contributors (music data)
+- Musicologists (posing valuable challenges to tackle)
 - Anyone interested in learning and practicing in the above fields 
+
+Get started by participating in the Issues or Discussions tabs here in this Github site. Or contact Alan Ng directly (such as by using the Feedback Form link at the bottom of https://www.irishtune.info/public/MLdata.htm).
 
 # Requirements
 
