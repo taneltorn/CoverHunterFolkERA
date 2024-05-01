@@ -347,9 +347,8 @@ def _split_data_by_work_id(
         if work_id not in work_data:
             work_data[work_id] = []
         work_data[work_id].append(local_data)
-    logging.info("Number of distinct works: %s", len(work_data))
-
     num_works = len(work_data)
+    logging.info("Number of distinct works: %s", num_works)
 
     # Separate works for test-only and stratified split.
     # Ensure minimum of one work in test only if non-zero requested.
@@ -402,7 +401,7 @@ def _split_data_by_work_id(
             # Randomly shuffle samples for this work ID
             random.shuffle(samples)
 
-            # Calculate val split points based on train ratio and minimum samples (1)
+            # Calculate val split points based on train ratio and minimum samples
             min_samples = (
                 1  # Ensure at least 1 sample in each set for remaining works
             )
@@ -412,7 +411,7 @@ def _split_data_by_work_id(
                 val_split,
             )  # Ensure at least min_samples in val
 
-            # Calculate test split points based on train ratio and minimum samples (1)
+            # Calculate test split points based on train ratio and minimum samples
             min_samples = (
                 1  # Ensure at least 1 sample in each set for remaining works
             )
@@ -421,6 +420,13 @@ def _split_data_by_work_id(
                 min_samples,
                 test_split,
             )  # Ensure at least min_samples in test
+
+            # if exceeding test_ratio then put more in val than test
+            if (
+                (len(test_data) + len (remaining_test_data)) / len(train_data) if len(train_data) != 0 else 0
+                > test_ratio
+                ):
+                test_split = max(min_samples,test_split-1)
 
             remaining_val_data.extend(samples[:val_split])
             remaining_test_data.extend(
@@ -568,7 +574,7 @@ def _generate_csi_features(hp, feat_dir, start_stage, end_stage) -> None:
     new_full = False
     full_path = os.path.join(feat_dir, "full.txt")
     if start_stage <= 4 <= end_stage:
-        logging.info("Stage 4: extract cqt feature")
+        logging.info("Stage 4: extract CQT features")
         if not os.path.exists(full_path):
             new_full = True
             cqt_dir = os.path.join(feat_dir, "cqt_feat")
@@ -583,7 +589,7 @@ def _generate_csi_features(hp, feat_dir, start_stage, end_stage) -> None:
         and hp_noise
         and os.path.exists(hp_noise["noise_path"])
     ):
-        logging.info("Stage 5: add noise and extract cqt features")
+        logging.info("Stage 5: add noise and extract CQT features")
         noise_cqt_dir = os.path.join(feat_dir, "cqt_with_noise")
         _extract_cqt_with_noise(
             full_path,
@@ -619,7 +625,7 @@ def _generate_csi_features(hp, feat_dir, start_stage, end_stage) -> None:
     # =============================================================================
 
     if start_stage <= 13 <= end_stage:
-        logging.info("Stage 13:Split data into train / validate / test sets")
+        logging.info("Stage 13: split data into train / validate / test sets")
         train_path = os.path.join(feat_dir, "train.txt")
         val_path = os.path.join(feat_dir, "val.txt")
         test_path = os.path.join(feat_dir, "test.txt")
