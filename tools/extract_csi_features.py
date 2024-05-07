@@ -154,9 +154,9 @@ def _speed_aug_parallel(init_path, aug_speed_lst, aug_path, sp_dir) -> None:
 # leverage multiple CPU cores to run multiple CQT extractions in parallel
 def _extract_cqt_worker_librosa(args):
     """worker function for _extract_cqt_parallel"""
-    line, cqt_dir = args
+    line, cqt_dir, fmin, max_freq, bins_per_octave = args
     wav_path = line["wav"]
-    py_cqt = PyCqt(sample_rate=16000, hop_size=0.04)
+    py_cqt = PyCqt(sample_rate=16000, hop_size=0.04, octave_resolution=bins_per_octave, min_freq=fmin,max_freq=max_freq)
     feat_path = os.path.join(cqt_dir, "{}.cqt.npy".format(line["perf"]))
 
     if not os.path.exists(feat_path):
@@ -173,7 +173,7 @@ def _extract_cqt_worker_librosa(args):
 
 
 def _extract_cqt_worker_torchaudio(args):
-    line, cqt_dir, device = args
+    line, cqt_dir, fmin, max_freq, n_bins, bins_per_octave, device = args
     wav_path = line["wav"]
     feat_path = os.path.join(cqt_dir, "{}.cqt.npy".format(line["perf"]))
 
@@ -194,7 +194,7 @@ def _extract_cqt_worker_torchaudio(args):
             * 0.999
         )
         signal = transform(
-            16000, hop_length=640, n_bins=96, fmin=32, verbose=False
+            16000, hop_length=640, n_bins=n_bins, fmin=fmin, bins_per_octave=bins_per_octave, verbose=False
         ).to(device)(signal)
         signal = signal + 1e-9
         signal = signal.squeeze(0)
@@ -215,21 +215,22 @@ def _extract_cqt_worker_torchaudio(args):
 
 
 def worker(args):
-    line, cqt_dir, device = args
+    line, cqt_dir, fmin, max_freq, n_bins, bins_per_octave, device = args
 
     if device in ("mps", "cuda"):
         return _extract_cqt_worker_torchaudio(args)
 
-    return _extract_cqt_worker_librosa(line, cqt_dir)
+    return _extract_cqt_worker_librosa(line, cqt_dir, fmin, max_freq, bins_per_octave)
 
 
-def _extract_cqt_parallel(init_path, out_path, cqt_dir, device) -> None:
+def _extract_cqt_parallel(init_path, out_path, cqt_dir, fmin, n_bins, bins_per_octave, device) -> None:
     os.makedirs(cqt_dir, exist_ok=True)
     dump_lines = []
-
+    # calculate max_freq in case CPU device requires use of the PyCQT function
+    max_freq = fmin * (2 ** (n_bins / bins_per_octave))
     with ProcessPoolExecutor() as executor:
         worker_args = [
-            (line_to_dict(line), cqt_dir, device)
+            (line_to_dict(line), cqt_dir, fmin, max_freq, n_bins, bins_per_octave, device)
             for line in read_lines(init_path, log=False)
         ]
 
@@ -578,8 +579,20 @@ def _generate_csi_features(hp, feat_dir, start_stage, end_stage) -> None:
         if not os.path.exists(full_path):
             new_full = True
             cqt_dir = os.path.join(feat_dir, "cqt_feat")
+            if "fmin" not in hp:
+                fmin = 32
+            else: 
+                fmin = hp["fmin"]
+            if "n_bins" not in hp:
+                n_bins = 96
+            else:
+                n_bins = hp["n_bins"]
+            if "bins_per_octave" not in hp:
+                bins_per_octave = 12
+            else:
+                bins_per_octave = hp["bins_per_octave"]
             _extract_cqt_parallel(
-                sp_aug_path, full_path, cqt_dir, hp["device"]
+                sp_aug_path, full_path, cqt_dir, fmin, n_bins, bins_per_octave, hp["device"]
             )
 
     # noise augmentation was default off for CoverHunter

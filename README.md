@@ -156,7 +156,10 @@ The hparams.yaml file located in the folder you provide on the command line to t
 | --- | --- |
 |add_noise| Original CoverHunter provided the example of: <div>{<br> &nbsp; `prob`: 0.75,<br> &nbsp; `sr`: 16000,<br> &nbsp; `chunk`: 3,<br> &nbsp; `name`: "cqt_with_asr_noise",<br> &nbsp; `noise_path`: "dataset/asr_as_noise/dataset.txt"<br>}<br>However, the CoverHunter repo did not include whatever might supposed to be in "dataset/asr_as_noise/dataset.txt" file nor does the CoverHunter research paper describe it. If that path does not exist in your project folder structure, then tools.extract_csi_features will just skip the stage of adding noise augmentation. At least for training successfully on Covers80, noise augmentation doesn't seem to be needed.|
 | aug_speed_mode | list of ratios used in tools.extract_csi_features for speed augmention of your raw training data. Example: [0.8, 0.9, 1.0, 1.1, 1.2] means use 80%, 90%, 100%, 110%, and 120% speed variants of your original audio data.|
+| bins_per_octave | See `fmin` and `n_bins`. If your musical culture uses a scale that does not fit in the Western standard 12-semitone scale, set this to a higher number. Default 12. |
 | device | 'mps' or 'cuda', corresponding to your GPU hardware and PyTorch library support. 'cpu' is not currently implemented but could be if needed. Original CoverHunter used CPU for this stage but was much slower. |
+| fmin | The lowest frequency you want the CQT arrays to include. Set this to just below the lowest pitch used in the musical culture you are teaching the model. Consider only the pitches relevant to the work-identification skill you want it to learn. For example, in some cultures, bass accompaniment is not relevant for work identification. Default is 32. |
+| n_bins | The number of frequency bins you want the CQT arrays to include. For example, if you set `bins_per_octave` to 12, then set `n_bins` to 12 times the number of octaves above `fmin` that are relevant to this culture's work-identification skill. Be sure to also set the `input_dim` training hyperparameter to match this number. Default is 96. |
 | val_data_split | percent of training data to reserve for validation expressed as a fraction of 1. Example for 10%: 0.1 |
 | val_unseen | percent of work_ids from training data to reserve exclusively for validation expressed as a fraction of 1. Example for 2%: 0.02 |
 | test_data_split | percent of training data to reserve for test expressed as a fraction of 1. Example for 10%: 0.1 |
@@ -196,7 +199,7 @@ The hparams.yaml file located in the "config" subfolder of the path you provide 
 | --- | --- |
 | embed_dim | 128 |
 | encoder | # model-encode<br>Subparameters:<br>`attention_dim`: 256 # "the hidden units number of position-wise feed-forward"<br>`output_dims`: 128<br>`num_blocks`: 6 # number of decoder blocks |
-| input_dim | 96 |
+| input_dim | The "vertical" (frequency) dimension size of the CQT arrays you provide to the model. Set this to the same value you used for `n_bins` in the data preparation hyperparameters. Default is 96. |
 
 
 ## dataset.txt

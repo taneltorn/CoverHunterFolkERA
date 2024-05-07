@@ -72,7 +72,7 @@ warmup_steps: 20000
 early_stopping_patience: 8
 
 ### Model parameters
-input_dim: 96
+input_dim: 96 # default 96 frequency bins
 embed_dim: 128
 encoder:  # model-encode
   output_dims: 128

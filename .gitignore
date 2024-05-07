@@ -12,6 +12,7 @@ data/covers80/train.txt
 data/covers80/val.txt
 data/covers80/sp_aug.txt
 data/covers80/test-only-song-ids.txt
+data/covers80/work_id.map
 data/covers80/sp_wav/
 data/covers80/song*
 data/covers80/wav_16k/
