@@ -27,7 +27,7 @@ Get started by participating in the Issues or Discussions tabs here in this Gith
 
 # Requirements
 
-1. Either: 
+1. GPU-equipped computer. CPU-only hardware should work but will be very slow). Tested platforms:
     1. Apple computer with an Apple M-series chip
     2. Other computer with an Nvidia GPU (including free cloud options like Google Colab)
 2. python3 (minimum version 3.10, tested on 3.11)
@@ -253,6 +253,7 @@ Text file crosswalk between "work" (unique identifying string per work) and the 
 Original CoverHunter also generated the following files, but were not used by their published codebase, so I commented out those functions:
 
 | filename | comments |
+|---|---|
 | work_id_num.map | Text file, not used by train.py, maybe not by anything else? |
 | work_name_num.map | Text file, not used by train.py, maybe not by anything else? |
 
@@ -274,7 +275,7 @@ This mapping is only used by the `_generate_dist_matrix()` function. That functi
 
 # Code Map
 
-Hand-made visualization of how core functions of this project interact with each other. Also includes additional beginner-friendly or verbose code-commenting that I didn't add to the project code.
+Hand-made visualization of how core functions of this project interact with each other. Also includes additional beginner-friendly or verbose code-commenting that I didn't add to the project code. Not regularly maintained, but still useful for getting oriented in this project's code:
 
 https://miro.com/app/board/uXjVNkDkn70=/ 
 
