@@ -31,6 +31,12 @@ def _main() -> None:
         help="Save a t-SNE plot of the distance matrix to this path. Default path is model_dir if plot_name is just a filename.",
     )
     parser.add_argument(
+        "-marks",
+        default="markers",
+        type=str,
+        help="plot marker mode 'markers' or 'ids'",
+    )
+    parser.add_argument(
         "-test_only_labels",
         default="",
         type=str,
@@ -107,6 +113,7 @@ def _main() -> None:
         logger=logger,
         test_only_labels=test_only_labels,
         plot_name=plot_name,
+        marks=args.marks,
         dist_name=args.dist_name,
     )
 

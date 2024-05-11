@@ -25,18 +25,20 @@ def _cluster_plot(
     ref_labels,
     output_path,
     test_only_labels=None,
+    marks="markers",
     logger=None,
 ) -> None:
     """
     Generate t-SNE clustering PNG plot.
 
-    dist_matrix must be square.
-    test_only_labels is an optional list of labels (work_ids) that will be marked in the plot
-        to visually distinguish samples of work IDs that were excluded from
-        the training and validation datasets.
-
-    Cycle through marker-color combinations to reuse them as little as possible,
-    and to maximize color differentiation.
+    Args:
+        dist_matrix: must be square array
+        test_only_labels: is an optional list of labels (work_ids) that will be
+            marked in the plot to visually distinguish samples of work IDs that
+            were excluded from the training and validation datasets.
+        marks: "markers": cycle through marker-color combinations to reuse them
+            as little as possible, and to maximize color differentiation.
+            "ids": use work_id numbers as markers
     """
     import matplotlib.pyplot as plt
     from sklearn.manifold import TSNE
@@ -61,12 +63,20 @@ def _cluster_plot(
     color_dict = {}  # Dictionary to store color for each label
     marker_dict = {}  # Dictionary to store marker style for each label
 
+    if marks == "ids":
+        marker_styles = [f"${label}$" for label in unique_labels]
+    
     for i, label in enumerate(unique_labels):
         # Assign color for label
         color_dict[label] = colors[i % num_colors]
         # Assign marker style for label
-        marker_dict[label] = marker_styles[i % len(marker_styles)]
-    print("test_only_labels: ", test_only_labels)
+        # Assign marker style for label
+        if marks == "markers":
+            marker_dict[label] = marker_styles[i % len(marker_styles)]
+        else:
+            marker_dict[label] = marker_styles[i]
+    if logger:
+        logger.info(f"test_only_labels: {test_only_labels}")
 
     for i, label in enumerate(unique_labels):
         label_indices = np.where(ref_labels == label)[0]
@@ -338,6 +348,7 @@ def eval_for_map_with_feat(
     device="mps",
     logger=None,
     plot_name="",
+    marks="markers",
     dist_name="",
     test_only_labels=None,
 ):
@@ -359,6 +370,7 @@ def eval_for_map_with_feat(
       plot_name: if a path is provided, save t-SNE plot there
       dist_name: if a path is provided, save dist_matrix there
       test_only_labels: see explanation in _cluster_plot()
+      marks: see explanation in _cluster_plot()
 
     Returns:
       map10
@@ -529,7 +541,7 @@ def eval_for_map_with_feat(
             assert os.path.isdir(path), f"Invalid plot path: {plot_name}"
 
         _cluster_plot(
-            dist_matrix, ref_label, plot_name, test_only_labels, logger
+            dist_matrix, ref_label, plot_name, test_only_labels, marks, logger
         )
         logger.info(f"t-SNE plot saved to: {plot_name}")
 

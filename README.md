@@ -27,7 +27,7 @@ Get started by participating in the Issues or Discussions tabs here in this Gith
 
 # Requirements
 
-1. GPU-equipped computer. CPU-only hardware should work but will be very slow). Tested platforms:
+1. GPU-equipped computer. CPU-only hardware should work but will be very slow. Tested platforms:
     1. Apple computer with an Apple M-series chip
     2. Other computer with an Nvidia GPU (including free cloud options like Google Colab)
 2. python3 (minimum version 3.10, tested on 3.11)
