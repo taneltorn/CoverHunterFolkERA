@@ -293,6 +293,7 @@ or if you installed the project in a virtualenv:
 # Distribution of Works vs. Performances 
 
 As a contribution to the CSI community, where the [SHS100K dataset](https://github.com/NovaFrost/SHS100K) has been used as a standard training dataset for many years, including for the CoverHunter research paper, here is a histogram showing the distribution of works vs. performances in SHS100K.
+
 ![SHS100K Histogram](SHS100k_histogram.png)
 
 This figure may be helpful as a reference for comparing the distribution of works vs. performances in datasets you want to use with CoverHunterMPS, knowing that CoverHunter was able to train successfully given this distribution.
