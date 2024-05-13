@@ -257,7 +257,6 @@ Original CoverHunter also generated the following files, but were not used by th
 | work_id_num.map | Text file, not used by train.py, maybe not by anything else? |
 | work_name_num.map | Text file, not used by train.py, maybe not by anything else? |
 
-
 ## Training Checkpoint Output
 
 Using the default configuration, training saves checkpoints after each epoch in the training/covers80 folder.
@@ -296,4 +295,6 @@ As a contribution to the CSI community, where the [SHS100K dataset](https://gith
 
 ![SHS100K Histogram](SHS100k_histogram.png)
 
-This figure may be helpful as a reference for comparing the distribution of works vs. performances in datasets you want to use with CoverHunterMPS, knowing that CoverHunter was able to train successfully given this distribution.
+This figure may be helpful as a reference for comparing the distribution of works vs. performances in datasets you want to use with CoverHunterMPS, knowing that CoverHunter was able to train successfully given this distribution. 
+
+To help you understand this visualization of the SHS100K dataset, here are some example data points from it: The most common work ("Summertime") is represented by  387 performances, and there are over 300 works having only a single performance. The most common count of performances per work is 6.
