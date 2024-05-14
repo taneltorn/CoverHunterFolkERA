@@ -172,12 +172,10 @@ The hparams.yaml file located in the "config" subfolder of the path you provide 
 
 | key | value |
 | --- | --- |
-| covers80 | Test dataset for model evaluation purposes. "covers80" is the only example provided with the original CoverHunter.<br>Subparameters:<br>`query_path`: "data/covers80/full.txt"<br>`ref_path`: "data/covers80/full.txt"<br>`every_n_epoch_to_test`: 1 # validate after every n epoch<br>These can apparently be the same path as `train_path` for doing self-similarity evaluation.|
+| covers80:<br> &nbsp; query_path<br> &nbsp; ref_path<br> &nbsp; every_n_epoch_to_test | Test dataset(s) used for automated model evaluation purposes during training. "covers80" was the only example provided with the original CoverHunter. For an example of a different culture's test set, see https://www.irishtune.info/public/MLdata.htm. Note that ref_path and query_path are set to the same data in order to do a self-similarity evaluation, testing how well the model can cluster samples (perfs) relative to their known classes (works). You can add as many test datasets as you want. Each will be displayed as separate results in the TensorBoard visualization during training. <br>Subparameters for covers80:<br>`query_path`: "data/covers80/full.txt"<br>`ref_path`: "data/covers80/full.txt"<br>`every_n_epoch_to_test`: How many epochs to wait between each test of the current model against this testset. |
 | test_path | Compare `train_path` and `val_path`. This dataset is used in each epoch to run the same validation calculation as with the `val_path`. Presumably one should include both classes and samples that were excluded from both `train_path` and `val_path`. |
-| query_path | TBD: can apparently be the same path as `train_path`. Presumably for use during model evaluation and inference. |
-| ref_path | TBD: can apparently be the same path as `train_path`. Presumably for use during model evaluation and inference. |
 | train_path | path to a JSON file containing metadata about the data to be used for model training (See full.txt below for details) |
-| val_path | path to a JSON file containing metadata about the data to be used for model validation. Compare `test_path` above. Presumably one should include a balanced distribution of samples that are *not* included in the `train_path` dataset, but do include samples for the classes represented in the `train_path` dataset.(See full.txt below for details) 
+| val_path | Path to a JSON file containing metadata about the data to be used for model validation. Compare `test_path` above. Presumably one should include a balanced distribution of samples that are *not* included in the `train_path` dataset, but do include samples for the classes represented in the `train_path` dataset. (See full.txt below for details) |
 
 #### Training Parameters
 | key | value |
