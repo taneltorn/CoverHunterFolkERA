@@ -14,7 +14,9 @@ from torch.utils.data.sampler import Sampler
 from src.cqt import shorter
 from src.utils import line_to_dict, read_lines
 
-logging.basicConfig(level=logging.DEBUG, format="%(asctime)s %(levelname)s %(message)s")
+logging.basicConfig(
+    level=logging.DEBUG, format="%(asctime)s %(levelname)s %(message)s"
+)
 
 random.seed(1)
 
@@ -36,8 +38,12 @@ class SignalAug:
     def __init__(self, hp) -> None:
         self._hp = hp
         if "add_noise" in self._hp:
-            self._noise_path_lst = read_lines(hp["add_noise"]["noise_path"], log=False)
-            logging.info("Noise Data path:{}".format(hp["add_noise"]["noise_path"]))
+            self._noise_path_lst = read_lines(
+                hp["add_noise"]["noise_path"], log=False
+            )
+            logging.info(
+                "Noise Data path:{}".format(hp["add_noise"]["noise_path"])
+            )
             logging.info(f"Noise Data items:{len(self._noise_path_lst)}")
         else:
             self._noise_path_lst = None
@@ -131,7 +137,9 @@ class SignalAug:
 
         status = process_handle.returncode
         if status > 0:
-            logging.info("status:{}, err:{}".format(status, err.decode("utf-8")))
+            logging.info(
+                "status:{}, err:{}".format(status, err.decode("utf-8"))
+            )
 
         return out
 
@@ -182,7 +190,9 @@ class SignalAug:
 
         status = process_handle.returncode
         if status > 0:
-            logging.info("status:{}, err:{}".format(status, err.decode("utf-8")))
+            logging.info(
+                "status:{}, err:{}".format(status, err.decode("utf-8"))
+            )
         signal = out
         return signal
 
@@ -262,8 +272,12 @@ class SignalAug:
         if "add_noise" in self._hp and self._hp["add_noise"]["prob"] > 0.01:
             hp_noise = self._hp["add_noise"]
             noise_data = line_to_dict(random.choice(self._noise_path_lst))
-            noise_sig_init, _ = librosa.load(noise_data["wav"], sr=hp_noise["sr"])
-            noise_signal = noise_sig_init[random.randint(0, len(noise_sig_init)) :]
+            noise_sig_init, _ = librosa.load(
+                noise_data["wav"], sr=hp_noise["sr"]
+            )
+            noise_signal = noise_sig_init[
+                random.randint(0, len(noise_sig_init)) :
+            ]
             while len(noise_signal) < len(signal):
                 noise_signal = np.concatenate([noise_signal, noise_sig_init])
 
@@ -336,7 +350,32 @@ class SpecAug:
         return feat
 
     @staticmethod
-    def _random_erase(feat, region_num=4, region_size=(0.25, 0.1), region_val=-80):
+    def _roll_melody(feat, shift_num=3):
+        """
+        Alternative to original _roll() method, better for strongly
+        melodic music that appears at the bottom of the CQT frequency range.
+
+        Shift the spectrogram either shift_num higher or 2x shift_num higher.
+        Fill missing data at the bottom with -128 (very low amplitude) and discard
+        top-range frequency content that spills outside the array.
+
+        Don't shift lower in case meaningful melodic content is closer than
+        shift_num to the bottom of the feat array.
+        """
+        w, h = np.shape(feat)
+        # Choose between raising pitch by shift_num or by 2 * shift_num bins
+        shift_amount = random.choice([shift_num, 2 * shift_num])
+
+        # Shift the spectrogram upwards in place
+        if shift_amount < w:
+            feat[shift_amount:] = feat[: w - shift_amount]
+            feat[:shift_amount] = -128
+        return feat
+
+    @staticmethod
+    def _random_erase(
+        feat, region_num=4, region_size=(0.25, 0.1), region_val=-80
+    ):
         w, h = np.shape(feat)
         region_w = int(w * region_size[0])
         region_h = int(h * region_size[1])
@@ -354,7 +393,17 @@ class SpecAug:
         if "roll_pitch" in self._hp:
             p = random.random()
             if p <= self._hp["roll_pitch"]["prob"]:
-                feat = self._roll(feat, shift_num=self._hp["roll_pitch"]["shift_num"])
+                if (
+                    "low_melody" in self._hp["roll_pitch"]
+                    and self._hp["roll_pitch"]["low_melody"]
+                ):
+                    feat = self._roll_melody(
+                        feat, shift_num=self._hp["roll_pitch"]["shift_num"]
+                    )
+                else:
+                    feat = self._roll(
+                        feat, shift_num=self._hp["roll_pitch"]["shift_num"]
+                    )
 
         if "random_erase" in self._hp:
             p = random.random()
@@ -442,7 +491,6 @@ class AudioFeatDataset(torch.utils.data.Dataset):
             if logger:
                 logger.info("No spec_augmentation!")
 
-
     def __len__(self) -> int:
         return len(self._data)
 
@@ -495,7 +543,9 @@ class MPerClassSampler(Sampler):
       to make sure every ranks has not override data.
     """
 
-    def __init__(self, data_path, m, batch_size, distribute=False, logger=None) -> None:
+    def __init__(
+        self, data_path, m, batch_size, distribute=False, logger=None
+    ) -> None:
         data_lines = read_lines(data_path, log=False)
 
         self._m_per_class = m
@@ -525,7 +575,9 @@ class MPerClassSampler(Sampler):
         num_iters = self.num_iters()
         for _ in range(num_iters):
             random.shuffle(self.labels)
-            curr_label_set = self.labels[: self._batch_size // self._m_per_class]
+            curr_label_set = self.labels[
+                : self._batch_size // self._m_per_class
+            ]
             for label in curr_label_set:
                 t = self._labels_to_indices[label].copy()
                 random.shuffle(t)
@@ -537,7 +589,9 @@ class MPerClassSampler(Sampler):
         return self._sample_length // self._batch_size
 
     def _get_sample_length(self):
-        sample_length = sum([len(self._labels_to_indices[k]) for k in self.labels])
+        sample_length = sum(
+            [len(self._labels_to_indices[k]) for k in self.labels]
+        )
         sample_length -= sample_length % self._batch_size
         return sample_length
 

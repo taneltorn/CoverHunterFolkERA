@@ -55,6 +55,7 @@ spec_augmentation:
   roll_pitch:
     prob: 0.5
     shift_num: 12
+    low_melody: "false"
 
 ### Training parameters
 device: 'mps' # 'mps' or 'cuda' 
