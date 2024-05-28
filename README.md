@@ -99,6 +99,13 @@ Note: Don't use the `torchrun` launch command offered in original CoverHunter. I
 
 The training script's output consists of checkpoint files and embedding vectors, described below in the "Training checkpoint output" section.
 
+## Production Training
+
+Once you have tuned your data and your hyperparameters for optimal training results, you may be ready to train a model that knows *all* of your data, without reserving any for validation and test sets. You should, however, still have an external testset available with at least unseen perfs, even if the works are represented in the data to learn. To launch this kind of training, first prepare the training/covers80/hparams_prod.yaml file (using covers80 as our example dataset), and then use:
+`python -m tools.train_prod training/covers80/ --runid='test of production training'
+
+This script uses stratified K-fold cross validation to dynamically generate validation sets from your dataset so that the model is exposed to all works and perfs equally. It concludes with one final training run on the entire dataset in which the dataset you specify in `test_path` serves as the validation dataset (for early stopping purposes).
+
 ## Evaluation
 
 This script evaluates your trained model by providing mAP and MR1 metrics and an optional t-SNE clustering plot (compare Fig. 3 in the CoverHunter paper).

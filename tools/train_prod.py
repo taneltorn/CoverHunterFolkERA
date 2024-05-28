@@ -22,7 +22,8 @@ hyperparameters as documented for the training hparams.yaml, except:
     You may also specify one or more external testsets, which will be used
     normally during training for Tensorboard display.
 
-    Set a lower early_stopping_patience than you used in research mode.
+    Set a lower early_stopping_patience than you used in research mode to avoid 
+    overfitting in each fold.
 
 Example launch command:
 python -m tools.train_prod training/yourdata
@@ -119,7 +120,8 @@ def cross_validate(
 
     fold_results = []
 
-    original_train_path = hp["train_path"]  # should be full dataset
+    original_train_path = hp["train_path"]
+    original_test_path = hp.pop("test_path")  # save for final full dataset
 
     for fold, (train_idx, val_idx) in enumerate(fold_indices):
         if fold <= last_completed_fold:
@@ -158,7 +160,7 @@ def cross_validate(
         trainer.configure_optimizer()
         trainer.load_model()
         trainer.configure_scheduler()
-        trainer.train(max_epochs=100000)
+        trainer.train(max_epochs=500)
 
         fold_results.append(
             {
@@ -176,7 +178,7 @@ def cross_validate(
     # Train on the full dataset, and use a testset as the validation set
     logger.info("Training on the full dataset")
     hp["train_path"] = original_train_path
-    hp["val_path"] = hp["covers80"]["query_path"]
+    hp["val_path"] = original_test_path
 
     # Create a unique log path for the full dataset training
     log_path = os.path.join(model_dir, "logs", f"{run_id}_full")
@@ -196,15 +198,7 @@ def cross_validate(
     full_trainer.configure_optimizer()
     full_trainer.load_model()
     full_trainer.configure_scheduler()
-#    full_trainer.train(max_epochs=(5 * hp["early_stopping_patience"]))
-    # Train for the specified number of epochs with validation
-    for epoch in range(5 * hp["early_stopping_patience"]):
-        full_trainer.train_epoch(epoch, first_eval=False)
-        full_trainer.validate_one("val")
-        full_trainer.save_model()
-        if full_trainer.early_stopping_counter >= hp.get("early_stopping_patience", 10000):
-            logger.info(f"Early stopping at epoch {epoch} due to lack of improvement")
-            break
+    full_trainer.train(max_epochs=500)
     fold_results.append(
         {
             "fold": "full",
