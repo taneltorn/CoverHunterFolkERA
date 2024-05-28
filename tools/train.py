@@ -82,7 +82,8 @@ def _main() -> None:
 
     torch.manual_seed(hp["seed"])
 
-    # we use map-reduce mode to update model when its parameters changed
+    # Note only for distributed-computing use from original CoverHunter: 
+    # We use map-reduce mode to update model when its parameters changed
     # (model.join), that means we do not need to wait one step of all gpu to
     # complete. Pytorch distribution support variable trained samples of different
     # gpus.

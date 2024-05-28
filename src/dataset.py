@@ -531,13 +531,13 @@ class AudioFeatDataset(torch.utils.data.Dataset):
 class MPerClassSampler(Sampler):
     """At every iteration, this will return m samples per class. For example,
     if dataloader's batch-size is 100, and m = 5, then 20 classes with 5
-    samples iter will be returned
+    samples will be returned.
 
-    Support distribute with set distribute as True. All samples will be
-    put all ranks randomly, but samples with same label will be at same gpu
-    for contrastive loss.
+    Supports distributed compute when distribute = True. All samples will be
+    distributed across all ranks randomly, but samples with the same label will 
+    be on the same gpu for contrastive loss.
 
-    Notes:
+    Original CoverHunter note for distrbuted use:
       After every epoch, set_epoch should be called, and data index of every
       ranks will be changed. Random of index will accept epoch number as seed,
       to make sure every ranks has not override data.
