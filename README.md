@@ -101,10 +101,13 @@ The training script's output consists of checkpoint files and embedding vectors,
 
 ## Production Training
 
-Once you have tuned your data and your hyperparameters for optimal training results, you may be ready to train a model that knows *all* of your data, without reserving any for validation and test sets. You should, however, still have an external testset available with at least unseen perfs, even if the works are represented in the data to learn. To launch this kind of training, first prepare the training/covers80/hparams_prod.yaml file (using covers80 as our example dataset), and then use:
-`python -m tools.train_prod training/covers80/ --runid='test of production training'
+Once you have tuned your data and your hyperparameters for optimal training results, you may be ready to train a model that knows *all* of your data, without reserving any data for validation and test sets. The tools/train_prod.py script uses stratified K-fold cross validation to dynamically generate validation sets from your dataset so that the model is exposed to all works and perfs equally. It concludes with one final training run on the entire dataset in which the dataset you specify in `test_path` serves as the validation dataset (for early stopping purposes). This final validation set should be entirely unseen perfs, even if some or all of the works are represented in the training data.
 
-This script uses stratified K-fold cross validation to dynamically generate validation sets from your dataset so that the model is exposed to all works and perfs equally. It concludes with one final training run on the entire dataset in which the dataset you specify in `test_path` serves as the validation dataset (for early stopping purposes).
+Use the full.txt output from extract_csi_features.py for your `train_path` with `val_data_split`, `val_unseen`, `test_data_split`, and `test_data_unseen` all set to 0. Prepare the training/covers80/hparams_prod.yaml file following the instructions in the comment header of train_prod.py. An example hparams_prod.yaml is provided for using covers80 for testing purposes. Launch training with:
+
+`python -m tools.train_prod training/covers80/ --runid='test of production training'`
+
+TensorBoard will show each fold as a separate run, but within a continuous progression of epochs.
 
 ## Evaluation
 
