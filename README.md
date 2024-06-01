@@ -99,6 +99,20 @@ Note: Don't use the `torchrun` launch command offered in original CoverHunter. I
 
 The training script's output consists of checkpoint files and embedding vectors, described below in the "Training checkpoint output" section.
 
+## Hyperparameter Tuning
+
+After you use the tools.train script to confirm your data is usable with CoverHunterMPS, and perhaps to do some basic experimenation, you may be interested in trying a wide range of training hyperparameters to discover the optimal settings for your data. You should be able to use your knowledge of its unique musical characteristics to make some educated guesses on how to diverge from the default CoverHunter hyperparameters, which are optimized for Western pop music. 
+
+Step 1: Study the explanations of the training hyperparameters below to make some hypotheses about alternative hyperparameters to try with your data. 
+
+Step 2: Add them to the "user-defined settings" section of the tools/train_tune.py script, following the comments and examples there. 
+
+Step 3: Launch training with:
+
+`python -m tools.train_tune`
+
+This script will not retain any model checkpoints from the training runs, but it does create separate log files for each run that you can monitor and study in TensorBoard.
+
 ## Production Training
 
 Once you have tuned your data and your hyperparameters for optimal training results, you may be ready to train a model that knows *all* of your data, without reserving any data for validation and test sets. The tools/train_prod.py script uses stratified K-fold cross validation to dynamically generate validation sets from your dataset so that the model is exposed to all works and perfs equally. It concludes with one final training run on the entire dataset in which the dataset you specify in `test_path` serves as the validation dataset (for early stopping purposes). This final validation set should be entirely unseen perfs, even if some or all of the works are represented in the training data.
