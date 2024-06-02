@@ -49,7 +49,7 @@ def run_experiment(
     os.makedirs(log_path, exist_ok=True)
     shutil.rmtree(checkpoint_dir)
     os.makedirs(checkpoint_dir, exist_ok=True)
-    directories = glob.glob(os.path.join(model_dir, "embed_*_"))
+    directories = glob.glob(os.path.join(model_dir, "embed_*_*"))
     for directory in directories:
         shutil.rmtree(directory)
 
