@@ -78,7 +78,7 @@ def _main() -> None:
     torch.manual_seed(hp["seed"])
 
     model = Model(hp).to(device)
-    checkpoint_dir = os.path.join(model_dir, "pt_model")
+    checkpoint_dir = os.path.join(model_dir, "checkpoints")
     os.makedirs(checkpoint_dir, exist_ok=True)
     epoch = model.load_model_parameters(checkpoint_dir, device=device)
 

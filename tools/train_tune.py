@@ -4,70 +4,11 @@ Created by @samuel-gauthier and @alanngnet in April-May 2024.
 Tool to launch many sequential training runs for the purpose of discovering
 optimal hyperparameter settings for a given dataset, aka "hyperparameter tuning."
 
-You must set model_dir below in the "user-defined settings" lines below.
-
-You may set an unlimited number of hyperparameters to test in the "user-defined
-settings" lines below. To not test any values of a hyperparameter, leave it
-empty. For example, to *not* test any m_per_class settings, make sure:
-m_per_classes = []
-is the final line mentioning m_per_classes = []. This way you can leave preceding
-definitions of m_per_classes as a record of values you may have already tested.
 
 """
 
-## Start of user-defined settings
-
-model_dir = "training/covers80"
-
-chunk_frames = [
-    # seconds: 5, 4, 3
-    #    [250, 200, 150],
-    # seconds: 15, 12, 9
-    [375, 300, 225],
-    # seconds: 30, 24, 18
-    [750, 600, 450],
-    # seconds: 45, 36, 27   # default CoverHunter
-    [1125, 900, 675],
-]
-# chunk_frames = []
-
-# You must include at least one mean_size.
-mean_sizes = [3]
-
-m_per_classes = [4,8]
-m_per_classes = []
-
-spec_augmentations = [
-    {
-        "random_erase": {
-            "prob": 0.5,
-            "erase_num": 4,
-        },
-        "roll_pitch": {
-            "prob": 0.5,
-            "shift_num": 12,
-        },
-    },
-    {
-        "random_erase": {
-            "prob": 0,
-            "erase_num": 4,
-        },
-        "roll_pitch": {
-            "prob": 0.5,
-            "shift_num": 4,
-        },
-    },
-]
-# spec_augmentations = []
-
-# Run each configuration with multiple seeds to determine how much variance
-# is just due to random aspects of the model, not due to hyperparameters.
-seeds = [42, 123, 456]  
-
-### End of user-defined settings
-
 import glob, os, sys, shutil
+import argparse
 from datetime import date
 import torch
 import numpy as np
@@ -80,7 +21,8 @@ today = date.today().strftime("%Y-%m-%d")
 
 
 def make_deterministic(seed):
-    """@samuel-gauthier investigated non-deterministic training behavior on
+    """
+    @samuel-gauthier investigated non-deterministic training behavior on
     his CUDA platform which @alanngnet did not observe on his MPS platform.
     @samuel-gauthier reported: "my tests showed no variance with deterministic
     = true and benchmark = false, and variance if deterministic = false or
@@ -95,115 +37,6 @@ def make_deterministic(seed):
     random.seed(seed)
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
-
-
-# def _main():
-
-#     # No need to save the model
-#     hp["every_n_epoch_to_save"] = 100
-
-#     for chunk_frame in chunk_frames:
-#         for mean_size in mean_sizes:
-
-#             print(
-#                 "==========================================================="
-#             )
-#             print("Trying with", chunk_frame, "mean_size", mean_size)
-#             print(
-#                 "==========================================================="
-#             )
-#             print()
-#             directories = glob.glob(
-#                 os.path.join(model_dir, "embed_*_reels50*")
-#             )
-#             for directory in directories:
-#                 shutil.rmtree(directory)
-
-#             torch.manual_seed(hp["seed"])
-
-#             hp["chunk_frame"] = chunk_frame
-#             hp["chunk_s"] = chunk_frame[0] / 25 * mean_size
-#             hp["mean_size"] = mean_size
-
-#             shutil.rmtree(checkpoint_dir)
-#             os.makedirs(checkpoint_dir, exist_ok=True)
-
-#             log_path = os.path.join(
-#                 model_dir,
-#                 "logs",
-#                 "_".join([str(c) for c in chunk_frame])
-#                 + f"mean_size{mean_size}",
-#                 today,
-#             )
-#             os.makedirs(log_path, exist_ok=True)
-
-#             t = Trainer(
-#                 hp,
-#                 Model,
-#                 device,
-#                 log_path,
-#                 checkpoint_dir,
-#                 model_dir,
-#                 only_eval=False,
-#                 first_eval=False,
-#             )
-
-#             t.configure_optimizer()
-#             t.load_model()
-#             t.configure_scheduler()
-#             t.train(max_epochs=51)
-#             del t.model
-#             del t
-
-#     chunk_frame = [1125, 900, 675]
-#     hp["chunk_frame"] = chunk_frame
-#     hp["chunk_s"] = chunk_frame[0] / 25 * 3
-
-#     for m_per_class in m_per_classes:
-
-#         print("===========================================================")
-#         print("Trying with m_per_class", m_per_class)
-#         print("===========================================================")
-#         print()
-#         directories = glob.glob(os.path.join(model_dir, "embed_*_reels50*"))
-#         for directory in directories:
-#             shutil.rmtree(directory)
-
-#         torch.manual_seed(hp["seed"])
-
-#         hp["m_per_class"] = m_per_class
-
-#         shutil.rmtree(checkpoint_dir)
-#         os.makedirs(checkpoint_dir, exist_ok=True)
-
-#         log_path = os.path.join(
-#             model_dir,
-#             "logs",
-#             f"m_per_class_{m_per_class}_",
-#             "chunk_frame_" + "_".join([str(c) for c in chunk_frame]),
-#             today,
-#         )
-#         os.makedirs(log_path, exist_ok=True)
-
-#         t = Trainer(
-#             hp,
-#             Model,
-#             device,
-#             log_path,
-#             checkpoint_dir,
-#             model_dir,
-#             only_eval=False,
-#             first_eval=False,
-#         )
-
-#         t.configure_optimizer()
-#         t.load_model()
-#         t.configure_scheduler()
-#         t.train(max_epochs=50)
-#         del t.model
-#         del t
-
-#     hp["m_per_class"] = 8
 
 
 def run_experiment(
@@ -237,15 +70,36 @@ def run_experiment(
     t.train(max_epochs=15)
     del t.model
     del t
+    print(f"Completed experiment with seed {seed}")
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="Train-tune: python3 -m tools.train-tune model_dir",
+        formatter_class=argparse.RawTextHelpFormatter,
+    )
+    parser.add_argument("model_dir")
+    args = parser.parse_args()
+    model_dir = args.model_dir
     hp = load_hparams(os.path.join(model_dir, "config/hparams.yaml"))
     checkpoint_dir = os.path.join(model_dir, "checkpoints")
+    experiments = load_hparams(
+        os.path.join(model_dir, "config/hp_tuning.yaml")
+    )
+
+    # ensure at least one seed
+    seeds = experiments.get("seeds",[hp["seed"]]) 
+    chunk_frames = experiments["chunk_frames"]
+    # ensure at least one mean_size
+    mean_sizes = experiments.get("mean_sizes",[hp["mean_size"]])
+    m_per_classes = experiments["m_per_classes"]
+    spec_augmentations = experiments["spec_augmentations"]
+
     os.makedirs(checkpoint_dir, exist_ok=True)
     logger = create_logger()
     # Don't save the model's checkpoints
     hp["every_n_epoch_to_save"] = 100
+    hp["early_stopping_patience"] = experiments["early_stopping_patience"]
 
     match hp["device"]:  # noqa requires python 3.10
         case "mps":
@@ -277,7 +131,7 @@ if __name__ == "__main__":
         hp["chunk_frame"] = chunk_frame
         for mean_size in mean_sizes:
             hp["mean_size"] = mean_size
-            hp["chunk_s"] = chunk_frame[0] * mean_size / 25        
+            hp["chunk_s"] = chunk_frame[0] * mean_size / 25
             for seed in seeds:
                 log_path = os.path.join(
                     model_dir,
@@ -294,8 +148,11 @@ if __name__ == "__main__":
                     f"Running experiment with seed {seed}, chunk_frame {chunk_frame}, mean_size_{mean_size}"
                 )
                 run_experiment(log_path, checkpoint_dir, hp, seed)
-                print(f"Completed experiment with seed {seed}")
 
+    hp = load_hparams(os.path.join(model_dir, "config/hparams.yaml"))
+    hp["every_n_epoch_to_save"] = 100
+    hp["early_stopping_patience"] = experiments["early_stopping_patience"]
+    
     for m_per_class in m_per_classes:
         hp["m_per_class"] = m_per_class
         for seed in seeds:
@@ -312,7 +169,10 @@ if __name__ == "__main__":
                 f"Running experiment with seed {seed}, m_per_class {m_per_class}"
             )
             run_experiment(log_path, checkpoint_dir, hp, seed)
-            print(f"Completed experiment with seed {seed}")
+
+    hp = load_hparams(os.path.join(model_dir, "config/hparams.yaml"))
+    hp["every_n_epoch_to_save"] = 100
+    hp["early_stopping_patience"] = experiments["early_stopping_patience"]
 
     for spec_augmentation in spec_augmentations:
         hp["spec_augmentation"] = spec_augmentation
@@ -337,4 +197,3 @@ if __name__ == "__main__":
                 f"Running experiment with seed {seed}, spec_augmentation {spec_augmentation}"
             )
             run_experiment(log_path, checkpoint_dir, hp, seed)
-            print(f"Completed experiment with seed {seed}")

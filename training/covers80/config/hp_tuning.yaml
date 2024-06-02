@@ -1,0 +1,54 @@
+# Configuration file for tools/train_tune.py
+#
+# The main hparams.yaml is used to define the default values for all hyperparameters
+# other than then ones you specify below.
+#
+# You may set an unlimited number of hyperparameters to test below. 
+# To not test any values of a hyperparameter, leave it empty.
+# For example, to *not* test any m_per_class settings, make sure an empty:
+#   spec_augmentations: {}
+# is the final line mentioning spec_augmentations. This way you can leave preceding
+# definitions of m_per_classes as a record of values you may have already tested, 
+# without having to comment/uncomment a lot of lines.
+
+early_stopping_patience: 4
+
+seeds: [42, 123, 456]  
+
+# Don't specify chunk_s. The train-tune script will automatically calculate
+# chunk_s based on chunk_frame[0]
+# Note that a sample rate of 25 samples/second is assumed throughout CoverHunter.
+chunk_frames: 
+#   seconds: 5, 4, 3
+#    - [250, 200, 150]
+    # seconds: 15, 12, 9
+    - [375, 300, 225]
+    # seconds: 30, 24, 18
+    - [750, 600, 450]
+    # seconds: 45, 36, 27   # default CoverHunter
+    - [1125, 900, 675]
+
+# chunk_frames: {} # use this to not run any chunk_frame experiments
+
+# You must include at least one mean_size.
+mean_sizes: [3]
+
+m_per_classes: [4,8]
+m_per_classes: []
+
+spec_augmentations:
+    - random_erase:
+        prob: 0.5
+        erase_num: 4
+      roll_pitch:
+        prob: 0.5
+        shift_num: 12
+    - random_erase:
+        prob: 0
+        erase_num: 4
+      roll_pitch:
+        prob: 0.5
+        shift_num: 4
+# spec_augmentations: {}
+
+

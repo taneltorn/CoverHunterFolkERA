@@ -57,7 +57,7 @@ def _main() -> None:
     hp["chunk_s"] = 15  # = 125 / 25 * 3
 
     model = Model(hp).to(device)
-    checkpoint_dir = os.path.join(model_dir, "pt_model")
+    checkpoint_dir = os.path.join(model_dir, "checkpoint")
     os.makedirs(checkpoint_dir, exist_ok=True)
     epoch = model.load_model_parameters(checkpoint_dir, device)
 

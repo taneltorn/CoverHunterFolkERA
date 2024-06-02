@@ -93,7 +93,7 @@ def _main() -> None:
     # to compute test at rank1, to make sure all ranks run the same train steps
     # almost.
 
-    checkpoint_dir = os.path.join(model_dir, "pt_model")
+    checkpoint_dir = os.path.join(model_dir, "checkpoints")
     os.makedirs(checkpoint_dir, exist_ok=True)
 
     log_path = os.path.join(model_dir, "logs", run_id)

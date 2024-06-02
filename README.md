@@ -103,13 +103,13 @@ The training script's output consists of checkpoint files and embedding vectors,
 
 After you use the tools.train script to confirm your data is usable with CoverHunterMPS, and perhaps to do some basic experimentation, you may be interested in trying a wide range of training hyperparameters to discover the optimal settings for your data. You should be able to use your knowledge of its unique musical characteristics to make some educated guesses on how to diverge from the default CoverHunter hyperparameters, which are optimized for Western pop music. 
 
-Step 1: Study the explanations of the training hyperparameters below to make some hypotheses about alternative hyperparameters to try with your data. 
+Step 1: Study the explanations of the training hyperparameters below to make some hypotheses about alternative hyperparameter values to try with your data. 
 
-Step 2: Add them to the "user-defined settings" section of the tools/train_tune.py script, following the comments and examples there. 
+Step 2: Add your hypotheses as specific hyperparameter values to try in the hp_tuning.yaml file in the model's training folder, following the comments and examples there. 
 
-Step 3: Launch training with:
+Step 3: Launch training with `model_dir` as the one required parameter:
 
-`python -m tools.train_tune`
+`python -m tools.train_tune training/covers80`
 
 This script will not retain any model checkpoints from the training runs, but it does create separate log files for each run that you can monitor and study in TensorBoard.
 

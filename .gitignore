@@ -31,6 +31,7 @@ data/reels50hard_testset/*
 data/reels50easy_testset/*
 training/covers80/logs/
 training/covers80/pt_model/
+training/covers80/checkpoints/
 training/covers80/embed*
 training/covers80.*
 pretrained_model/
