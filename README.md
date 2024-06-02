@@ -101,7 +101,7 @@ The training script's output consists of checkpoint files and embedding vectors,
 
 ## Hyperparameter Tuning
 
-After you use the tools.train script to confirm your data is usable with CoverHunterMPS, and perhaps to do some basic experimenation, you may be interested in trying a wide range of training hyperparameters to discover the optimal settings for your data. You should be able to use your knowledge of its unique musical characteristics to make some educated guesses on how to diverge from the default CoverHunter hyperparameters, which are optimized for Western pop music. 
+After you use the tools.train script to confirm your data is usable with CoverHunterMPS, and perhaps to do some basic experimentation, you may be interested in trying a wide range of training hyperparameters to discover the optimal settings for your data. You should be able to use your knowledge of its unique musical characteristics to make some educated guesses on how to diverge from the default CoverHunter hyperparameters, which are optimized for Western pop music. 
 
 Step 1: Study the explanations of the training hyperparameters below to make some hypotheses about alternative hyperparameters to try with your data. 
 

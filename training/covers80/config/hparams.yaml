@@ -6,8 +6,8 @@ test_path: "data/covers80/test.txt"
 
 ### optional external test datasets used in the test phase of training epochs
 covers80:
-  query_path: "data/covers80/full.txt"
-  ref_path: "data/covers80/full.txt"
+  query_path: "data/covers80/test.txt"
+  ref_path: "data/covers80/test.txt"
   every_n_epoch_to_test: 1  # validate after every n epoch
 
 # Download the reels50easy dataset from https://www.irishtune.info/public/MLdata.htm

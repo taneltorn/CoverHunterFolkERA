@@ -29,7 +29,7 @@ chunk_frames = [
     # seconds: 45, 36, 27   # default CoverHunter
     [1125, 900, 675],
 ]
-chunk_frames = []
+# chunk_frames = []
 
 # You must include at least one mean_size.
 mean_sizes = [3]
@@ -274,7 +274,10 @@ if __name__ == "__main__":
             sys.exit()
 
     for chunk_frame in chunk_frames:
+        hp["chunk_frame"] = chunk_frame
         for mean_size in mean_sizes:
+            hp["mean_size"] = mean_size
+            hp["chunk_s"] = chunk_frame[0] * mean_size / 25        
             for seed in seeds:
                 log_path = os.path.join(
                     model_dir,
@@ -294,6 +297,7 @@ if __name__ == "__main__":
                 print(f"Completed experiment with seed {seed}")
 
     for m_per_class in m_per_classes:
+        hp["m_per_class"] = m_per_class
         for seed in seeds:
             log_path = os.path.join(
                 model_dir,
