@@ -171,7 +171,7 @@ CoverHunter did not include an implementation of the coarse-to-fine alignment tr
 `python3 -m tools.alignment_for_frame pretrained_model data/covers80/full.txt data/covers80/alignment.txt`
 
 Arguments to pass to the script:
-1. Folder containing a pretrained model. For example if you use original CoverHunter's model from https://drive.google.com/file/d/1rDZ9CDInpxQUvXRLv87mr-hfDfnV7Y-j/view), unzip it, and move it to a folder that you rename to `pretrained_model` at the top level of your project folder. That folder in turn must contain a `pt_model` subfolder that contains the do_000[epoch] and g_000[epoch] checkpoint files.
+1. Folder containing a pretrained model. For example if you use original CoverHunter's model from https://drive.google.com/file/d/1rDZ9CDInpxQUvXRLv87mr-hfDfnV7Y-j/view), unzip it, and move it to a folder that you rename to `pretrained_model` at the top level of your project folder. That folder in turn must contain a `checkpoints` subfolder that contains the do_000[epoch] and g_000[epoch] checkpoint files.
 2. The output from tools/extract_csi_features.py or an equivalent script. The metadata file like full.txt  must include `work_id` values for each `perf` (unlike the raw `dataset.txt` file that CoverHunter provided for covers80).
 3. The `alignment.txt` file will receive the output of this script.
 
@@ -301,7 +301,7 @@ Original CoverHunter also generated the following files, but were not used by th
 
 Using the default configuration, training saves checkpoints after each epoch in the training/covers80 folder.
 
-The `pt_model` subfolder gets two files per epoch: do_000000NN and g_000000NN where NN=epoch number. The do_ files contain the AdamW optimizer state. The g_ files contain the model's state dictionary. "g" might be an abbreviation for "generator" given that a transformer architecture is involved?
+The `checkpoints` subfolder gets two files per epoch: do_000000NN and g_000000NN where NN=epoch number. The do_ files contain the AdamW optimizer state. The g_ files contain the model's state dictionary. "g" might be an abbreviation for "generator" given that a transformer architecture is involved?
 
 The `eval_for_map_with_feat()` function, called at the end of each epoch, also saves data in a separate new subfolder for each epoch, named epoch_NN_covers80. This in turn gets a `query_embed` subfolder containing the model-generated embeddings for every sample in the training data, plus the embeddings for time-chunked sections of those samples, named with a suffix of ...__start-N.npy where N is the timecode in seconds of where the chunk starts. The saved embeddings are 1-dimensional arrays containing 128 double-precision (float64) values between -1 and 1. The epoch_NN_covers80 folder also gets an accompanying file `query.txt` (with an identical copy as `ref.txt`) which is a text file listing the attributes of every training sample represented in the `query_embed` subfolder, following the same format as described above for `full.txt`.
 
