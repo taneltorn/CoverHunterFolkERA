@@ -1,7 +1,8 @@
 # Configuration file for tools/train_tune.py
 #
 # The main hparams.yaml is used to define the default values for all hyperparameters
-# other than then ones you specify below.
+# other than then ones you specify below. max_epochs is the only hyperparameter
+# that is unique to train_tune.
 #
 # You may set an unlimited number of hyperparameters to test below. 
 # To not test any values of a hyperparameter, leave it empty.
@@ -11,6 +12,8 @@
 # definitions of m_per_classes as a record of values you may have already tested, 
 # without having to comment/uncomment a lot of lines.
 
+# these are optional settings
+max_epochs: 15 # if omitted, train_tune will default to 15
 early_stopping_patience: 4
 
 seeds: [42, 123, 456]  

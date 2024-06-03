@@ -17,7 +17,6 @@ from src.trainer import Trainer
 from src.model import Model
 from src.utils import load_hparams, create_logger
 
-today = date.today().strftime("%Y-%m-%d")
 
 
 def make_deterministic(seed):
@@ -67,7 +66,7 @@ def run_experiment(
     t.configure_optimizer()
     t.load_model()
     t.configure_scheduler()
-    t.train(max_epochs=15)
+    t.train(max_epochs=hp["max_epochs"])
     del t.model
     del t
     print(f"Completed experiment with seed {seed}")
@@ -87,6 +86,8 @@ if __name__ == "__main__":
         os.path.join(model_dir, "config/hp_tuning.yaml")
     )
 
+    # default 15 max epochs unless specified in hp_tuning.yaml
+    hp["max_epochs"] = experiments.get("max_epochs",15)
     # ensure at least one seed
     seeds = experiments.get("seeds",[hp["seed"]]) 
     chunk_frames = experiments["chunk_frames"]
@@ -97,6 +98,10 @@ if __name__ == "__main__":
 
     os.makedirs(checkpoint_dir, exist_ok=True)
     logger = create_logger()
+    today = date.today().strftime("%Y-%m-%d")
+
+
+
     # Don't save the model's checkpoints
     hp["every_n_epoch_to_save"] = 100
     hp["early_stopping_patience"] = experiments["early_stopping_patience"]
