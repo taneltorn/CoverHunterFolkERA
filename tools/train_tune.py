@@ -187,6 +187,7 @@ if __name__ == "__main__":
                 "logs",
                 f"erase_prob_{random_erase_prob}_erase_num_{random_erase_num}"
                 f"_roll_prob_{roll_pitch_prob}_shift_num_{roll_pitch_shift_num}"
+                + ("_low_true" if spec_augmentation["low_melody"] else "") +
                 f"_seed_{seed}",
                 today,
             )
