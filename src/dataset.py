@@ -376,6 +376,11 @@ class SpecAug:
     def _random_erase(
         feat, region_num=4, region_size=(0.25, 0.1), region_val=-80
     ):
+        """
+            - region_size(width, height) in percentage of feat size
+            - region_val = new value of erased region, where 0 is max loud
+            and -128 is max quiet
+        """
         w, h = np.shape(feat)
         region_w = int(w * region_size[0])
         region_h = int(h * region_size[1])
@@ -410,8 +415,9 @@ class SpecAug:
             if p <= self._hp["random_erase"]["prob"]:
                 feat = self._random_erase(
                     feat,
-                    region_val=random.random() * (-80),
+                    region_val=random.random() * (-128),
                     region_num=self._hp["random_erase"]["erase_num"],
+                    region_size=self._hp["random_erase"]["region_size"]
                 )
         return feat
 

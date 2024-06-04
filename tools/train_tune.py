@@ -48,6 +48,7 @@ def run_experiment(
     os.makedirs(log_path, exist_ok=True)
     shutil.rmtree(checkpoint_dir)
     os.makedirs(checkpoint_dir, exist_ok=True)
+    # must clear temp embeddings otherwise they will be reused for testsset metrics
     directories = glob.glob(os.path.join(model_dir, "embed_*_*"))
     for directory in directories:
         shutil.rmtree(directory)
@@ -85,9 +86,6 @@ if __name__ == "__main__":
     experiments = load_hparams(
         os.path.join(model_dir, "config/hp_tuning.yaml")
     )
-
-    # default 15 max epochs unless specified in hp_tuning.yaml
-    hp["max_epochs"] = experiments.get("max_epochs",15)
     # ensure at least one seed
     seeds = experiments.get("seeds",[hp["seed"]]) 
     chunk_frames = experiments["chunk_frames"]
@@ -105,6 +103,8 @@ if __name__ == "__main__":
     # Don't save the model's checkpoints
     hp["every_n_epoch_to_save"] = 100
     hp["early_stopping_patience"] = experiments["early_stopping_patience"]
+    # default 15 max epochs unless specified in hp_tuning.yaml
+    hp["max_epochs"] = experiments.get("max_epochs",15)
 
     match hp["device"]:  # noqa requires python 3.10
         case "mps":
@@ -157,7 +157,8 @@ if __name__ == "__main__":
     hp = load_hparams(os.path.join(model_dir, "config/hparams.yaml"))
     hp["every_n_epoch_to_save"] = 100
     hp["early_stopping_patience"] = experiments["early_stopping_patience"]
-    
+    hp["max_epochs"] = experiments.get("max_epochs",15)
+
     for m_per_class in m_per_classes:
         hp["m_per_class"] = m_per_class
         for seed in seeds:
@@ -178,11 +179,13 @@ if __name__ == "__main__":
     hp = load_hparams(os.path.join(model_dir, "config/hparams.yaml"))
     hp["every_n_epoch_to_save"] = 100
     hp["early_stopping_patience"] = experiments["early_stopping_patience"]
+    hp["max_epochs"] = experiments.get("max_epochs",15)
 
     for spec_augmentation in spec_augmentations:
         hp["spec_augmentation"] = spec_augmentation
         random_erase_prob = spec_augmentation["random_erase"]["prob"]
         random_erase_num = spec_augmentation["random_erase"]["erase_num"]
+        region_size = spec_augmentation["random_erase"]["region_size"]
         roll_pitch_prob = spec_augmentation["roll_pitch"]["prob"]
         roll_pitch_shift_num = spec_augmentation["roll_pitch"]["shift_num"]
 
@@ -190,9 +193,10 @@ if __name__ == "__main__":
             log_path = os.path.join(
                 model_dir,
                 "logs",
-                f"erase_prob_{random_erase_prob}_erase_num_{random_erase_num}"
-                f"_roll_prob_{roll_pitch_prob}_shift_num_{roll_pitch_shift_num}"
-                + ("_low_true" if spec_augmentation["low_melody"] else "") +
+                f"erase_prob_{random_erase_prob}_num_{random_erase_num}_size"
+                + "_".join([str(c) for c in region_size]) +
+                f"_roll_prob_{roll_pitch_prob}_shift_{roll_pitch_shift_num}"
+                + ("_low_true" if spec_augmentation.get("low_melody",False) else "") +
                 f"_seed_{seed}",
                 today,
             )
