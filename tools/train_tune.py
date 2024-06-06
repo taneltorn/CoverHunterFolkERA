@@ -18,7 +18,6 @@ from src.model import Model
 from src.utils import load_hparams, create_logger
 
 
-
 def make_deterministic(seed):
     """
     @samuel-gauthier investigated non-deterministic training behavior on
@@ -87,24 +86,23 @@ if __name__ == "__main__":
         os.path.join(model_dir, "config/hp_tuning.yaml")
     )
     # ensure at least one seed
-    seeds = experiments.get("seeds",[hp["seed"]]) 
+    seeds = experiments.get("seeds", [hp["seed"]])
     chunk_frames = experiments["chunk_frames"]
     # ensure at least one mean_size
-    mean_sizes = experiments.get("mean_sizes",[hp["mean_size"]])
+    mean_sizes = experiments.get("mean_sizes", [hp["mean_size"]])
     m_per_classes = experiments["m_per_classes"]
     spec_augmentations = experiments["spec_augmentations"]
+    losses = experiments["losses"]
 
     os.makedirs(checkpoint_dir, exist_ok=True)
     logger = create_logger()
     today = date.today().strftime("%Y-%m-%d")
 
-
-
     # Don't save the model's checkpoints
     hp["every_n_epoch_to_save"] = 100
     hp["early_stopping_patience"] = experiments["early_stopping_patience"]
     # default 15 max epochs unless specified in hp_tuning.yaml
-    hp["max_epochs"] = experiments.get("max_epochs",15)
+    hp["max_epochs"] = experiments.get("max_epochs", 15)
 
     match hp["device"]:  # noqa requires python 3.10
         case "mps":
@@ -157,7 +155,7 @@ if __name__ == "__main__":
     hp = load_hparams(os.path.join(model_dir, "config/hparams.yaml"))
     hp["every_n_epoch_to_save"] = 100
     hp["early_stopping_patience"] = experiments["early_stopping_patience"]
-    hp["max_epochs"] = experiments.get("max_epochs",15)
+    hp["max_epochs"] = experiments.get("max_epochs", 15)
 
     for m_per_class in m_per_classes:
         hp["m_per_class"] = m_per_class
@@ -179,7 +177,7 @@ if __name__ == "__main__":
     hp = load_hparams(os.path.join(model_dir, "config/hparams.yaml"))
     hp["every_n_epoch_to_save"] = 100
     hp["early_stopping_patience"] = experiments["early_stopping_patience"]
-    hp["max_epochs"] = experiments.get("max_epochs",15)
+    hp["max_epochs"] = experiments.get("max_epochs", 15)
 
     for spec_augmentation in spec_augmentations:
         hp["spec_augmentation"] = spec_augmentation
@@ -194,10 +192,14 @@ if __name__ == "__main__":
                 model_dir,
                 "logs",
                 f"erase_prob_{random_erase_prob}_num_{random_erase_num}_size"
-                + "_".join([str(c) for c in region_size]) +
-                f"_roll_prob_{roll_pitch_prob}_shift_{roll_pitch_shift_num}"
-                + ("_low_true" if spec_augmentation.get("low_melody",False) else "") +
-                f"_seed_{seed}",
+                + "_".join([str(c) for c in region_size])
+                + f"_roll_prob_{roll_pitch_prob}_shift_{roll_pitch_shift_num}"
+                + (
+                    "_low_true"
+                    if spec_augmentation.get("low_melody", False)
+                    else ""
+                )
+                + f"_seed_{seed}",
                 today,
             )
             print(
@@ -206,4 +208,35 @@ if __name__ == "__main__":
             print(
                 f"Running experiment with seed {seed}, spec_augmentation {spec_augmentation}"
             )
+            run_experiment(log_path, checkpoint_dir, hp, seed)
+    hp = load_hparams(os.path.join(model_dir, "config/hparams.yaml"))
+    hp["every_n_epoch_to_save"] = 100
+    hp["early_stopping_patience"] = experiments["early_stopping_patience"]
+    hp["max_epochs"] = experiments.get("max_epochs", 15)
+
+    for loss in losses:
+        hp["ce"] = ce = loss["ce"]
+        ce_dims = ce["output_dims"]
+        ce_weight = ce["weight"]
+        ce_gamma = ce["gamma"]
+        hp["triplet"] = triplet = loss["triplet"]
+        triplet_margin = triplet["margin"]
+        triplet_weight = triplet["weight"]
+        hp["center"] = center = loss["center"]
+        center_weight = center["weight"]
+
+        for seed in seeds:
+            log_path = os.path.join(
+                model_dir,
+                "logs",
+                f"CE_dims_{ce_dims}_wt_{ce_weight}_ganna_{ce_gamma}_"
+                f"TRIP_marg_{triplet_margin}_wt_{triplet_weight}_"
+                f"CNTR_wt_{center_weight}"
+                f"_seed_{seed}",
+                today,
+            )
+            print(
+                "==========================================================="
+            )
+            print(f"Running loss experiment with seed {seed}")
             run_experiment(log_path, checkpoint_dir, hp, seed)

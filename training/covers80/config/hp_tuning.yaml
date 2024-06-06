@@ -55,4 +55,15 @@ spec_augmentations:
         shift_num: 4
 # spec_augmentations: {}
 
-
+## loss settings
+losses:
+    - ce:  # cross-entropy
+        output_dims: 30000
+        weight: 1.0
+        gamma: 2
+      triplet:
+        margin: 0.3
+        weight: 0.1
+      center:
+        weight: 0.1
+# losses: {}
