@@ -75,7 +75,7 @@ def calc_map(
         if version_cnt > 0:
             per_map = per_map / version_cnt
 
-        if per_rank1 > 1:  # added filter to make logging output more readable
+        if verbose > 0:  # added filter to make logging output more readable
             LOGGER.info("XX per_rank1: %d", per_rank1)
         if verbose > 0:
             top5_res = [x for x, _ in row][:5]

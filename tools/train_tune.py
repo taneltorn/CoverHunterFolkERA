@@ -10,6 +10,7 @@ optimal hyperparameter settings for a given dataset, aka "hyperparameter tuning.
 import glob, os, sys, shutil
 import argparse
 from datetime import date
+import pprint
 import torch
 import numpy as np
 import random
@@ -43,6 +44,7 @@ def run_experiment(
     hp,
     seed,
 ):
+    hp["seed"] = seed
     make_deterministic(seed)
     os.makedirs(log_path, exist_ok=True)
     shutil.rmtree(checkpoint_dir)
@@ -51,6 +53,7 @@ def run_experiment(
     directories = glob.glob(os.path.join(model_dir, "embed_*_*"))
     for directory in directories:
         shutil.rmtree(directory)
+    pprint.pprint(hp)
 
     t = Trainer(
         hp,
@@ -229,7 +232,7 @@ if __name__ == "__main__":
             log_path = os.path.join(
                 model_dir,
                 "logs",
-                f"CE_dims_{ce_dims}_wt_{ce_weight}_ganna_{ce_gamma}_"
+                f"CE_dims_{ce_dims}_wt_{ce_weight}_gamma_{ce_gamma}_"
                 f"TRIP_marg_{triplet_margin}_wt_{triplet_weight}_"
                 f"CNTR_wt_{center_weight}"
                 f"_seed_{seed}",
