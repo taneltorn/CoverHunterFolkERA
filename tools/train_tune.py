@@ -14,9 +14,13 @@ import pprint
 import torch
 import numpy as np
 import random
+from collections import defaultdict
 from src.trainer import Trainer
 from src.model import Model
 from src.utils import load_hparams, create_logger
+from tensorboard.backend.event_processing.event_accumulator import (
+    EventAccumulator,
+)
 
 
 def make_deterministic(seed):
@@ -39,13 +43,21 @@ def make_deterministic(seed):
 
 
 def run_experiment(
-    log_path,
+    hp_summary,
     checkpoint_dir,
     hp,
     seed,
 ):
     hp["seed"] = seed
     make_deterministic(seed)
+    log_path = os.path.join(
+        model_dir,
+        "logs",
+        hp_summary + f"_seed_{seed}",
+        today,
+    )
+    print("===========================================================")
+    print(f"Running experiment with seed {seed}, {hp_summary}")
     os.makedirs(log_path, exist_ok=True)
     shutil.rmtree(checkpoint_dir)
     os.makedirs(checkpoint_dir, exist_ok=True)
@@ -73,6 +85,45 @@ def run_experiment(
     del t.model
     del t
     print(f"Completed experiment with seed {seed}")
+    return log_path
+
+
+def load_best_metrics_from_tensorboard(log_dir):
+    event_acc = EventAccumulator(log_dir)
+    event_acc.Reload()
+
+    best_validation_losses = []
+    best_validation_maps = []
+
+    for event in event_acc.Scalars(
+        "validation_loss"
+    ):  # Change tag as per your setup
+        best_validation_losses.append(event.value)
+
+    for event in event_acc.Scalars(
+        "validation_map"
+    ):  # Change tag as per your setup
+        best_validation_maps.append(event.value)
+
+    return best_validation_losses, best_validation_maps
+
+
+def get_final_metrics_from_logs(log_dir):
+    # Find the latest event file in the log directory
+    event_file = max(
+        glob.glob(os.path.join(log_dir, "events.out.tfevents.*")),
+        key=os.path.getctime,
+    )
+
+    # Load the event file
+    ea = EventAccumulator(event_file)
+    ea.Reload()
+
+    # Extract the final validation loss and mAP
+    val_loss = ea.Scalars("csi_val/ce_loss")[-1].value
+    mAP = ea.Scalars("mAP/covers80")[-1].value
+
+    return val_loss, mAP
 
 
 if __name__ == "__main__":
@@ -83,11 +134,11 @@ if __name__ == "__main__":
     parser.add_argument("model_dir")
     args = parser.parse_args()
     model_dir = args.model_dir
-    hp = load_hparams(os.path.join(model_dir, "config/hparams.yaml"))
     checkpoint_dir = os.path.join(model_dir, "checkpoints")
     experiments = load_hparams(
         os.path.join(model_dir, "config/hp_tuning.yaml")
     )
+    hp = load_hparams(os.path.join(model_dir, "config/hparams.yaml"))
     # ensure at least one seed
     seeds = experiments.get("seeds", [hp["seed"]])
     chunk_frames = experiments["chunk_frames"]
@@ -100,12 +151,6 @@ if __name__ == "__main__":
     os.makedirs(checkpoint_dir, exist_ok=True)
     logger = create_logger()
     today = date.today().strftime("%Y-%m-%d")
-
-    # Don't save the model's checkpoints
-    hp["every_n_epoch_to_save"] = 100
-    hp["early_stopping_patience"] = experiments["early_stopping_patience"]
-    # default 15 max epochs unless specified in hp_tuning.yaml
-    hp["max_epochs"] = experiments.get("max_epochs", 15)
 
     match hp["device"]:  # noqa requires python 3.10
         case "mps":
@@ -133,55 +178,69 @@ if __name__ == "__main__":
             )
             sys.exit()
 
+    all_results = {}
+
+    # chunk_frame experiments
+    hp["every_n_epoch_to_save"] = 100
+    hp["early_stopping_patience"] = experiments["early_stopping_patience"]
+    # default 15 max epochs unless specified in hp_tuning.yaml
+    hp["max_epochs"] = experiments.get("max_epochs", 15)
+    results = defaultdict(list)
     for chunk_frame in chunk_frames:
         hp["chunk_frame"] = chunk_frame
         for mean_size in mean_sizes:
             hp["mean_size"] = mean_size
             hp["chunk_s"] = chunk_frame[0] * mean_size / 25
             for seed in seeds:
-                log_path = os.path.join(
-                    model_dir,
-                    "logs",
+                hp_summary = (
                     "chunk_frame_"
                     + "_".join([str(c) for c in chunk_frame])
-                    + f"_mean_size_{mean_size}_seed_{seed}",
-                    today,
+                    + f"_mean_size_{mean_size}"
                 )
-                print(
-                    "==========================================================="
+                log_path = run_experiment(hp_summary, checkpoint_dir, hp, seed)
+                final_val_loss, final_map = get_final_metrics_from_logs(
+                    log_path
                 )
-                print(
-                    f"Running experiment with seed {seed}, chunk_frame {chunk_frame}, mean_size_{mean_size}"
-                )
-                run_experiment(log_path, checkpoint_dir, hp, seed)
+                results["val_loss"].append(final_val_loss)
+                results["map"].append(final_map)
+            mean_loss = np.mean(results["val_loss"])
+            std_loss = np.std(results["val_loss"])
+            mean_map = np.mean(results["map"])
+            std_map = np.std(results["map"])
+            all_results[hp_summary] = {
+                "val_loss": {"mean": mean_loss, "std": std_loss},
+                "map": {"mean": mean_map, "std": std_map},
+            }
 
+    # m_per_class experiments
     hp = load_hparams(os.path.join(model_dir, "config/hparams.yaml"))
     hp["every_n_epoch_to_save"] = 100
     hp["early_stopping_patience"] = experiments["early_stopping_patience"]
     hp["max_epochs"] = experiments.get("max_epochs", 15)
-
+    results = defaultdict(list)
     for m_per_class in m_per_classes:
         hp["m_per_class"] = m_per_class
         for seed in seeds:
-            log_path = os.path.join(
-                model_dir,
-                "logs",
-                f"m_per_class_{m_per_class}_seed_{seed}",
-                today,
-            )
-            print(
-                "==========================================================="
-            )
-            print(
-                f"Running experiment with seed {seed}, m_per_class {m_per_class}"
-            )
-            run_experiment(log_path, checkpoint_dir, hp, seed)
+            hp_summary = f"m_per_class_{m_per_class}"
+            log_path = run_experiment(hp_summary, checkpoint_dir, hp, seed)
+            final_val_loss, final_map = get_final_metrics_from_logs(log_path)
+            results["val_loss"].append(final_val_loss)
+            results["map"].append(final_map)
+        mean_loss = np.mean(results["val_loss"])
+        std_loss = np.std(results["val_loss"])
+        mean_map = np.mean(results["map"])
+        std_map = np.std(results["map"])
+        all_results[hp_summary] = {
+            "val_loss": {"mean": mean_loss, "std": std_loss},
+            "map": {"mean": mean_map, "std": std_map},
+        }
 
+    # spec_aug experiments
     hp = load_hparams(os.path.join(model_dir, "config/hparams.yaml"))
     hp["every_n_epoch_to_save"] = 100
     hp["early_stopping_patience"] = experiments["early_stopping_patience"]
     hp["max_epochs"] = experiments.get("max_epochs", 15)
-
+    results = defaultdict(list)
     for spec_augmentation in spec_augmentations:
         hp["spec_augmentation"] = spec_augmentation
         random_erase_prob = spec_augmentation["random_erase"]["prob"]
@@ -191,9 +250,7 @@ if __name__ == "__main__":
         roll_pitch_shift_num = spec_augmentation["roll_pitch"]["shift_num"]
 
         for seed in seeds:
-            log_path = os.path.join(
-                model_dir,
-                "logs",
+            hp_summary = (
                 f"erase_prob_{random_erase_prob}_num_{random_erase_num}_size"
                 + "_".join([str(c) for c in region_size])
                 + f"_roll_prob_{roll_pitch_prob}_shift_{roll_pitch_shift_num}"
@@ -202,21 +259,25 @@ if __name__ == "__main__":
                     if spec_augmentation.get("low_melody", False)
                     else ""
                 )
-                + f"_seed_{seed}",
-                today,
             )
-            print(
-                "==========================================================="
-            )
-            print(
-                f"Running experiment with seed {seed}, spec_augmentation {spec_augmentation}"
-            )
-            run_experiment(log_path, checkpoint_dir, hp, seed)
+            log_path = run_experiment(hp_summary, checkpoint_dir, hp, seed)
+            results["val_loss"].append(final_val_loss)
+            results["map"].append(final_map)
+        mean_loss = np.mean(results["val_loss"])
+        std_loss = np.std(results["val_loss"])
+        mean_map = np.mean(results["map"])
+        std_map = np.std(results["map"])
+        all_results[hp_summary] = {
+            "val_loss": {"mean": mean_loss, "std": std_loss},
+            "map": {"mean": mean_map, "std": std_map},
+        }
+
+    # loss experiments
     hp = load_hparams(os.path.join(model_dir, "config/hparams.yaml"))
     hp["every_n_epoch_to_save"] = 100
     hp["early_stopping_patience"] = experiments["early_stopping_patience"]
     hp["max_epochs"] = experiments.get("max_epochs", 15)
-
+    results = defaultdict(list)
     for loss in losses:
         hp["ce"] = ce = loss["ce"]
         ce_dims = ce["output_dims"]
@@ -229,17 +290,23 @@ if __name__ == "__main__":
         center_weight = center["weight"]
 
         for seed in seeds:
-            log_path = os.path.join(
-                model_dir,
-                "logs",
-                f"CE_dims_{ce_dims}_wt_{ce_weight}_gamma_{ce_gamma}_"
-                f"TRIP_marg_{triplet_margin}_wt_{triplet_weight}_"
-                f"CNTR_wt_{center_weight}"
-                f"_seed_{seed}",
-                today,
-            )
-            print(
-                "==========================================================="
-            )
-            print(f"Running loss experiment with seed {seed}")
-            run_experiment(log_path, checkpoint_dir, hp, seed)
+            hp_summary = f"CE_dims_{ce_dims}_wt_{ce_weight}_gamma_{ce_gamma}_"
+            f"TRIP_marg_{triplet_margin}_wt_{triplet_weight}_"
+            f"CNTR_wt_{center_weight}"
+            log_path = run_experiment(hp_summary, checkpoint_dir, hp, seed)
+            results["val_loss"].append(final_val_loss)
+            results["map"].append(final_map)
+        mean_loss = np.mean(results["val_loss"])
+        std_loss = np.std(results["val_loss"])
+        mean_map = np.mean(results["map"])
+        std_map = np.std(results["map"])
+        all_results[hp_summary] = {
+            "val_loss": {"mean": mean_loss, "std": std_loss},
+            "map": {"mean": mean_map, "std": std_map},
+        }
+
+    print("\nSummary of Experiments:")
+    for hp_summary, result in all_results.items():
+        print(f"\nExperiment: {hp_summary}")
+        print(f"  Validation Loss: mean = {result['val_loss']['mean']:.4f}, std = {result['val_loss']['std']:.4f}")
+        print(f"  mAP: mean = {result['map']['mean']:.4f}, std = {result['map']['std']:.4f}")

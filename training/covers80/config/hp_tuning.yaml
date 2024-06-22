@@ -4,11 +4,11 @@
 # other than then ones you specify below. max_epochs is the only hyperparameter
 # that is unique to train_tune.
 #
-# You may set an unlimited number of hyperparameters to test below. 
+# You may set an unlimited number of hyperparameter values to test below. 
 # To not test any values of a hyperparameter, leave it empty.
 # For example, to *not* test any m_per_class settings, make sure an empty:
-#   spec_augmentations: {}
-# is the final line mentioning spec_augmentations. This way you can leave preceding
+#   m_per_classes: []
+# is the final line mentioning m_per_class. This way you can leave preceding
 # definitions of m_per_classes as a record of values you may have already tested, 
 # without having to comment/uncomment a lot of lines.
 
@@ -16,7 +16,7 @@
 max_epochs: 15 # if omitted, train_tune will default to 15
 early_stopping_patience: 4
 
-seeds: [42, 123, 456]  
+seeds: [123, 456, 789]  
 
 # Don't specify chunk_s. The train-tune script will automatically calculate
 # chunk_s based on chunk_frame[0]
@@ -30,7 +30,7 @@ chunk_frames:
     - [750, 600, 450]
     # seconds: 45, 36, 27   # default CoverHunter
     - [1125, 900, 675]
-chunk_frames: {} # use this to not run any chunk_frame experiments
+# chunk_frames: {} # uncomment this to not run any chunk_frame experiments
 
 # You must include at least one mean_size.
 mean_sizes: [3]
@@ -53,7 +53,7 @@ spec_augmentations:
       roll_pitch:
         prob: 0.5
         shift_num: 4
-# spec_augmentations: {}
+spec_augmentations: {}
 
 ## loss settings
 losses:
@@ -66,4 +66,4 @@ losses:
         weight: 0.1
       center:
         weight: 0.1
-# losses: {}
+losses: {}
