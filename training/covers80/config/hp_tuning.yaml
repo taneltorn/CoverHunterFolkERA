@@ -12,6 +12,9 @@
 # definitions of m_per_classes as a record of values you may have already tested, 
 # without having to comment/uncomment a lot of lines.
 
+# specify here how the mAP metrics are identified in the TensorBoard logs
+test_name: "covers80"
+
 # these are optional settings
 max_epochs: 15 # if omitted, train_tune will default to 15
 early_stopping_patience: 4

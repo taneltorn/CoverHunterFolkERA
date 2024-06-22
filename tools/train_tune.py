@@ -88,27 +88,7 @@ def run_experiment(
     return log_path
 
 
-def load_best_metrics_from_tensorboard(log_dir):
-    event_acc = EventAccumulator(log_dir)
-    event_acc.Reload()
-
-    best_validation_losses = []
-    best_validation_maps = []
-
-    for event in event_acc.Scalars(
-        "validation_loss"
-    ):  # Change tag as per your setup
-        best_validation_losses.append(event.value)
-
-    for event in event_acc.Scalars(
-        "validation_map"
-    ):  # Change tag as per your setup
-        best_validation_maps.append(event.value)
-
-    return best_validation_losses, best_validation_maps
-
-
-def get_final_metrics_from_logs(log_dir):
+def get_final_metrics_from_logs(log_dir, test_name):
     # Find the latest event file in the log directory
     event_file = max(
         glob.glob(os.path.join(log_dir, "events.out.tfevents.*")),
@@ -121,7 +101,7 @@ def get_final_metrics_from_logs(log_dir):
 
     # Extract the final validation loss and mAP
     val_loss = ea.Scalars("csi_val/ce_loss")[-1].value
-    mAP = ea.Scalars("mAP/covers80")[-1].value
+    mAP = ea.Scalars(f"mAP/{test_name}")[-1].value
 
     return val_loss, mAP
 
@@ -139,6 +119,7 @@ if __name__ == "__main__":
         os.path.join(model_dir, "config/hp_tuning.yaml")
     )
     hp = load_hparams(os.path.join(model_dir, "config/hparams.yaml"))
+    test_name = experiments["test_name"]
     # ensure at least one seed
     seeds = experiments.get("seeds", [hp["seed"]])
     chunk_frames = experiments["chunk_frames"]
@@ -199,7 +180,7 @@ if __name__ == "__main__":
                 )
                 log_path = run_experiment(hp_summary, checkpoint_dir, hp, seed)
                 final_val_loss, final_map = get_final_metrics_from_logs(
-                    log_path
+                    log_path, test_name
                 )
                 results["val_loss"].append(final_val_loss)
                 results["map"].append(final_map)
@@ -223,7 +204,7 @@ if __name__ == "__main__":
         for seed in seeds:
             hp_summary = f"m_per_class_{m_per_class}"
             log_path = run_experiment(hp_summary, checkpoint_dir, hp, seed)
-            final_val_loss, final_map = get_final_metrics_from_logs(log_path)
+            final_val_loss, final_map = get_final_metrics_from_logs(log_path, test_name)
             results["val_loss"].append(final_val_loss)
             results["map"].append(final_map)
         mean_loss = np.mean(results["val_loss"])
@@ -261,6 +242,7 @@ if __name__ == "__main__":
                 )
             )
             log_path = run_experiment(hp_summary, checkpoint_dir, hp, seed)
+            final_val_loss, final_map = get_final_metrics_from_logs(log_path, test_name)
             results["val_loss"].append(final_val_loss)
             results["map"].append(final_map)
         mean_loss = np.mean(results["val_loss"])
@@ -294,6 +276,7 @@ if __name__ == "__main__":
             f"TRIP_marg_{triplet_margin}_wt_{triplet_weight}_"
             f"CNTR_wt_{center_weight}"
             log_path = run_experiment(hp_summary, checkpoint_dir, hp, seed)
+            final_val_loss, final_map = get_final_metrics_from_logs(log_path, test_name)
             results["val_loss"].append(final_val_loss)
             results["map"].append(final_map)
         mean_loss = np.mean(results["val_loss"])
