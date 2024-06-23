@@ -19,7 +19,7 @@ test_name: "covers80"
 max_epochs: 15 # if omitted, train_tune will default to 15
 early_stopping_patience: 4
 
-seeds: [123, 456, 789]  
+seeds: [123, 456, 789]
 
 # Don't specify chunk_s. The train-tune script will automatically calculate
 # chunk_s based on chunk_frame[0]
@@ -69,4 +69,13 @@ losses:
         weight: 0.1
       center:
         weight: 0.1
+    - ce:  # cross-entropy
+        output_dims: 10000
+        weight: 1.0
+        gamma: 2
+      triplet:
+        margin: 0.3
+        weight: 0.1
+      center:
+        weight: 0
 losses: {}

@@ -192,6 +192,7 @@ if __name__ == "__main__":
                 "val_loss": {"mean": mean_loss, "std": std_loss},
                 "map": {"mean": mean_map, "std": std_map},
             }
+            pprint.pprint(all_results[hp_summary])
 
     # m_per_class experiments
     hp = load_hparams(os.path.join(model_dir, "config/hparams.yaml"))
@@ -215,6 +216,7 @@ if __name__ == "__main__":
             "val_loss": {"mean": mean_loss, "std": std_loss},
             "map": {"mean": mean_map, "std": std_map},
         }
+        pprint.pprint(all_results[hp_summary])
 
     # spec_aug experiments
     hp = load_hparams(os.path.join(model_dir, "config/hparams.yaml"))
@@ -253,7 +255,8 @@ if __name__ == "__main__":
             "val_loss": {"mean": mean_loss, "std": std_loss},
             "map": {"mean": mean_map, "std": std_map},
         }
-
+        pprint.pprint(all_results[hp_summary])
+        
     # loss experiments
     hp = load_hparams(os.path.join(model_dir, "config/hparams.yaml"))
     hp["every_n_epoch_to_save"] = 100
