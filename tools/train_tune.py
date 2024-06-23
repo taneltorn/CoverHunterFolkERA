@@ -4,7 +4,6 @@ Created by @samuel-gauthier and @alanngnet in April-May 2024.
 Tool to launch many sequential training runs for the purpose of discovering
 optimal hyperparameter settings for a given dataset, aka "hyperparameter tuning."
 
-
 """
 
 import glob, os, sys, shutil
@@ -192,6 +191,7 @@ if __name__ == "__main__":
                 "val_loss": {"mean": mean_loss, "std": std_loss},
                 "map": {"mean": mean_map, "std": std_map},
             }
+            print(f"Results for {hp_summary}")
             pprint.pprint(all_results[hp_summary])
 
     # m_per_class experiments
@@ -216,6 +216,7 @@ if __name__ == "__main__":
             "val_loss": {"mean": mean_loss, "std": std_loss},
             "map": {"mean": mean_map, "std": std_map},
         }
+        print(f"Results for {hp_summary}")
         pprint.pprint(all_results[hp_summary])
 
     # spec_aug experiments
@@ -255,6 +256,7 @@ if __name__ == "__main__":
             "val_loss": {"mean": mean_loss, "std": std_loss},
             "map": {"mean": mean_map, "std": std_map},
         }
+        print(f"Results for {hp_summary}")
         pprint.pprint(all_results[hp_summary])
         
     # loss experiments
@@ -290,6 +292,8 @@ if __name__ == "__main__":
             "val_loss": {"mean": mean_loss, "std": std_loss},
             "map": {"mean": mean_map, "std": std_map},
         }
+        print(f"Results for {hp_summary}")
+        pprint.pprint(all_results[hp_summary])
 
     print("\nSummary of Experiments:")
     for hp_summary, result in all_results.items():
