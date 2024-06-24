@@ -374,7 +374,7 @@ class SpecAug:
 
     @staticmethod
     def _random_erase(
-        feat, region_num=4, region_size=(0.25, 0.1), region_val=-80
+        feat, region_num=4, region_size=(0.25, 0.1), region_val=-128
     ):
         """
             - region_size(width, height) in percentage of feat size

@@ -173,9 +173,9 @@ if __name__ == "__main__":
             hp["chunk_s"] = chunk_frame[0] * mean_size / 25
             for seed in seeds:
                 hp_summary = (
-                    "chunk_frame_"
+                    "chunk_frame"
                     + "_".join([str(c) for c in chunk_frame])
-                    + f"_mean_size_{mean_size}"
+                    + f"_mean_size{mean_size}"
                 )
                 log_path = run_experiment(hp_summary, checkpoint_dir, hp, seed)
                 final_val_loss, final_map = get_final_metrics_from_logs(
@@ -203,7 +203,7 @@ if __name__ == "__main__":
     for m_per_class in m_per_classes:
         hp["m_per_class"] = m_per_class
         for seed in seeds:
-            hp_summary = f"m_per_class_{m_per_class}"
+            hp_summary = f"m_per_class{m_per_class}"
             log_path = run_experiment(hp_summary, checkpoint_dir, hp, seed)
             final_val_loss, final_map = get_final_metrics_from_logs(log_path, test_name)
             results["val_loss"].append(final_val_loss)
@@ -235,9 +235,9 @@ if __name__ == "__main__":
 
         for seed in seeds:
             hp_summary = (
-                f"erase_prob_{random_erase_prob}_num_{random_erase_num}_size"
+                f"erase_prob{random_erase_prob}_num{random_erase_num}_size_"
                 + "_".join([str(c) for c in region_size])
-                + f"_roll_prob_{roll_pitch_prob}_shift_{roll_pitch_shift_num}"
+                + f"_roll_prob{roll_pitch_prob}_shift{roll_pitch_shift_num}"
                 + (
                     "_low_true"
                     if spec_augmentation.get("low_melody", False)
@@ -277,9 +277,9 @@ if __name__ == "__main__":
         center_weight = center["weight"]
 
         for seed in seeds:
-            hp_summary = f"CE_dims_{ce_dims}_wt_{ce_weight}_gamma_{ce_gamma}_"
-            f"TRIP_marg_{triplet_margin}_wt_{triplet_weight}_"
-            f"CNTR_wt_{center_weight}"
+            hp_summary = f"CE_dims{ce_dims}_wt{ce_weight}_gamma{ce_gamma}_"
+            f"TRIP_marg{triplet_margin}_wt{triplet_weight}_"
+            f"CNTR_wt{center_weight}"
             log_path = run_experiment(hp_summary, checkpoint_dir, hp, seed)
             final_val_loss, final_map = get_final_metrics_from_logs(log_path, test_name)
             results["val_loss"].append(final_val_loss)
