@@ -6,7 +6,7 @@ optimal hyperparameter settings for a given dataset, aka "hyperparameter tuning.
 
 """
 
-import glob, os, sys, shutil
+import glob, os, sys, shutil, time
 import argparse
 from datetime import date
 import pprint
@@ -81,9 +81,12 @@ def run_experiment(
     t.load_model()
     t.configure_scheduler()
     t.train(max_epochs=hp["max_epochs"])
+    # ensure log files are saved before retrieving metrics
+    t.summary_writer.close() 
     del t.model
     del t
     print(f"Completed experiment with seed {seed}")
+    time.sleep(1) # give OS time to save log file
     return log_path
 
 
@@ -235,7 +238,7 @@ if __name__ == "__main__":
 
         for seed in seeds:
             hp_summary = (
-                f"erase_prob{random_erase_prob}_num{random_erase_num}_size_"
+                f"erase_prob{random_erase_prob}_num{random_erase_num}_size"
                 + "_".join([str(c) for c in region_size])
                 + f"_roll_prob{roll_pitch_prob}_shift{roll_pitch_shift_num}"
                 + (
