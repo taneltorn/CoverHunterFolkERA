@@ -113,6 +113,8 @@ Step 3: Launch training with `model_dir` as the one required parameter:
 
 This script will not retain any model checkpoints from the training runs, but it does create separate log files for each run that you can monitor and study in TensorBoard.
 
+If you are running on a CUDA platform, the `make_deterministic()` function in tools.train_tune may have significant performance disadvantages for you. Consider whether you'd rather comment out that line and instead run enough different random seeds to compensate for non-deterministic training behavior so that you can reliably compare results between different hyperparameter settings.
+
 ## Production Training
 
 Once you have tuned your data and your hyperparameters for optimal training results, you may be ready to train a model that knows *all* of your data, without reserving any data for validation and test sets. The tools/train_prod.py script uses stratified K-fold cross validation to dynamically generate validation sets from your dataset so that the model is exposed to all works and perfs equally. It concludes with one final training run on the entire dataset in which the dataset you specify in `test_path` serves as the validation dataset (for early stopping purposes). This final validation set should be entirely unseen perfs, even if some or all of the works are represented in the training data.
