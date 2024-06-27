@@ -82,11 +82,11 @@ def run_experiment(
     t.configure_scheduler()
     t.train(max_epochs=hp["max_epochs"])
     # ensure log files are saved before retrieving metrics
-    t.summary_writer.close() 
+    t.summary_writer.close()
     del t.model
     del t
     print(f"Completed experiment with seed {seed}")
-    time.sleep(1) # give OS time to save log file
+    time.sleep(1)  # give OS time to save log file
     return log_path
 
 
@@ -208,7 +208,9 @@ if __name__ == "__main__":
         for seed in seeds:
             hp_summary = f"m_per_class{m_per_class}"
             log_path = run_experiment(hp_summary, checkpoint_dir, hp, seed)
-            final_val_loss, final_map = get_final_metrics_from_logs(log_path, test_name)
+            final_val_loss, final_map = get_final_metrics_from_logs(
+                log_path, test_name
+            )
             results["val_loss"].append(final_val_loss)
             results["map"].append(final_map)
         mean_loss = np.mean(results["val_loss"])
@@ -248,7 +250,9 @@ if __name__ == "__main__":
                 )
             )
             log_path = run_experiment(hp_summary, checkpoint_dir, hp, seed)
-            final_val_loss, final_map = get_final_metrics_from_logs(log_path, test_name)
+            final_val_loss, final_map = get_final_metrics_from_logs(
+                log_path, test_name
+            )
             results["val_loss"].append(final_val_loss)
             results["map"].append(final_map)
         mean_loss = np.mean(results["val_loss"])
@@ -261,7 +265,7 @@ if __name__ == "__main__":
         }
         print(f"Results for {hp_summary}")
         pprint.pprint(all_results[hp_summary])
-        
+
     # loss experiments
     hp = load_hparams(os.path.join(model_dir, "config/hparams.yaml"))
     hp["every_n_epoch_to_save"] = 100
@@ -280,11 +284,15 @@ if __name__ == "__main__":
         center_weight = center["weight"]
 
         for seed in seeds:
-            hp_summary = f"CE_dims{ce_dims}_wt{ce_weight}_gamma{ce_gamma}_"
-            f"TRIP_marg{triplet_margin}_wt{triplet_weight}_"
-            f"CNTR_wt{center_weight}"
+            hp_summary = (
+                f"CE_dims{ce_dims}_wt{ce_weight}_gamma{ce_gamma}_"
+                + f"TRIP_marg{triplet_margin}_wt{triplet_weight}_"
+                + f"CNTR_wt{center_weight}"
+            )
             log_path = run_experiment(hp_summary, checkpoint_dir, hp, seed)
-            final_val_loss, final_map = get_final_metrics_from_logs(log_path, test_name)
+            final_val_loss, final_map = get_final_metrics_from_logs(
+                log_path, test_name
+            )
             results["val_loss"].append(final_val_loss)
             results["map"].append(final_map)
         mean_loss = np.mean(results["val_loss"])
@@ -301,5 +309,9 @@ if __name__ == "__main__":
     print("\nSummary of Experiments:")
     for hp_summary, result in all_results.items():
         print(f"\nExperiment: {hp_summary}")
-        print(f"  Validation Loss: mean = {result['val_loss']['mean']:.4f}, std = {result['val_loss']['std']:.4f}")
-        print(f"  mAP: mean = {result['map']['mean']:.4f}, std = {result['map']['std']:.4f}")
+        print(
+            f"  Validation Loss: mean = {result['val_loss']['mean']:.4f}, std = {result['val_loss']['std']:.4f}"
+        )
+        print(
+            f"  mAP: mean = {result['map']['mean']:.4f}, std = {result['map']['std']:.4f}"
+        )
