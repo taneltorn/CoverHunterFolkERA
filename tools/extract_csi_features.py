@@ -156,7 +156,13 @@ def _extract_cqt_worker_librosa(args):
     """worker function for _extract_cqt_parallel"""
     line, cqt_dir, fmin, max_freq, bins_per_octave = args
     wav_path = line["wav"]
-    py_cqt = PyCqt(sample_rate=16000, hop_size=0.04, octave_resolution=bins_per_octave, min_freq=fmin,max_freq=max_freq)
+    py_cqt = PyCqt(
+        sample_rate=16000,
+        hop_size=0.04,
+        octave_resolution=bins_per_octave,
+        min_freq=fmin,
+        max_freq=max_freq,
+    )
     feat_path = os.path.join(cqt_dir, "{}.cqt.npy".format(line["perf"]))
 
     if not os.path.exists(feat_path):
@@ -194,7 +200,12 @@ def _extract_cqt_worker_torchaudio(args):
             * 0.999
         )
         signal = transform(
-            16000, hop_length=640, n_bins=n_bins, fmin=fmin, bins_per_octave=bins_per_octave, verbose=False
+            16000,
+            hop_length=640,
+            n_bins=n_bins,
+            fmin=fmin,
+            bins_per_octave=bins_per_octave,
+            verbose=False,
         ).to(device)(signal)
         signal = signal + 1e-9
         signal = signal.squeeze(0)
@@ -220,17 +231,29 @@ def worker(args):
     if device in ("mps", "cuda"):
         return _extract_cqt_worker_torchaudio(args)
 
-    return _extract_cqt_worker_librosa(line, cqt_dir, fmin, max_freq, bins_per_octave)
+    return _extract_cqt_worker_librosa(
+        line, cqt_dir, fmin, max_freq, bins_per_octave
+    )
 
 
-def _extract_cqt_parallel(init_path, out_path, cqt_dir, fmin, n_bins, bins_per_octave, device) -> None:
+def _extract_cqt_parallel(
+    init_path, out_path, cqt_dir, fmin, n_bins, bins_per_octave, device
+) -> None:
     os.makedirs(cqt_dir, exist_ok=True)
     dump_lines = []
     # calculate max_freq in case CPU device requires use of the PyCQT function
     max_freq = fmin * (2 ** (n_bins / bins_per_octave))
     with ProcessPoolExecutor() as executor:
         worker_args = [
-            (line_to_dict(line), cqt_dir, fmin, max_freq, n_bins, bins_per_octave, device)
+            (
+                line_to_dict(line),
+                cqt_dir,
+                fmin,
+                max_freq,
+                n_bins,
+                bins_per_octave,
+                device,
+            )
             for line in read_lines(init_path, log=False)
         ]
 
@@ -296,7 +319,7 @@ def _extract_cqt_with_noise(init_path, full_path, cqt_dir, hp_noise) -> None:
 
 
 def _add_work_id(init_path, out_path, map_path=None) -> None:
-    """map format:: work_id -> work """
+    """map format:: work_id -> work"""
     work_id_map = {}
     dump_lines = []
     for line in read_lines(init_path, log=False):
@@ -355,7 +378,7 @@ def _split_data_by_work_id(
     # Ensure minimum of one work in test only if non-zero requested.
     test_only_count = (
         max(1, int(num_works * test_only_percent))
-        if test_only_percent > 0
+        if test_only_percent > 0 and test_ratio > 0
         else 0
     )
     # Randomly select works for test only
@@ -414,7 +437,9 @@ def _split_data_by_work_id(
 
             # Calculate test split points based on train ratio and minimum samples
             min_samples = (
-                1  # Ensure at least 1 sample in each set for remaining works
+                (1)  # Ensure at least 1 sample in each set for remaining works
+                if test_ratio > 0
+                else 0
             )
             test_split = int(len(samples) * test_ratio)
             test_split = max(
@@ -424,21 +449,25 @@ def _split_data_by_work_id(
 
             # if exceeding test_ratio then put more in val than test
             if (
-                (len(test_data) + len (remaining_test_data)) / len(train_data) if len(train_data) != 0 else 0
-                > test_ratio
-                ):
-                test_split = max(min_samples,test_split-1)
+                (len(test_data) + len(remaining_test_data)) / len(train_data)
+                if len(train_data) != 0
+                else 0 > test_ratio
+            ):
+                test_split = max(min_samples, test_split - 1)
 
             remaining_val_data.extend(samples[:val_split])
-            remaining_test_data.extend(
-                samples[val_split : val_split + test_split]
-            )
+            if test_ratio > 0:
+                remaining_test_data.extend(
+                    samples[val_split : val_split + test_split]
+                )
             train_data.extend(samples[val_split + test_split :])
 
         val_data.extend(remaining_val_data)
         test_data.extend(remaining_test_data)
     else:
-        train_data.extend(remaining_works.items())
+        for samples in remaining_works.values():
+            train_data.extend(samples)
+    #        train_data.extend(remaining_works.items())
 
     logging.info("Number of samples in train: %s", len(train_data))
     logging.info("Number of samples in validate: %s", len(val_data))
@@ -581,7 +610,7 @@ def _generate_csi_features(hp, feat_dir, start_stage, end_stage) -> None:
             cqt_dir = os.path.join(feat_dir, "cqt_feat")
             if "fmin" not in hp:
                 fmin = 32
-            else: 
+            else:
                 fmin = hp["fmin"]
             if "n_bins" not in hp:
                 n_bins = 96
@@ -592,7 +621,13 @@ def _generate_csi_features(hp, feat_dir, start_stage, end_stage) -> None:
             else:
                 bins_per_octave = hp["bins_per_octave"]
             _extract_cqt_parallel(
-                sp_aug_path, full_path, cqt_dir, fmin, n_bins, bins_per_octave, hp["device"]
+                sp_aug_path,
+                full_path,
+                cqt_dir,
+                fmin,
+                n_bins,
+                bins_per_octave,
+                hp["device"],
             )
 
     # noise augmentation was default off for CoverHunter
