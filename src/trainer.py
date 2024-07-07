@@ -269,7 +269,7 @@ class Trainer:
         )
         validation_loss = res["ce_loss"] / res["count"]
         self.logger.info(
-            "count:%d, avg_ce_loss:%d", res["count"], validation_loss
+            "count:%d, avg_ce_loss:%f", res["count"], validation_loss
         )
 
         self.logger.info(
