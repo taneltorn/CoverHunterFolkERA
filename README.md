@@ -229,7 +229,8 @@ The hparams.yaml file located in the "config" subfolder of the path you provide 
 #### Training Parameters
 | key | value |
 | --- | --- |
-| batch_size | Usual "batch size" meaning in the field of machine learning. An important parameter to experiment with. Original CoverHunter's preset batch size of 16 was no longer able to succeed at the covers80 training task after @alanngnet fixed an important logic error in extract_csi_features.py. Now only batch size 32 or larger works for covers80. |
+| adam_b1 and adam_b2 | See https://pytorch.org/docs/stable/generated/torch.optim.AdamW.html for documentation of the two "beta" parameters used by the AdamW optimizer that the CoverHunter authors chose. Our experiments showed these can have a strong impact. Note that the CoverHunter default values of .8 and .99 are not the usual default AdamW values, for unknown reasons. We recommend experimenting with these values. |
+| batch_size | Usual "batch size" meaning in the field of machine learning. An important parameter to experiment with. Original CoverHunter's preset batch size of 16 was no longer able to succeed at the covers80 training task after @alanngnet fixed an important logic error in extract_csi_features.py. Now only batch size 32 or larger works for covers80. Be sure to consider adjusting `learning_rate` and `lr_decay` whenever you change `batch_size` based on general deep-learning best practices and your own experimentation. |
 | device | 'mps' or 'cuda', corresponding to your GPU hardware and PyTorch library support. Theoretically 'cpu' could work but untested and probably of no value. |
 | early_stopping_patience | how many epochs to wait for validation loss to improve before early stopping |
 | learning_rate | The initial value for how much variability to allow the model during each learning step. See `lr_decay`. Default = .001. |
