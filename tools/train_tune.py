@@ -130,6 +130,9 @@ if __name__ == "__main__":
     m_per_classes = experiments["m_per_classes"]
     spec_augmentations = experiments["spec_augmentations"]
     losses = experiments["losses"]
+    learning_rates = experiments["learning_rates"]
+    lr_decays = experiments["lr_decays"]
+    adam_betas = experiments["adam_betas"]
 
     os.makedirs(checkpoint_dir, exist_ok=True)
     logger = create_logger()
@@ -289,6 +292,88 @@ if __name__ == "__main__":
                 + f"TRIP_marg{triplet_margin}_wt{triplet_weight}_"
                 + f"CNTR_wt{center_weight}"
             )
+            log_path = run_experiment(hp_summary, checkpoint_dir, hp, seed)
+            final_val_loss, final_map = get_final_metrics_from_logs(
+                log_path, test_name
+            )
+            results["val_loss"].append(final_val_loss)
+            results["map"].append(final_map)
+        mean_loss = np.mean(results["val_loss"])
+        std_loss = np.std(results["val_loss"])
+        mean_map = np.mean(results["map"])
+        std_map = np.std(results["map"])
+        all_results[hp_summary] = {
+            "val_loss": {"mean": mean_loss, "std": std_loss},
+            "map": {"mean": mean_map, "std": std_map},
+        }
+        print(f"Results for {hp_summary}")
+        pprint.pprint(all_results[hp_summary])
+
+    # learning_rate experiments
+    hp = load_hparams(os.path.join(model_dir, "config/hparams.yaml"))
+    hp["every_n_epoch_to_save"] = 100
+    hp["early_stopping_patience"] = experiments["early_stopping_patience"]
+    hp["max_epochs"] = experiments.get("max_epochs", 15)
+    results = defaultdict(list)
+    for learning_rate in learning_rates:
+        hp["learning_rate"] = learning_rate
+        for seed in seeds:
+            hp_summary = f"lrate{learning_rate}"
+            log_path = run_experiment(hp_summary, checkpoint_dir, hp, seed)
+            final_val_loss, final_map = get_final_metrics_from_logs(
+                log_path, test_name
+            )
+            results["val_loss"].append(final_val_loss)
+            results["map"].append(final_map)
+        mean_loss = np.mean(results["val_loss"])
+        std_loss = np.std(results["val_loss"])
+        mean_map = np.mean(results["map"])
+        std_map = np.std(results["map"])
+        all_results[hp_summary] = {
+            "val_loss": {"mean": mean_loss, "std": std_loss},
+            "map": {"mean": mean_map, "std": std_map},
+        }
+        print(f"Results for {hp_summary}")
+        pprint.pprint(all_results[hp_summary])
+
+    # lr_decay experiments
+    hp = load_hparams(os.path.join(model_dir, "config/hparams.yaml"))
+    hp["every_n_epoch_to_save"] = 100
+    hp["early_stopping_patience"] = experiments["early_stopping_patience"]
+    hp["max_epochs"] = experiments.get("max_epochs", 15)
+    results = defaultdict(list)
+    for lr_decay in lr_decays:
+        hp["lr_decay"] = lr_decay
+        for seed in seeds:
+            hp_summary = f"lr_decay{lr_decay}"
+            log_path = run_experiment(hp_summary, checkpoint_dir, hp, seed)
+            final_val_loss, final_map = get_final_metrics_from_logs(
+                log_path, test_name
+            )
+            results["val_loss"].append(final_val_loss)
+            results["map"].append(final_map)
+        mean_loss = np.mean(results["val_loss"])
+        std_loss = np.std(results["val_loss"])
+        mean_map = np.mean(results["map"])
+        std_map = np.std(results["map"])
+        all_results[hp_summary] = {
+            "val_loss": {"mean": mean_loss, "std": std_loss},
+            "map": {"mean": mean_map, "std": std_map},
+        }
+        print(f"Results for {hp_summary}")
+        pprint.pprint(all_results[hp_summary])
+
+    # AdamW betas experiments
+    hp = load_hparams(os.path.join(model_dir, "config/hparams.yaml"))
+    hp["every_n_epoch_to_save"] = 100
+    hp["early_stopping_patience"] = experiments["early_stopping_patience"]
+    hp["max_epochs"] = experiments.get("max_epochs", 15)
+    results = defaultdict(list)
+    for adam_beta in adam_betas:
+        hp["adam_b1"] = adam_beta[0]
+        hp["adam_b2"] = adam_beta[1]
+        for seed in seeds:
+            hp_summary = "adam_betas" + "_".join([str(c) for c in adam_beta])
             log_path = run_experiment(hp_summary, checkpoint_dir, hp, seed)
             final_val_loss, final_map = get_final_metrics_from_logs(
                 log_path, test_name

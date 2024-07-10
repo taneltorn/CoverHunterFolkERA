@@ -79,3 +79,15 @@ losses:
       center:
         weight: 0
 losses: {}
+
+## learning rate starting point
+learning_rates: [.0005, .002, .005, .01]
+
+## learning rate decay
+lr_decays: [.998, .995, .99]
+
+## AdamW betas as pairs of B1, B2 used as adam_b1 and adam_b2
+adam_betas:
+    - [0.85, 0.995]
+    - [0.9, 0.999]
+    - [0.95, 0.999]
