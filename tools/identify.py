@@ -1,15 +1,12 @@
 #!/usr/bin/env python3
 """
-Created on Sat Mar  2 17:31:23 2024
-@author: Alan Ng
+Command-line utility to identify the closest matches to the query audio
+from within the trained model's training data.
 
-Command-line utility to identify closest matches to the target audio
-from the model's training data. 
-
-MVP proof-of-concept. Assumptions:
-    target has a duration < chunk_s (135sec).
-    You already ran tools/eval_testset.py to generate reference embeddings 
-        in the model's "embed_...tmp/query_embed" folder
+Assumptions:
+    Query audio has a duration < chunk_s (default = 135sec).
+    You already trained your model.
+    You already ran tools.make_embeds
 
 Example invocation:
 python -m tools.identify data/covers80 training/covers80 query.wav -top=10
@@ -17,37 +14,45 @@ python -m tools.identify data/covers80 training/covers80 query.wav -top=10
 Parameters
 ----------
 data_path : string
-    The relative path that expects an hparams.yaml file as documented for use with tools.extract_csi_features. Those hyperparameters are necessary to generate a CQT spectrogram for your query that uses the same CQT parameters as were used for the audio during training of the model. Most important is that n_bins must match.
+    The relative path that must contain:
+        1) hparams.yaml file as documented for use with
+        tools.extract_csi_features. These hyperparameters are necessary to
+        generate a CQT spectrogram for your query that uses the same CQT
+        parameters as were used for the audio during training of the model. 
+        Most important is that n_bins must match.
+        2) The reference_embeddings.pkl file that you generated using
+        tools.make_embeds.
 
 model_path : string
     The relative path that must contain: 
         1) a subfolder "checkpoints" containing checkpoint files
-        2) the abovementioned tmp/query_embed/ folder of reference embeddings
-        3) The model's hyperparameters as hparams.yaml
+        2) The model's hyperparameters as hparams.yaml
 
 query_path : string
     Relative path to the query audio. 
 
 top : integer
-    Optional. Return N=top closest matches to this query.
-    
+    Optional. Return N closest matches to this query where N = top.
 
+Created on Sat Mar  2 17:31:23 2024
+@author: alanngnet
 
 """
 import os, torch, torchaudio, numpy as np
+import argparse
+import pickle
+from heapq import nsmallest
+from scipy.spatial.distance import cosine
+from nnAudio.features.cqt import CQT, CQT2010v2
+from tabulate import tabulate
 from src.model import Model
 from src.cqt import shorter
 from src.utils import (
     load_hparams,
     #    RARE_DELIMITER,
-    line_to_dict,
-    read_lines,
+    #    line_to_dict,
+    #    read_lines,
 )
-import argparse
-from heapq import nsmallest
-from scipy.spatial.distance import cosine
-from nnAudio.features.cqt import CQT, CQT2010v2
-from tabulate import tabulate
 
 
 def _make_feat(wav_path, fmin, max_freq, n_bins, bins_per_octave, device):
@@ -135,19 +140,19 @@ def _get_feat(query_path, data_hp, chunk_len, mean_size):
     return torch.from_numpy(feat)
 
 
-def _load_ref_embeds(ref_lines):
-    """
-    adapted from src/eval_testset.py _load_data_from_dir()
+# def _load_ref_embeds(ref_lines):
+#     """
+#     adapted from src/eval_testset.py _load_data_from_dir()
 
-    returns dictionary of "label" -> embedding.npy associations
-    """
-    ref_embeds = {}
-    for line in ref_lines:
-        local_data = line_to_dict(line)
-        #        perf = local_data["perf"].split(f"-{RARE_DELIMITER}start-")[0]
-        label = local_data["work_id"]
-        ref_embeds[label] = np.load(local_data["embed"])
-    return ref_embeds
+#     returns dictionary of "label" -> embedding.npy associations
+#     """
+#     ref_embeds = {}
+#     for line in ref_lines:
+#         local_data = line_to_dict(line)
+#         #        perf = local_data["perf"].split(f"-{RARE_DELIMITER}start-")[0]
+#         label = local_data["work_id"]
+#         ref_embeds[label] = np.load(local_data["embed"])
+#     return ref_embeds
 
 
 def _main():
@@ -161,7 +166,7 @@ def _main():
         list: A list of ranked reference labels, from closest to farthest.
     """
     parser = argparse.ArgumentParser(
-        description="use model to rank closest matches to input CQT"
+        description="Use trained model to rank closest matches to query audio"
     )
     parser.add_argument("data_path")
     parser.add_argument("model_path")
@@ -204,11 +209,12 @@ def _main():
     # assumes 25 frames per second
     assert (
         infer_frame == chunk_s * 25
-    ), "Error for mismatch of chunk_frame and chunk_s: {}!={}*25".format(
-        infer_frame, chunk_s
-    )
+    ), f"Error for mismatch of chunk_frame and chunk_s: {infer_frame}!={chunk_s}*25"
+
     #   query_feat = _get_feat(local_data["feat"],hp,infer_frame)
-    query_feat = _get_feat(query_path, data_hp, infer_frame,model_hp["mean_size"])
+    query_feat = _get_feat(
+        query_path, data_hp, infer_frame, model_hp["mean_size"]
+    )
 
     # unsqueeze to simulate being packaged by DataLoader as expected by the model
     query_feat = query_feat.unsqueeze(0).to(device)  # needs float()?
@@ -216,15 +222,19 @@ def _main():
         model = Model(model_hp).to(device)
         model.eval()
         checkpoint_dir = os.path.join(model_dir, "checkpoints")
-        epoch = model.load_model_parameters(checkpoint_dir, device=device)
+        _ = model.load_model_parameters(checkpoint_dir, device=device)
         query_embed, _ = model.inference(query_feat)
     query_embed = query_embed.cpu().numpy()[0]
 
-    # Get ref embeddings. Adapted from _cut_lines_with_dur()
-    embed_dir = os.path.join(model_dir, "embed_{}_{}".format(epoch, "tmp"))
-    ref_lines = read_lines(os.path.join(embed_dir, "ref.txt"))
-    ref_embeds = _load_ref_embeds(ref_lines)
-    top = len(ref_embeds) if top == 0 else top
+    # # Get ref embeddings. Adapted from _cut_lines_with_dur()
+    # embed_dir = os.path.join(model_dir, "embed_{}_{}".format(epoch, "tmp"))
+    # ref_lines = read_lines(os.path.join(embed_dir, "ref.txt"))
+    # ref_embeds = _load_ref_embeds(ref_lines)
+    # top = len(ref_embeds) if top == 0 else top
+
+    # Load reference embeddings from pickle file
+    with open(os.path.join(data_dir, "reference_embeddings.pkl"), "rb") as f:
+        ref_embeds = pickle.load(f)
 
     # Calculate cosine similarity between query embedding and reference embeddings
     cos_dists = {
