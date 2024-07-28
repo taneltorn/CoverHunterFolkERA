@@ -38,7 +38,7 @@ Created on Sat Mar  2 17:31:23 2024
 @author: alanngnet
 
 """
-import os, torch, torchaudio, numpy as np
+import os, torch, numpy as np
 import argparse
 import pickle
 import librosa
@@ -145,21 +145,6 @@ def _get_feat(query_path, data_hp, chunk_len, mean_size):
     return torch.from_numpy(feat)
 
 
-# def _load_ref_embeds(ref_lines):
-#     """
-#     adapted from src/eval_testset.py _load_data_from_dir()
-
-#     returns dictionary of "label" -> embedding.npy associations
-#     """
-#     ref_embeds = {}
-#     for line in ref_lines:
-#         local_data = line_to_dict(line)
-#         #        perf = local_data["perf"].split(f"-{RARE_DELIMITER}start-")[0]
-#         label = local_data["work_id"]
-#         ref_embeds[label] = np.load(local_data["embed"])
-#     return ref_embeds
-
-
 def _main():
     """
     Parameters
@@ -230,12 +215,6 @@ def _main():
         _ = model.load_model_parameters(checkpoint_dir, device=device)
         query_embed, _ = model.inference(query_feat)
     query_embed = query_embed.cpu().numpy()[0]
-
-    # # Get ref embeddings. Adapted from _cut_lines_with_dur()
-    # embed_dir = os.path.join(model_dir, "embed_{}_{}".format(epoch, "tmp"))
-    # ref_lines = read_lines(os.path.join(embed_dir, "ref.txt"))
-    # ref_embeds = _load_ref_embeds(ref_lines)
-    # top = len(ref_embeds) if top == 0 else top
 
     # Load reference embeddings from pickle file
     with open(os.path.join(data_dir, "reference_embeddings.pkl"), "rb") as f:
