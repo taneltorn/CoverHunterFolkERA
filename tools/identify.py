@@ -41,6 +41,7 @@ Created on Sat Mar  2 17:31:23 2024
 import os, torch, torchaudio, numpy as np
 import argparse
 import pickle
+import librosa
 from heapq import nsmallest
 from scipy.spatial.distance import cosine
 from nnAudio.features.cqt import CQT, CQT2010v2
@@ -81,8 +82,12 @@ def _make_feat(wav_path, fmin, max_freq, n_bins, bins_per_octave, device):
     elif device == "cuda":
         transform = CQT2010v2
 
-    signal, sr = torchaudio.load(wav_path)
-    signal = signal.to(device)
+    # Load audio using librosa and force sample rate of 16kHz
+    signal, sr = librosa.load(wav_path, sr=16000, mono=True)
+    
+    # Convert to torch tensor and move to device
+    signal = torch.from_numpy(signal).float().unsqueeze(0).to(device)
+
     signal = (
         signal
         / torch.max(
