@@ -266,7 +266,7 @@ class Model(torch.nn.Module):
             model_path = get_model_with_epoch(model_dir, "g_", epoch_num)
             assert model_path, f"Error:model with epoch {epoch_num} not found"
 
-        state_dict_g = torch.load(model_path, map_location=device)["generator"]
+        state_dict_g = torch.load(model_path, map_location=device,weights_only=False)["generator"]
         if advanced:
             model_dict = self.state_dict()
             valid_dict = {

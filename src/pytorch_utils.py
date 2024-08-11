@@ -40,7 +40,7 @@ def scan_and_load_checkpoint(cp_dir, prefix):
     if len(cp_list) == 0:
         return None
     model_path = sorted(cp_list)[-1]
-    checkpoint_dict = torch.load(model_path, map_location="cpu")
+    checkpoint_dict = torch.load(model_path, map_location="cpu",weights_only=False)
     print(f"Loading {model_path}")
     return checkpoint_dict
 
