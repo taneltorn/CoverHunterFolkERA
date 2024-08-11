@@ -2,12 +2,12 @@
 ### Training data paths
 train_path: "data/covers80/train.txt"
 val_path: "data/covers80/val.txt"
-test_path: "data/covers80/test.txt"
+# test_path: "data/covers80/test.txt"
 
 ### optional external test datasets used in the test phase of training epochs
 covers80:
-  query_path: "data/covers80/test.txt"
-  ref_path: "data/covers80/test.txt"
+  query_path: "data/covers80_testset/full.txt"
+  ref_path: "data/covers80_testset/full.txt"
   every_n_epoch_to_test: 1  # validate after every n epoch
 
 # Download the reels50easy dataset from https://www.irishtune.info/public/MLdata.htm
@@ -56,7 +56,7 @@ spec_augmentation:
   roll_pitch:
     prob: 0.5
     shift_num: 12
-    low_melody: false
+    method: "default" # "default" "low_melody" or "flex_melody"
 
 ### Training parameters
 device: 'mps' # 'mps' or 'cuda' 
