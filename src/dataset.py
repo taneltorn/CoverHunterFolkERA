@@ -300,7 +300,7 @@ class SignalAug:
 
 
 class SpecAug:
-    """Spec Augmentation(Do not change data shape)"""
+    """Spectral Augmentation (only shifts or masks data)"""
 
     def __init__(self, hp=None, logger=None) -> None:
         self._hp = hp
@@ -343,24 +343,41 @@ class SpecAug:
 
     @staticmethod
     def _roll(feat, shift_num=12):
-        w, h = np.shape(feat)
+        """
+        This original CoverHunter method - improved here for efficiency - wraps
+        the spectrogram around, copying overflow content to the bottom or top
+        of the pitch dimension. 
+
+        Args:
+        feat (np.array): The input spectrogram of shape (time_steps, frequency_bins).
+        shift_num (int): The maximum number of frequency bins to shift.
+
+        Returns:
+        np.array: The pitch-rolled spectrogram.
+        """
+        time_steps, freq_bins = np.shape(feat)
         shift_amount = random.randint(-1, 1) * shift_num
-        for i in range(w):
-            feat[i, :] = np.roll(feat[i, :], shift_amount)
-        return feat
+        return np.roll(feat, shift_amount, axis=1)
 
     @staticmethod
-    def _roll_melody(feat, shift_num=3):
+    def _shift_melody_low(feat, shift_num=3):
         """
         Alternative to original _roll() method, better for strongly
         melodic music that appears at the bottom of the CQT frequency range.
 
         Shift the spectrogram either shift_num higher or 2x shift_num higher.
         Fill missing data at the bottom with -128 (very low amplitude) and discard
-        top-range frequency content that spills outside the array.
+        top-range frequency content that spills outside the CQT frequency range.
 
         Don't shift lower in case meaningful melodic content is closer than
         shift_num to the bottom of the feat array.
+
+        Args:
+        feat (np.array): The input spectrogram of shape (time_steps, frequency_bins).
+        max_shift (int): The maximum number of frequency bins to shift.
+
+        Returns:
+        np.array: The pitch-transposed spectrogram.
         """
         w, h = np.shape(feat)
         # Choose between raising pitch by shift_num or by 2 * shift_num bins
@@ -373,13 +390,64 @@ class SpecAug:
         return feat
 
     @staticmethod
+    def _shift_melody_flex(feat, max_shift=12):
+        """
+        Alternative to _shift_melody_low() method, better for strongly
+        melodic music that only sometimes appears at the bottom or top of the
+        CQT frequency range. However, if loud non-melodic content is present 
+        then this method will be less reliable.
+
+        Detect the tonal center by dominant amplitude, and use that to shift
+        the spectrogram up or down by a random amount within a range that is
+        not likely to cut off melodic content.
+
+        Fill missing data at the bottom or top with -128 (very low amplitude)
+        and discard content that spills outside the CQT frequency range.
+
+        Args:
+        feat (np.array): The input spectrogram of shape (time_steps, frequency_bins).
+        max_shift (int): The maximum number of frequency bins to shift.
+
+        Returns:
+        np.array: The pitch-transposed spectrogram.
+        """
+        time_steps, freq_bins = np.shape(feat)
+
+        # Estimate the tonal center
+        loudness_threshold = np.percentile(
+            feat, 90
+        )  # Consider top 10% as "loud"
+        loud_bins = np.where(feat > loudness_threshold)
+        if len(loud_bins[1]) > 0:  # index 1 is frequency dimension
+            tonal_center = int(np.mean(loud_bins[1]))
+        else:
+            tonal_center = freq_bins // 2  # Default to middle if no loud bins
+
+        # Calculate available shift range
+        max_down_shift = min(max_shift, tonal_center)
+        max_up_shift = min(max_shift, freq_bins - tonal_center)
+
+        # Choose a random shift within the available range
+        shift_amount = random.randint(-max_down_shift, max_up_shift)
+
+        # Perform the shift
+        if shift_amount > 0:
+            feat[:, shift_amount:] = feat[:, :-shift_amount]
+            feat[:, :shift_amount] = -128  # Fill with silence
+        elif shift_amount < 0:
+            feat[:, :shift_amount] = feat[:, -shift_amount:]
+            feat[:, shift_amount:] = -128  # Fill with silence
+
+        return feat
+
+    @staticmethod
     def _random_erase(
         feat, region_num=4, region_size=(0.25, 0.1), region_val=-128
     ):
         """
-            - region_size(width, height) in percentage of feat size
-            - region_val = new value of erased region, where 0 is max loud
-            and -128 is max quiet
+        - region_size(width, height) in percentage of feat size
+        - region_val = new value of erased region, where 0 is max loud
+        and -128 is max quiet
         """
         w, h = np.shape(feat)
         region_w = int(w * region_size[0])
@@ -398,17 +466,17 @@ class SpecAug:
         if "roll_pitch" in self._hp:
             p = random.random()
             if p <= self._hp["roll_pitch"]["prob"]:
-                if (
-                    "low_melody" in self._hp["roll_pitch"]
-                    and self._hp["roll_pitch"]["low_melody"]
-                ):
-                    feat = self._roll_melody(
-                        feat, shift_num=self._hp["roll_pitch"]["shift_num"]
-                    )
+                method = self._hp["roll_pitch"].get("method", "default")
+                shift_num = self._hp["roll_pitch"]["shift_num"]
+
+                if method == "default":
+                    feat = self._roll(feat, shift_num=shift_num)
+                elif method == "low_melody":
+                    feat = self._shift_melody_low(feat, shift_num=shift_num)
+                elif method == "flex_melody":
+                    feat = self._shift_melody_flex(feat, max_shift=shift_num)
                 else:
-                    feat = self._roll(
-                        feat, shift_num=self._hp["roll_pitch"]["shift_num"]
-                    )
+                    raise ValueError(f"Unknown roll_pitch method: {method}")
 
         if "random_erase" in self._hp:
             p = random.random()
@@ -417,7 +485,7 @@ class SpecAug:
                     feat,
                     region_val=random.random() * (-128),
                     region_num=self._hp["random_erase"]["erase_num"],
-                    region_size=self._hp["random_erase"]["region_size"]
+                    region_size=self._hp["random_erase"]["region_size"],
                 )
         return feat
 
@@ -540,7 +608,7 @@ class MPerClassSampler(Sampler):
     samples will be returned.
 
     Supports distributed compute when distribute = True. All samples will be
-    distributed across all ranks randomly, but samples with the same label will 
+    distributed across all ranks randomly, but samples with the same label will
     be on the same gpu for contrastive loss.
 
     Original CoverHunter note for distrbuted use:
