@@ -96,7 +96,6 @@ def get_final_metrics_from_logs(log_dir, test_name):
         glob.glob(os.path.join(log_dir, "events.out.tfevents.*")),
         key=os.path.getctime,
     )
-
     # Load the event file
     ea = EventAccumulator(event_file)
     ea.Reload()
@@ -104,6 +103,7 @@ def get_final_metrics_from_logs(log_dir, test_name):
     # Extract the final validation loss and mAP
     val_loss = ea.Scalars("csi_val/ce_loss")[-1].value
     mAP = ea.Scalars(f"mAP/{test_name}")[-1].value
+    print(f"Final loss {val_loss}, mAP {mAP}")
 
     return val_loss, mAP
 
@@ -197,6 +197,7 @@ if __name__ == "__main__":
                 "val_loss": {"mean": mean_loss, "std": std_loss},
                 "map": {"mean": mean_map, "std": std_map},
             }
+            results.clear()
             print(f"Results for {hp_summary}")
             pprint.pprint(all_results[hp_summary])
 
@@ -224,6 +225,7 @@ if __name__ == "__main__":
             "val_loss": {"mean": mean_loss, "std": std_loss},
             "map": {"mean": mean_map, "std": std_map},
         }
+        results.clear()
         print(f"Results for {hp_summary}")
         pprint.pprint(all_results[hp_summary])
 
@@ -240,17 +242,14 @@ if __name__ == "__main__":
         region_size = spec_augmentation["random_erase"]["region_size"]
         roll_pitch_prob = spec_augmentation["roll_pitch"]["prob"]
         roll_pitch_shift_num = spec_augmentation["roll_pitch"]["shift_num"]
+        roll_pitch_method = spec_augmentation["roll_pitch"]["method"]
 
         for seed in seeds:
             hp_summary = (
                 f"erase_prob{random_erase_prob}_num{random_erase_num}_size"
                 + "_".join([str(c) for c in region_size])
                 + f"_roll_prob{roll_pitch_prob}_shift{roll_pitch_shift_num}"
-                + (
-                    "_low_true"
-                    if spec_augmentation.get("low_melody", False)
-                    else ""
-                )
+                + f"_{roll_pitch_method}"
             )
             log_path = run_experiment(hp_summary, checkpoint_dir, hp, seed)
             final_val_loss, final_map = get_final_metrics_from_logs(
@@ -266,6 +265,7 @@ if __name__ == "__main__":
             "val_loss": {"mean": mean_loss, "std": std_loss},
             "map": {"mean": mean_map, "std": std_map},
         }
+        results.clear()
         print(f"Results for {hp_summary}")
         pprint.pprint(all_results[hp_summary])
 
@@ -306,6 +306,7 @@ if __name__ == "__main__":
             "val_loss": {"mean": mean_loss, "std": std_loss},
             "map": {"mean": mean_map, "std": std_map},
         }
+        results.clear()
         print(f"Results for {hp_summary}")
         pprint.pprint(all_results[hp_summary])
 
@@ -333,6 +334,7 @@ if __name__ == "__main__":
             "val_loss": {"mean": mean_loss, "std": std_loss},
             "map": {"mean": mean_map, "std": std_map},
         }
+        results.clear()
         print(f"Results for {hp_summary}")
         pprint.pprint(all_results[hp_summary])
 
@@ -360,6 +362,7 @@ if __name__ == "__main__":
             "val_loss": {"mean": mean_loss, "std": std_loss},
             "map": {"mean": mean_map, "std": std_map},
         }
+        results.clear()
         print(f"Results for {hp_summary}")
         pprint.pprint(all_results[hp_summary])
 
@@ -388,6 +391,7 @@ if __name__ == "__main__":
             "val_loss": {"mean": mean_loss, "std": std_loss},
             "map": {"mean": mean_map, "std": std_map},
         }
+        results.clear()
         print(f"Results for {hp_summary}")
         pprint.pprint(all_results[hp_summary])
 

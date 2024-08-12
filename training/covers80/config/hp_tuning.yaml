@@ -16,8 +16,8 @@
 test_name: "covers80"
 
 # these are optional settings
-max_epochs: 15 # if omitted, train_tune will default to 15
-early_stopping_patience: 4
+max_epochs: 10 # if omitted, train_tune will default to 15
+early_stopping_patience: 3
 
 seeds: [123, 456, 789]
 
@@ -33,7 +33,7 @@ chunk_frames:
     - [750, 600, 450]
     # seconds: 45, 36, 27   # default CoverHunter
     - [1125, 900, 675]
-# chunk_frames: {} # uncomment this to not run any chunk_frame experiments
+chunk_frames: {} # uncomment this to not run any chunk_frame experiments
 
 # You must include at least one mean_size.
 mean_sizes: [3]
@@ -48,15 +48,25 @@ spec_augmentations:
         region_size: [.25,.1]
       roll_pitch:
         prob: 0.5
-        shift_num: 12
+        shift_num: 7
+        method: "default"
     - random_erase:
         prob: 0
         erase_num: 4
         region_size: [.25,.1]
       roll_pitch:
         prob: 0.5
-        shift_num: 4
-spec_augmentations: {}
+        shift_num: 7
+        method: "low_melody"
+    - random_erase:
+        prob: 0
+        erase_num: 4
+        region_size: [.25,.1]
+      roll_pitch:
+        prob: 0.5
+        shift_num: 7
+        method: "flex_melody"
+# spec_augmentations: {}
 
 ## loss settings
 losses:
@@ -82,12 +92,15 @@ losses: {}
 
 ## learning rate starting point
 learning_rates: [.0005, .002, .005, .01]
+learning_rates: []
 
 ## learning rate decay
 lr_decays: [.998, .995, .99]
+lr_decays: []
 
 ## AdamW betas as pairs of B1, B2 used as adam_b1 and adam_b2
 adam_betas:
     - [0.85, 0.995]
     - [0.9, 0.999]
     - [0.95, 0.999]
+adam_betas: []
