@@ -228,13 +228,15 @@ def _extract_cqt_worker_torchaudio(args):
 
 def worker(args):
     line, cqt_dir, fmin, max_freq, n_bins, bins_per_octave, device = args
-
-    if device in ("mps", "cuda"):
-        return _extract_cqt_worker_torchaudio(args)
-
-    return _extract_cqt_worker_librosa(
-        line, cqt_dir, fmin, max_freq, bins_per_octave
-    )
+    try:
+        if device in ("mps", "cuda"):
+            return _extract_cqt_worker_torchaudio(args)
+    
+        return _extract_cqt_worker_librosa(
+            line, cqt_dir, fmin, max_freq, bins_per_octave
+        )
+    except Exception as e:
+        return f"Error processing line: {line}\nError: {str(e)}"
 
 
 def _extract_cqt_parallel(
