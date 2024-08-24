@@ -6,6 +6,7 @@
 import argparse
 import logging
 import os
+import gc
 import random
 import shutil
 import subprocess
@@ -243,30 +244,41 @@ def _extract_cqt_parallel(
     dump_lines = []
     # calculate max_freq in case CPU device requires use of the PyCQT function
     max_freq = fmin * (2 ** (n_bins / bins_per_octave))
-    with ProcessPoolExecutor() as executor:
-        worker_args = [
-            (
-                line_to_dict(line),
-                cqt_dir,
-                fmin,
-                max_freq,
-                n_bins,
-                bins_per_octave,
-                device,
-            )
-            for line in read_lines(init_path, log=False)
-        ]
+    
+    # Process data in smaller batches as workaround to memory leak 
+    # encountered in large runs, probably in nnAudio library
+    batch_size = 5000
+    lines = read_lines(init_path, log=False)
 
-        for result in executor.map(worker, worker_args):
-            dump_lines.append(dict_to_line(result))
-            if len(dump_lines) % 1000 == 0:
-                logging.info(
-                    "Extracted CQT for {} items: {}".format(
-                        len(dump_lines),
-                        result["perf"],
-                    ),
+    for i in range(0, len(lines), batch_size):
+        batch = lines[i:i+batch_size]
+        with ProcessPoolExecutor() as executor:
+            worker_args = [
+                (
+                    line_to_dict(line),
+                    cqt_dir,
+                    fmin,
+                    max_freq,
+                    n_bins,
+                    bins_per_octave,
+                    device,
                 )
-
+                for line in batch
+            ]
+    
+            for result in executor.map(worker, worker_args):
+                if isinstance(result, str) and result.startswith("Error processing line:"):
+                    print(result)  # This will print only the error lines
+                    continue
+                dump_lines.append(dict_to_line(result))
+                if len(dump_lines) % 1000 == 0:
+                    logging.info(
+                        "Extracted CQT for {} items: {}".format(
+                            len(dump_lines),
+                            result["perf"],
+                        ),
+                    )
+        gc.collect()
     write_lines(out_path, dump_lines)
 
 
