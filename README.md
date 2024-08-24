@@ -115,16 +115,6 @@ This script will not retain any model checkpoints from the training runs, but it
 
 If you are running on a CUDA platform, the `make_deterministic()` function in tools.train_tune may have significant performance disadvantages for you. Consider whether you'd rather comment out that line and instead run enough different random seeds to compensate for non-deterministic training behavior so that you can reliably compare results between different hyperparameter settings.
 
-## Production Training
-
-Once you have tuned your data and your hyperparameters for optimal training results, you may be ready to train a model that knows *all* of your data, without reserving any data for validation and test sets. The tools/train_prod.py script uses stratified K-fold cross validation to dynamically generate validation sets from your dataset so that the model is exposed to all works and perfs equally. It concludes with one final training run on the entire dataset in which the dataset you specify in `test_path` serves as the validation dataset (for early stopping purposes). This final validation set should be entirely unseen perfs, even if some or all of the works are represented in the training data.
-
-Use the full.txt output from extract_csi_features.py for your `train_path` with `val_data_split`, `val_unseen`, `test_data_split`, and `test_data_unseen` all set to 0. Prepare the training/covers80/hparams_prod.yaml file following the instructions in the comment header of train_prod.py. An example hparams_prod.yaml is provided for using covers80 for testing purposes. Launch training with:
-
-`python -m tools.train_prod training/covers80/ --runid='test of production training'`
-
-TensorBoard will show each fold as a separate run, but within a continuous progression of epochs.
-
 ## Evaluation
 
 This script evaluates your trained model by providing mAP and MR1 metrics and an optional t-SNE clustering plot (compare Fig. 3 in the CoverHunter paper).
@@ -156,6 +146,20 @@ The optional `dist_name` argument is a path where you want to save the distance 
 
 #### marks
 The default value for the optional `marks` argument is 'markers', which makes the output for `plot_name` differentiate works by using using standard matplotlib markers in various colors and shapes. The alternative value is 'ids' which uses the `work_id` numbers defined by extract_csi_features instead of matplotlib markers.   
+
+## Production Training
+
+Once you have tuned your data and your hyperparameters for optimal training results, you may be ready to train a model that knows *all* of your data, without reserving any data for validation and test sets. The tools/train_prod.py script uses stratified K-fold cross validation to dynamically generate validation sets from your dataset so that the model is exposed to all works and perfs equally. It concludes with one final training run on the entire dataset in which the dataset you specify in `test_path` serves as the validation dataset (for early stopping purposes). This final validation set should be entirely unseen perfs, even if some or all of the works are represented in the training data.
+
+Use the `full.txt` output from `extract_csi_features.py` for your `train_path` with `val_data_split`, `val_unseen`, `test_data_split`, and `test_data_unseen` all set to 0. Prepare the `training/covers80/hparams_prod.yaml` file following the instructions in the comment header of `train_prod.py`. An example `hparams_prod.yaml` is provided for using covers80 for testing purposes.
+
+You may need to experiment with learning rates and other hyperparameters for the somewhat different training situation of training on your full dataset if your hyperparameter tuning work used significantly smaller datasets. Also consider experimenting with the hard-coded learning-rate strategy for later folds after the first fold that is configured within `train_prod.py` in the `cross_validate()` function. Look for the comment line "# different learning-rate strategy for all folds after the first."
+
+Launch training with:
+
+`python -m tools.train_prod training/covers80/ --runid='test of production training'`
+
+TensorBoard will show each fold as a separate run, but within a continuous progression of epochs. You can safely interrupt production training for any reason and re-launching it with the same command will resume from the last fold and checkpoint that was automatically saved by this script.
 
 ## Generate reference embeddings
 
