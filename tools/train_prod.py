@@ -146,6 +146,10 @@ def cross_validate(
         log_path = os.path.join(model_dir, "logs", f"{run_id}_fold_{fold+1}")
         os.makedirs(log_path, exist_ok=True)
 
+        # Check if this is a new fold start
+        fold_start_file = os.path.join(model_dir, f"fold_{fold+1}_started.txt")
+        is_new_fold_start = not os.path.exists(fold_start_file)
+        
         # Instantiate and train a new Trainer instance for this fold
         trainer = Trainer(
             hp=hp,
@@ -160,6 +164,16 @@ def cross_validate(
         trainer.configure_optimizer()
         trainer.load_model()
         trainer.configure_scheduler()
+
+        # different learning-rate strategy for all folds after the first 
+        if fold > 0 and is_new_fold_start:
+            trainer.reset_learning_rate(new_lr=0.0002)
+            hp["lr_decay"] = 0.995
+            hp["min_lr"] = 0.00005
+            logger.info(f"Adjusted learning rate for fold {fold+1}: lr={hp['learning_rate']}, min_lr={hp['min_lr']}, decay={hp['lr_decay']}")
+        else:
+            logger.info(f"Using existing learning rate for fold {fold+1}")
+
         trainer.train(max_epochs=500)
 
         fold_results.append(
