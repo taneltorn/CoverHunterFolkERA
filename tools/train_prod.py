@@ -167,12 +167,17 @@ def cross_validate(
 
         # different learning-rate strategy for all folds after the first 
         if fold > 0 and is_new_fold_start:
-            trainer.reset_learning_rate(new_lr=0.0002)
+            new_lr=0.00024 - fold * .00002
+            trainer.reset_learning_rate(new_lr=new_lr)
             hp["lr_decay"] = 0.995
             hp["min_lr"] = 0.00005
-            logger.info(f"Adjusted learning rate for fold {fold+1}: lr={hp['learning_rate']}, min_lr={hp['min_lr']}, decay={hp['lr_decay']}")
+            logger.info(f"Adjusted learning rate for fold {fold+1}: lr={new_lr}, min_lr={hp['min_lr']}, decay={hp['lr_decay']}")
         else:
             logger.info(f"Using existing learning rate for fold {fold+1}")
+
+        # Mark this fold as started
+        with open(fold_start_file, 'w') as f:
+            f.write(f"Fold {fold+1} started")
 
         trainer.train(max_epochs=500)
 
@@ -198,6 +203,10 @@ def cross_validate(
     log_path = os.path.join(model_dir, "logs", f"{run_id}_full")
     os.makedirs(log_path, exist_ok=True)
 
+    # Check if this is a new full dataset training start
+    full_start_file = os.path.join(model_dir, "full_dataset_started.txt")
+    is_new_full_start = not os.path.exists(full_start_file)
+
     # Instantiate and train a new Trainer instance for the full dataset
     full_trainer = Trainer(
         hp=hp,
@@ -212,6 +221,21 @@ def cross_validate(
     full_trainer.configure_optimizer()
     full_trainer.load_model()
     full_trainer.configure_scheduler()
+    
+    # Adjust learning rate for full dataset training if it's a new start
+    if is_new_full_start:
+        new_lr=0.0001
+        full_trainer.reset_learning_rate(new_lr=new_lr)
+        hp["min_lr"] = 0.00005
+        logger.info(f"Adjusted learning rate for fold {fold+1}: lr={new_lr}, min_lr={hp['min_lr']}, decay={hp['lr_decay']}")
+    else:
+        logger.info("Using existing learning rate for full dataset training")
+    
+    # Mark full dataset training as started
+    with open(full_start_file, 'w') as f:
+        f.write("Full dataset training started")
+
+    
     full_trainer.train(max_epochs=500)
     fold_results.append(
         {
