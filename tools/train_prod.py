@@ -165,15 +165,15 @@ def cross_validate(
         trainer.load_model()
         trainer.configure_scheduler()
 
-        # different learning-rate strategy for all folds after the first 
+        # Use a fine-tuning learning-rate strategy for all folds after the first 
         if fold > 0 and is_new_fold_start:
-            new_lr=0.00024 - fold * .00002
+            new_lr=0.00022 - fold * .00002
             trainer.reset_learning_rate(new_lr=new_lr)
             hp["lr_decay"] = 0.995
             hp["min_lr"] = 0.00005
             logger.info(f"Adjusted learning rate for fold {fold+1}: lr={new_lr}, min_lr={hp['min_lr']}, decay={hp['lr_decay']}")
         else:
-            logger.info(f"Using existing learning rate for fold {fold+1}")
+            logger.info("Resuming learning rate")
 
         # Mark this fold as started
         with open(fold_start_file, 'w') as f:
@@ -226,10 +226,11 @@ def cross_validate(
     if is_new_full_start:
         new_lr=0.0001
         full_trainer.reset_learning_rate(new_lr=new_lr)
+        hp["lr_decay"] = 0.995
         hp["min_lr"] = 0.00005
         logger.info(f"Adjusted learning rate for fold {fold+1}: lr={new_lr}, min_lr={hp['min_lr']}, decay={hp['lr_decay']}")
     else:
-        logger.info("Using existing learning rate for full dataset training")
+        logger.info("Resuming learning rate")
     
     # Mark full dataset training as started
     with open(full_start_file, 'w') as f:
