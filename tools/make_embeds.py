@@ -12,13 +12,20 @@ Example invocation:
 Parameters
 ----------
 data_path : string
-    Relative path to the project folder containing the full.txt file that you
-    generated using tools.extract_csi_features.py and used to train your model.
+    Relative path to the project folder containing a full.txt file that
+    you generated using tools.extract_csi_features.py, for example the one 
+    you used to train your model. These will be the recordings that your
+    inference solution will "know."
     Example: "data/covers80"
     
 model_path : string
     Relative path to the project folder containing your trained model.
     Example: "training/covers80"
+    This script requires reuse of the following files that you used and
+    generated during training of your model:
+        [model_path]/config/hparams.yaml
+        [model_path]/checkpoints/...
+        
 
 Output
 ------
