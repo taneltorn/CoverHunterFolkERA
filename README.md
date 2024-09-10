@@ -6,7 +6,7 @@ See https://ar5iv.labs.arxiv.org/html/2306.09025 for the July 2023 research pape
 
 > Cover song identification (CSI) focuses on finding the same music with different versions in reference anchors given a query track. In this paper, we propose a novel system named CoverHunter that overcomes the shortcomings of existing detection schemes by exploring richer features with refined attention and alignments. [...] Experiments on several standard CSI datasets show that our method significantly improves over state-of-the-art methods [...].
 
-Our project intends to expand the utility of the CoverHunter model to address a wide range of musicological questions and needs, such as:
+The CoverHunterMPS project also has longer-term goals to expand the utility of the CoverHunter model to address a wide range of musicological questions and needs, such as:
 - Identify known repertoire items in new, unfamiliar audio (basic CSI)
 - Discover and describe how to adapt training hyperparameters for specific musical cultures.
 - Make it easy for ethnomusicologists to train this model for specific musical cultures.
@@ -182,6 +182,8 @@ Example for covers80:
 `python -m tools.identify data/covers80 training/covers80 query.wav -top=10`
 
 To interpret the output, use the data/covers80/work_id.map text file to see which `work_id` goes with which `work`. Good news: even the bare-bones demo of training from scratch on covers80 shows that CoverHunter does a good job of identifying versions (covers) of those 80 pop songs.
+
+Future goal and call for help: How do we take this command-line solution for inference and productionize it for broader use outside the context of the specific machine where this CoverHunterMPS project was installed?
 
 ## Coarse-to-Fine Alignment Training
 
