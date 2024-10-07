@@ -63,11 +63,13 @@ Follow the example of the prepared Covers80 dataset included with the original C
 4. Move all these new .wav files to a new folder called `wav_16k` in the project's `data/covers80` folder.
 5. You can delete the rest of the downloaded `covers80.tgz` contents.
 
+Background explanation: Covers80 is a small, widely used dataset of modern, Western pop music intended only for benchmarking purposes, so that the accuracy of different approaches to solving the problem of CSI can be compared against each other. It is far too small to be useful for neural-network training, but it is a rare example of a published, stable collection of audio files. This makes it easy for you to get started, so you can confirm you have a working setup of this project without having to have your own set of audio files and their metadata ready. You might even end up using Covers80 yourself as a benchmarking test to see how well your own training project handles modern, Western pop music in comparison to published Covers80 benchmarks from other CSI projects.
+
 ## Feature Extraction
 
 You must run this before proceeding to the Train step. And you can't run this without first doing the Data Preparation step above.
 
-From the project root folder, run:
+To use the Covers80 example you prepared above, next run this from the project root folder:
 
 `python3 -m tools.extract_csi_features data/covers80/`
 
@@ -75,11 +77,21 @@ See "Input and Output Files" below for more information about what happens here.
 
 ## Training
 
-CoverHunter includes a prepared configuration to run a training session on the Covers80 dataset located in the 'training/covers80' subfolder of the project. *Important note:* the default configuration that the CoverHunter authors provided was a nonsense or toy configuration that only demonstrated that you have a working project and environment. It used the same dataset for both training and validation, so by definition it rapidly converged and overfit.
+Training is the core of the work that your *computer* will do to learn how to differentiate the various works and performances of music you give it. When successfully done, it will have constructed a general model which only needs to be trained once for your targeted musical culture. It will then be able to distinguish this culture's musical works from each other even when it never encountered those particular works during training. See the "Reference embeddings" section below regarding what life will look like once you reach that end goal of training.
 
-This fork added a train/validate/test data-splitting function in the extract_csi_features tool, along with corresponding new data-preparation hyperparameters.
+Before you get to that ideal future state, the core of the work that *you* will do will be preparing your training data and discovering the optimal training hyperparameters. See the "Training Hyperparameters" section below. 
 
-Specify the path where the training hyperparameters are available (in this case using the provided example for covers80) and where the model output will go, as the one required command-line parameter:
+The training script's output consists of checkpoint files and embedding vectors, described below in the "Training Checkpoint Output" section.
+
+Note: Don't use the `torchrun` launch command offered in original CoverHunter. At least in a single-computer Apple Silicon context, it is not only irrelevant, it actually slows down performance. In my tests on an MPS computer, `torchrun` slowed down tools.train performance by about 20%.
+
+### Training example using Covers80
+
+The original CoverHunter project included a prepared configuration to run a training session on the Covers80 dataset, and this is now located in the 'training/covers80' subfolder of this project. See the "Background explanation" above in the Data Preparation section about what to expect from using Covers80 for training. In particular, their test configuration used the same dataset for both training and validation, so results looked fabulously accurate and were essentially meaningless except that you could confirm that your setup is working. This fork added a train/validate/test data-splitting function in the extract_csi_features tool, along with corresponding new data-preparation hyperparameters, so you can choose to try more realistic training - in which the model validates its learning against data it has not seen before - even if you only have Covers80 data to play with.
+
+Optionally edit the training hyperparameters in the `hparams.yaml` configuration file in the folder `training/covers80/config` before starting a training run. For example, if you run into memory limits, start with decreasing the batch size from 64 to 32.
+
+The one required command-line parameter for the training script is to specify the path where the training hyperparameters are available and where the model output will go, like this:
 
 `python -m tools.train training/covers80/`
 
@@ -91,19 +103,11 @@ To see the TensorBoard live visualization of the model's progress during trainin
 
 `tensorboard --logdir=training/covers80/logs`
 
-Optionally edit the `hparams.yaml` configuration file in the folder `training/covers80/config` before starting a training run. If you run into memory limits, start with decreasing the batch size from 64 to 32.
-
-This fork added the hyperparameter `early_stopping_patience` to support the added feature of early stopping (original CoverHunter defaulted to 10,000 epochs!).
-
-Note: Don't use the `torchrun` launch command offered in original CoverHunter. In the single-computer Apple Silicon context, it is not only irrelevant, it actually slows down performance. In my tests it slowed down tools.train performance by about 20%.
-
-The training script's output consists of checkpoint files and embedding vectors, described below in the "Training Checkpoint Output" section.
-
 ## Hyperparameter Tuning
 
-After you use the tools.train script to confirm your data is usable with CoverHunterMPS, and perhaps to do some basic experimentation, you may be interested in trying a wide range of training hyperparameters to discover the optimal settings for your data. You should be able to use your knowledge of its unique musical characteristics to make some educated guesses on how to diverge from the default CoverHunter hyperparameters, which are optimized for Western pop music. 
+After you use the tools.train script to confirm your data is usable with CoverHunterMPS, and perhaps to do some basic experimentation, you may be motivated to experiment with a wide range of training hyperparameters to discover the optimal settings for your data that will lead you to better training metrics. You should be able to use your knowledge of its unique musical characteristics to make some educated guesses on how to diverge from the default CoverHunter hyperparameters, which were optimized for Western pop music.
 
-Step 1: Study the explanations of the training hyperparameters below to make some hypotheses about alternative hyperparameter values to try with your data. 
+Step 1: Study the explanations in the Training Hyperparameters section below to make some hypotheses about alternative hyperparameter values to try with your data. 
 
 Step 2: Add your hypotheses as specific hyperparameter values to try in the hp_tuning.yaml file in the model's training folder, following the comments and examples there. 
 
@@ -117,7 +121,7 @@ If you are running on a CUDA platform, the `make_deterministic()` function in to
 
 ## Evaluation
 
-This script evaluates your trained model by providing mAP and MR1 metrics and an optional t-SNE clustering plot (compare Fig. 3 in the CoverHunter paper).
+This script evaluates your trained model by providing standard mAP (mean average precision) and MR1 (mean rank one) training metrics, plus an optional t-SNE clustering plot (compare Fig. 3 in the CoverHunter paper).
 
 1. Have a pre-trained CoverHunter model's output checkpoint files available. You only need your best set (typically your highest-numbered one). If you use original CoverHunter's pre-trained model from https://drive.google.com/file/d/1rDZ9CDInpxQUvXRLv87mr-hfDfnV7Y-j/view), unzip it, and move it to a folder that you specify in step 3 below.
 2. Run your query data through `extract_csi_features.py`. In the `hparams.yaml` file for the feature extraction, turn off all augmentation. See `data/covers80_testset/hparams.yaml` for an example configuration to treat covers80 as the query data:<br> `python3 -m tools.extract_csi_features data/covers80_testset`<br>
