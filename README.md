@@ -67,13 +67,12 @@ Background explanation: Covers80 is a small, widely used dataset of modern, West
 
 ## Feature Extraction
 
-You must run this before proceeding to the Train step. And you can't run this without first doing the Data Preparation step above.
+You must run this before proceeding to the Train step. And you can't run this without first doing the Data Preparation step above. See "Input and Output Files" below for more information about what happens here. In summary, this step generates some data augmentation - artificial variants of the real music you provide that help the neural network generalize across the various ways that humans might perform any musical work -, converts all of that audio (original and artificial) to CQT arrays (basically a type of spectrogram), and does some plain old data wrangling to prepare the metadata that the training script will need. 
 
 To use the Covers80 example you prepared above, next run this from the project root folder:
 
 `python3 -m tools.extract_csi_features data/covers80/`
 
-See "Input and Output Files" below for more information about what happens here.
 
 ## Training
 
