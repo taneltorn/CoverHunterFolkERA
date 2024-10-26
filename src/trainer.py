@@ -21,7 +21,7 @@ torch.backends.cudnn.benchmark = True
 # test_set_list stores whichever members of all_test_set_list are listed in hparams.yaml
 # default CoverHunter only included a configuration for "covers80"
 # but also listed "shs_test", "dacaos" (presumably a typo for da-tacos), "hymf_20", "hymf_100"
-ALL_TEST_SETS = ["covers80", "reels50easy", "reels50hard"]
+ALL_TEST_SETS = ["covers80", "reels50easy", "reels50hard", "reels50transpose"]
 
 
 class Trainer:
@@ -71,6 +71,19 @@ class Trainer:
 
         self.training_data = []
         infer_len = hp["chunk_frame"][0] * hp["mean_size"]
+
+        match device:
+            case "mps":
+                multiprocessing_context = (
+                    "fork"  # Better performance and memory management on MPS
+                )
+            case "cuda":
+                multiprocessing_context = "spawn"  # Safer for CUDA contexts
+            case _:
+                multiprocessing_context = (
+                    None  # Let PyTorch use system default
+                )
+
         for chunk_len in hp["chunk_frame"]:
             self.training_data.append(
                 DataLoader(
@@ -94,6 +107,7 @@ class Trainer:
                     batch_size=hp["batch_size"],
                     pin_memory=True,
                     drop_last=True,
+                    multiprocessing_context=multiprocessing_context,
                 )
             )
 
@@ -124,6 +138,7 @@ class Trainer:
                 pin_memory=True,
                 collate_fn=None,
                 drop_last=False,
+                multiprocessing_context=multiprocessing_context,
             )
 
         self.test_data = None
@@ -149,6 +164,7 @@ class Trainer:
                 pin_memory=True,
                 collate_fn=None,
                 drop_last=False,
+                multiprocessing_context=multiprocessing_context,
             )
 
         self.epoch = -1
@@ -193,7 +209,7 @@ class Trainer:
 
     def reset_learning_rate(self, new_lr=None):
         """
-        Utility to allow custom control of learning rate during training, 
+        Utility to allow custom control of learning rate during training,
         after loading a model from a checkpoint that would otherwise inherit
         the learning rate from the previous epoch via the checkpoint.
 
@@ -212,7 +228,7 @@ class Trainer:
         for param_group in self.optimizer.param_groups:
             param_group["lr"] = new_lr
         # Recreate the scheduler with the new learning rate
-        self.configure_scheduler()  
+        self.configure_scheduler()
 
     def save_model(self):
         """
