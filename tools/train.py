@@ -4,6 +4,7 @@ import argparse
 import os
 import sys
 import torch
+import torch.multiprocessing as mp
 
 from src.trainer import Trainer
 
@@ -50,6 +51,7 @@ def _main() -> None:
 
     logger = create_logger()
     hp = load_hparams(os.path.join(model_dir, "config/hparams.yaml"))
+
     match hp["device"]:  # noqa requires python 3.10
         case "mps":
             if not torch.backends.mps.is_available():
@@ -60,6 +62,9 @@ def _main() -> None:
                 )
                 sys.exit()
             device = torch.device("mps")
+            # set multiprocessing method because 'fork'
+            # has significant performance boost on MPS vs. default 'spawn'
+            mp.set_start_method("fork")
         case "cuda":
             if not torch.cuda.is_available():
                 logger.error(
@@ -111,7 +116,8 @@ def _main() -> None:
     t.configure_optimizer()
     t.load_model()
     t.configure_scheduler()
-    t.train(max_epochs=100000)
+    t.reset_learning_rate()
+    t.train(max_epochs=100)
 
 
 if __name__ == "__main__":
