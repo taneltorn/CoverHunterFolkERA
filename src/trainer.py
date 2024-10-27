@@ -72,18 +72,6 @@ class Trainer:
         self.training_data = []
         infer_len = hp["chunk_frame"][0] * hp["mean_size"]
 
-        match device:
-            case "mps":
-                multiprocessing_context = (
-                    "fork"  # Better performance and memory management on MPS
-                )
-            case "cuda":
-                multiprocessing_context = "spawn"  # Safer for CUDA contexts
-            case _:
-                multiprocessing_context = (
-                    None  # Let PyTorch use system default
-                )
-
         for chunk_len in hp["chunk_frame"]:
             self.training_data.append(
                 DataLoader(
@@ -107,7 +95,6 @@ class Trainer:
                     batch_size=hp["batch_size"],
                     pin_memory=True,
                     drop_last=True,
-                    multiprocessing_context=multiprocessing_context,
                 )
             )
 
@@ -138,7 +125,6 @@ class Trainer:
                 pin_memory=True,
                 collate_fn=None,
                 drop_last=False,
-                multiprocessing_context=multiprocessing_context,
             )
 
         self.test_data = None
@@ -164,7 +150,6 @@ class Trainer:
                 pin_memory=True,
                 collate_fn=None,
                 drop_last=False,
-                multiprocessing_context=multiprocessing_context,
             )
 
         self.epoch = -1

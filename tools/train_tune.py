@@ -6,11 +6,13 @@ optimal hyperparameter settings for a given dataset, aka "hyperparameter tuning.
 
 """
 
-import glob, os, sys, shutil, time
+import glob, os, sys
+import shutil, time, gc
 import argparse
 from datetime import date
 import pprint
 import torch
+import torch.multiprocessing as mp
 import numpy as np
 import random
 from collections import defaultdict
@@ -49,6 +51,19 @@ def run_experiment(
 ):
     hp["seed"] = seed
     make_deterministic(seed)
+    # set multiprocessing method because 'fork'
+    # has significant performance boost on MPS vs. default 'spawn'
+    if torch.backends.mps.is_available():
+        try:
+            mp.set_start_method("fork")
+        except RuntimeError:
+            pass
+    else:
+        try:
+            mp.set_start_method("spawn")
+        except RuntimeError:
+            pass
+
     log_path = os.path.join(
         model_dir,
         "logs",
@@ -83,8 +98,10 @@ def run_experiment(
     t.train(max_epochs=hp["max_epochs"])
     # ensure log files are saved before retrieving metrics
     t.summary_writer.close()
+
     del t.model
     del t
+    gc.collect()
     print(f"Completed experiment with seed {seed}")
     time.sleep(1)  # give OS time to save log file
     return log_path
