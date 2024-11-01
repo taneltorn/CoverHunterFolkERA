@@ -373,7 +373,7 @@ class Trainer:
             ):
                 self.logger.info(
                     "Early stopping at epoch %d due to lack of avg_foc_loss"
-                    "(focal aka cross-entropy loss) improvement.",
+                    "(focal loss improvement)",
                     self.epoch,
                 )
                 return
