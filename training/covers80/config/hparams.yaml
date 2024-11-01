@@ -84,7 +84,7 @@ encoder:  # model-encode
 pool_type: "attention"
 
 # loss parameters
-ce:  # cross-entropy
+foc:  # focal
   output_dims: 30000
   weight: 1.0
   gamma: 2

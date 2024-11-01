@@ -33,17 +33,30 @@ creates a subfolder "prod_checkpoints" containing checkpoint files.
 
 """
 
+# Optionally specify in MAP_TESTSETS which testsets to use to define peak mAP.
+# Add or remove from this list based on your relevant testsets.
+# This allows train_prod to optimize quality of training by
+# selecting the best epoch to return to before starting the next fold.
+# Setting testsets here does mean that checkpoint data for epochs after
+# the best epoch in each fold will be deleted.
+
+MAP_TESTSETS = ["reels50hard", "reels50easy", "reels50transpose"]
+
 import argparse
 import os
 import sys
 import json
 import numpy as np
 import torch
+import torch.multiprocessing as mp
 from sklearn.model_selection import StratifiedKFold
 from src.trainer import Trainer
 from src.model import Model
 from src.utils import create_logger, get_hparams_as_string, load_hparams
 from src.dataset import AudioFeatDataset, read_lines
+from tensorboard.backend.event_processing.event_accumulator import (
+    EventAccumulator,
+)
 
 
 def extract_labels(dataset):
@@ -68,6 +81,94 @@ def save_fold_indices(fold_indices, filepath):
 def load_fold_indices(filepath):
     with open(filepath, "r") as f:
         return json.load(f)
+
+
+def get_map_from_logs(log_dir, testset_name, epoch):
+    """
+    Get mAP value for specific testset and epoch from tensorboard logs
+    """
+    event_files = sorted(
+        [f for f in os.listdir(log_dir) if "events.out.tfevents" in f],
+        key=lambda x: os.path.getctime(os.path.join(log_dir, x)),
+    )
+    if not event_files:
+        return None
+
+    event_file = os.path.join(log_dir, event_files[-1])
+    ea = EventAccumulator(event_file)
+    ea.Reload()
+
+    try:
+        map_values = ea.Scalars(f"mAP/{testset_name}")
+        for event in map_values:
+            if event.step == epoch:
+                return event.value
+    except KeyError:
+        return None
+    return None
+
+
+def get_average_map_for_epoch(log_dir, testsets, epoch):
+    """
+    Calculate average mAP across all specified testsets for a given epoch
+    """
+    maps = []
+    for testset in testsets:
+        map_value = get_map_from_logs(log_dir, testset, epoch)
+        if map_value is not None:
+            maps.append(map_value)
+
+    return np.mean(maps) if maps else None
+
+
+def find_peak_map_epoch(log_dir, testsets):
+    """
+    Find the epoch with highest average mAP across specified testsets
+    """
+    event_files = sorted(
+        [f for f in os.listdir(log_dir) if "events.out.tfevents" in f],
+        key=lambda x: os.path.getctime(os.path.join(log_dir, x)),
+    )
+    if not event_files:
+        return None
+
+    event_file = os.path.join(log_dir, event_files[-1])
+    ea = EventAccumulator(event_file)
+    ea.Reload()
+
+    # Get all epochs where we have mAP values
+    epochs = set()
+    for testset in testsets:
+        try:
+            events = ea.Scalars(f"mAP/{testset}")
+            epochs.update(event.step for event in events)
+        except KeyError:
+            continue
+
+    if not epochs:
+        return None
+
+    # Find epoch with highest average mAP
+    best_epoch = None
+    best_map = -float("inf")
+    for epoch in epochs:
+        avg_map = get_average_map_for_epoch(log_dir, testsets, epoch)
+        if avg_map is not None and avg_map > best_map:
+            best_map = avg_map
+            best_epoch = epoch
+
+    return best_epoch
+
+
+def cleanup_checkpoints(checkpoint_dir, best_epoch):
+    """
+    Remove all checkpoints after the best epoch
+    """
+    for filename in os.listdir(checkpoint_dir):
+        if filename.startswith(("g_", "do_")):
+            epoch = int(filename.split("_")[1])
+            if epoch > best_epoch:
+                os.remove(os.path.join(checkpoint_dir, filename))
 
 
 def cross_validate(
@@ -123,9 +224,16 @@ def cross_validate(
     original_train_path = hp["train_path"]
     original_test_path = hp.pop("test_path")  # save for final full dataset
 
+    # Identify available testsets from those specified in MAP_TESTSETS
+    available_testsets = [t for t in MAP_TESTSETS if t in hp]
+    if not available_testsets:
+        logger.warning(
+            "No specified testsets found in hyperparameters. Using validation loss for peak detection."
+        )
+
     for fold, (train_idx, val_idx) in enumerate(fold_indices):
         if fold <= last_completed_fold:
-           continue
+            continue
 
         logger.info(f"Training on fold {fold+1}/{n_splits}")
 
@@ -149,7 +257,7 @@ def cross_validate(
         # Check if this is a new fold start
         fold_start_file = os.path.join(model_dir, f"fold_{fold+1}_started.txt")
         is_new_fold_start = not os.path.exists(fold_start_file)
-        
+
         # Instantiate and train a new Trainer instance for this fold
         trainer = Trainer(
             hp=hp,
@@ -165,21 +273,31 @@ def cross_validate(
         trainer.load_model()
         trainer.configure_scheduler()
 
-        # Use a fine-tuning learning-rate strategy for all folds after the first 
+        # different learning-rate strategy for all folds after the first
         if fold > 0 and is_new_fold_start:
-            new_lr=0.00022 - fold * .00002
+            new_lr = 0.00022 - fold * 0.00002
             trainer.reset_learning_rate(new_lr=new_lr)
             hp["lr_decay"] = 0.995
             hp["min_lr"] = 0.00005
-            logger.info(f"Adjusted learning rate for fold {fold+1}: lr={new_lr}, min_lr={hp['min_lr']}, decay={hp['lr_decay']}")
+            logger.info(
+                f"Adjusted learning rate for fold {fold+1}: lr={new_lr}, min_lr={hp['min_lr']}, decay={hp['lr_decay']}"
+            )
         else:
-            logger.info("Resuming learning rate")
+            logger.info(f"Resuming learning rate for fold {fold+1}")
 
         # Mark this fold as started
-        with open(fold_start_file, 'w') as f:
+        with open(fold_start_file, "w") as f:
             f.write(f"Fold {fold+1} started")
 
         trainer.train(max_epochs=500)
+
+        # Find peak mAP epoch achieved so far
+        best_epoch = find_peak_map_epoch(log_path, available_testsets)
+        if best_epoch is not None:
+            logger.info(f"Peak average mAP achieved at epoch {best_epoch}")
+            cleanup_checkpoints(checkpoint_dir, best_epoch)
+        else:
+            logger.warning("Could not determine peak mAP epoch")
 
         fold_results.append(
             {
@@ -187,9 +305,9 @@ def cross_validate(
                 "best_validation_loss": trainer.best_validation_loss,
             }
         )
-        
+
         # Save the last completed fold
-        with open(active_fold_file, 'w') as f:
+        with open(active_fold_file, "w") as f:
             f.write(str(fold))
 
     logger.info("Cross-validation completed")
@@ -221,22 +339,23 @@ def cross_validate(
     full_trainer.configure_optimizer()
     full_trainer.load_model()
     full_trainer.configure_scheduler()
-    
+
     # Adjust learning rate for full dataset training if it's a new start
     if is_new_full_start:
-        new_lr=0.0001
-        full_trainer.reset_learning_rate(new_lr=new_lr)
+        new_lr = 0.0001
         hp["lr_decay"] = 0.995
         hp["min_lr"] = 0.00005
-        logger.info(f"Adjusted learning rate for fold {fold+1}: lr={new_lr}, min_lr={hp['min_lr']}, decay={hp['lr_decay']}")
+        logger.info(
+            f"Adjusted learning rate for fold {fold+1}: lr={new_lr}, min_lr={hp['min_lr']}, decay={hp['lr_decay']}"
+        )
+        full_trainer.reset_learning_rate(new_lr=new_lr)
     else:
-        logger.info("Resuming learning rate")
-    
+        logger.info("Resuming learning rate for full dataset training")
+
     # Mark full dataset training as started
-    with open(full_start_file, 'w') as f:
+    with open(full_start_file, "w") as f:
         f.write("Full dataset training started")
 
-    
     full_trainer.train(max_epochs=500)
     fold_results.append(
         {
@@ -291,6 +410,9 @@ def _main() -> None:
                 )
                 sys.exit()
             device = torch.device("mps")
+            # set multiprocessing method because 'fork'
+            # has significant performance boost on MPS vs. default 'spawn'
+            mp.set_start_method("fork")
         case "cuda":
             if not torch.cuda.is_available():
                 logger.error(
@@ -299,6 +421,8 @@ def _main() -> None:
                 )
                 sys.exit()
             device = torch.device("cuda")
+            mp.set_start_method("spawn")
+
         case _:
             logger.error(
                 "You set device: %s"
@@ -306,6 +430,18 @@ def _main() -> None:
                 hp["device"],
             )
             sys.exit()
+
+    # Validate testset specifications
+    available_testsets = [t for t in MAP_TESTSETS if t in hp]
+    if not available_testsets:
+        logger.warning(
+            "None of the specified MAP_TESTSETS found in hyperparameters. "
+            "The last checkpoint after early stopping will be used instead."
+        )
+    else:
+        logger.info(
+            f"Using testsets for peak mAP tracking: {available_testsets}"
+        )
 
     logger.info("%s", get_hparams_as_string(hp))
 

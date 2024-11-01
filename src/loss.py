@@ -104,13 +104,13 @@ class FocalLoss(nn.Module):
         """
         b = y_pred.size(0)
         y_pred_softmax = torch.nn.Softmax(dim=1)(y_pred) + self._eps
-        ce = -torch.log(y_pred_softmax)  # ce refers to cross entropy?
+        foc = -torch.log(y_pred_softmax) 
         # =============================================================================
-        # original CoverHunter code threw error at ce.gather that it expected index to be of type int64
-        #  force to meet ce.gather's expectations of int64
+        # original CoverHunter code threw error at foc.gather that it expected index to be of type int64
+        #  force to meet foc.gather's expectations of int64
         y_true = torch.as_tensor(y_true, dtype=torch.int64, device=self.device)
 
-        ce = ce.gather(1, y_true.view(-1, 1))
+        foc = foc.gather(1, y_true.view(-1, 1))
 
         y_pred_softmax = y_pred_softmax.gather(1, y_true.view(-1, 1))
         weight = torch.pow(torch.sub(1.0, y_pred_softmax), self._gamma)
@@ -121,7 +121,7 @@ class FocalLoss(nn.Module):
             alpha = alpha.unsqueeze(1)
             alpha = alpha / torch.sum(alpha) * b
             weight = torch.mul(alpha, weight)
-        fl_loss = torch.mul(weight, ce).squeeze(1)
+        fl_loss = torch.mul(weight, foc).squeeze(1)
         return self._reduce(fl_loss)
 
     def _reduce(self, x):

@@ -291,9 +291,9 @@ class Trainer:
             sw=self.summary_writer,
             logger=self.logger,
         )
-        validation_loss = res["ce_loss"] / res["count"]
+        validation_loss = res["foc_loss"] / res["count"]
         self.logger.info(
-            "count:%d, avg_ce_loss:%f", res["count"], validation_loss
+            "count:%d, avg_foc_loss:%f", res["count"], validation_loss
         )
 
         self.logger.info(
@@ -372,7 +372,7 @@ class Trainer:
                 "early_stopping_patience", 10000
             ):
                 self.logger.info(
-                    "Early stopping at epoch %d due to lack of avg_ce_loss"
+                    "Early stopping at epoch %d due to lack of avg_foc_loss"
                     "(focal aka cross-entropy loss) improvement.",
                     self.epoch,
                 )
@@ -518,7 +518,7 @@ def validate(
                     "step-{} {} {} {} {}".format(
                         j,
                         perf[0],
-                        losses["ce_loss"].item(),
+                        losses["foc_loss"].item(),
                         anchor[0][0][0],
                         label[0],
                     ),

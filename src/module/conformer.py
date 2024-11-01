@@ -1065,7 +1065,7 @@ class ConformerEncoderLayer(torch.nn.Module):
             torch.Tensor: Mask tensor (#batch, time, time).
             torch.Tensor: att_cache tensor,
                 (#batch=1, head, cache_t1 + time, d_k * 2).
-            torch.Tensor: cnn_cahce tensor (#batch, size, cache_t2).
+            torch.Tensor: cnn_cache tensor (#batch, size, cache_t2).
         """
 
         # whether to use macaron style

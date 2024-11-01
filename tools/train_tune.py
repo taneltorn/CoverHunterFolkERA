@@ -293,10 +293,10 @@ if __name__ == "__main__":
     hp["max_epochs"] = experiments.get("max_epochs", 15)
     results = defaultdict(list)
     for loss in losses:
-        hp["ce"] = ce = loss["ce"]
-        ce_dims = ce["output_dims"]
-        ce_weight = ce["weight"]
-        ce_gamma = ce["gamma"]
+        hp["foc"] = foc = loss["foc"]
+        foc_dims = foc["output_dims"]
+        foc_weight = foc["weight"]
+        foc_gamma = foc["gamma"]
         hp["triplet"] = triplet = loss["triplet"]
         triplet_margin = triplet["margin"]
         triplet_weight = triplet["weight"]
@@ -305,7 +305,7 @@ if __name__ == "__main__":
 
         for seed in seeds:
             hp_summary = (
-                f"CE_dims{ce_dims}_wt{ce_weight}_gamma{ce_gamma}_"
+                f"FOC_dims{foc_dims}_wt{foc_weight}_gamma{foc_gamma}_"
                 + f"TRIP_marg{triplet_margin}_wt{triplet_weight}_"
                 + f"CNTR_wt{center_weight}"
             )

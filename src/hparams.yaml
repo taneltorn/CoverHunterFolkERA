@@ -8,7 +8,7 @@ encoder:  # model-encode
 
 pool_type: "attention"
 
-ce:
+foc:
   output_dims: 30000
   weight: 1.0
   gamma: 2

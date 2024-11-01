@@ -51,6 +51,7 @@ spec_augmentation:
   random_erase:
     prob: 0.5
     erase_num: 4
+    region_size: [.25,.1]
   roll_pitch:
     prob: 0.5
     shift_num: 12
@@ -82,7 +83,7 @@ encoder:  # model-encode
 pool_type: "attention"
 
 # loss parameters
-ce:  # cross-entropy
+foc:  # focal
   output_dims: 30000
   weight: 1.0
   gamma: 2

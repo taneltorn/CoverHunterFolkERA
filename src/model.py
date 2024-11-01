@@ -224,29 +224,20 @@ class Model(torch.nn.Module):
         self._pool_layer = AttentiveStatisticsPooling(
             hp["embed_dim"], output_channels=hp["embed_dim"],
         )
-        self._ce_layer = torch.nn.Linear(
-            hp["embed_dim"], hp["ce"]["output_dims"], bias=False,
+        self._foc_layer = torch.nn.Linear(
+            hp["embed_dim"], hp["foc"]["output_dims"], bias=False,
         )
 
-        # Loss. CoverHunter doesn't use alpha
-        if "alpha" in hp["ce"]:
-            alpha = np.load(hp["ce"]["alpha"])
-            alpha = 1.0 / (alpha + 1)
-            alpha = alpha / np.sum(alpha)
-            logging.warning(f"Using alpha of {len(alpha)}")
-        else:
-            alpha = None
-            logging.warning("Not using alpha.")
-
-        self._ce_loss = FocalLoss(
-            alpha=alpha,
-            gamma=self._hp["ce"]["gamma"],
-            num_cls=self._hp["ce"]["output_dims"],
+        # Loss
+        self._foc_loss = FocalLoss(
+            alpha=None,
+            gamma=self._hp["foc"]["gamma"],
+            num_cls=self._hp["foc"]["output_dims"],
             device=hp["device"],
         )
         self._triplet_loss = HardTripletLoss(margin=hp["triplet"]["margin"])
         self._center_loss = CenterLoss(
-            num_classes=self._hp["ce"]["output_dims"],
+            num_classes=self._hp["foc"]["output_dims"],
             feat_dim=hp["embed_dim"],
             device=hp["device"],
         )
@@ -327,17 +318,16 @@ class Model(torch.nn.Module):
     def compute_loss(
         self, anchor: torch.Tensor, label: torch.Tensor,
     ) -> Tuple[torch.Tensor, Dict]:
-        """Compute ce and triplet loss."""
+        """Compute focal and triplet loss."""
         f_t = self.forward(anchor)
         # print("f_t", f_t)
 
-        # FocalLoss (aka "ce"). Where ce refers to cross entropy?
+        # FocalLoss
         f_i = self._bottleneck(f_t)
-        ce_pred = self._ce_layer(f_i)
-        # print("ce_pred", ce_pred)
-        ce_loss = self._ce_loss(ce_pred, label)
-        loss = ce_loss * self._hp["ce"]["weight"]
-        loss_dict = {"ce_loss": ce_loss}
+        foc_pred = self._foc_layer(f_i)
+        foc_loss = self._foc_loss(foc_pred, label)
+        loss = foc_loss * self._hp["foc"]["weight"]
+        loss_dict = {"foc_loss": foc_loss}
 
         tri_weight = self._hp["triplet"]["weight"]
         if tri_weight > 0.01:
@@ -356,16 +346,12 @@ class Model(torch.nn.Module):
     def inference(self, feat: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         with torch.no_grad():
             embed = self.forward(feat)
-            embed_ce = self._ce_layer(embed)
-        return embed, embed_ce
+            embed_foc = self._foc_layer(embed)
+        return embed, embed_foc
 
     # @torch.jit.export
     def get_embed_length(self) -> int:
         return self._hp["embed_dim"]
-
-    # Unused
-    #def get_ce_embed_length(self) -> int:
-    #    return self._hp["ce"]["output_dims"]
 
     def model_size(self) -> int:
         return sum(p.numel() for p in self.parameters())

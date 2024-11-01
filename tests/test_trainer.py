@@ -47,7 +47,7 @@ class TestTrainer(unittest.TestCase):
                 "num_blocks": 6,
                 "attention_dim": 256,
             },
-            "ce": {
+            "foc": {
                 "output_dims": 3000,
                 "gamma": 2,
                 "weight": 1.0,
