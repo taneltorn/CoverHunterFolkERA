@@ -224,7 +224,10 @@ class Model(torch.nn.Module):
         self._pool_layer = AttentiveStatisticsPooling(
             hp["embed_dim"], output_channels=hp["embed_dim"],
         )
-        self._foc_layer = torch.nn.Linear(
+        # _ce_layer should be _foc_layer but retaining historical name to avoid
+        # breaking compatibility with legacy checkpoint files such as pre-trained models
+        # see CoverHunter paper about their switch from cross-entropy to focal loss
+        self._ce_layer = torch.nn.Linear(
             hp["embed_dim"], hp["foc"]["output_dims"], bias=False,
         )
 
@@ -324,7 +327,7 @@ class Model(torch.nn.Module):
 
         # FocalLoss
         f_i = self._bottleneck(f_t)
-        foc_pred = self._foc_layer(f_i)
+        foc_pred = self._ce_layer(f_i)
         foc_loss = self._foc_loss(foc_pred, label)
         loss = foc_loss * self._hp["foc"]["weight"]
         loss_dict = {"foc_loss": foc_loss}
@@ -346,7 +349,7 @@ class Model(torch.nn.Module):
     def inference(self, feat: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         with torch.no_grad():
             embed = self.forward(feat)
-            embed_foc = self._foc_layer(embed)
+            embed_foc = self._ce_layer(embed)
         return embed, embed_foc
 
     # @torch.jit.export
