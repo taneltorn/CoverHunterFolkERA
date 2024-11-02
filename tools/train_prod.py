@@ -31,19 +31,21 @@ python -m tools.train_prod training/yourdata
 The required model_dir parameter is the relative path where this script
 creates a subfolder "prod_checkpoints" containing checkpoint files.
 
+Optionally specify in MAP_TESTSETS which testsets to use to define peak mAP.
+Add or remove from this list based on your relevant testsets.
+This allows train_prod to optimize quality of training by
+selecting the best epoch (defined by recent peak mAP in your selected testsets)
+to return to before starting the next fold. Note: Setting testsets here does
+mean that checkpoint data for epochs after the best epoch in each fold
+will be deleted.
+
 """
 
-# Optionally specify in MAP_TESTSETS which testsets to use to define peak mAP.
-# Add or remove from this list based on your relevant testsets.
-# This allows train_prod to optimize quality of training by
-# selecting the best epoch to return to before starting the next fold.
-# Setting testsets here does mean that checkpoint data for epochs after
-# the best epoch in each fold will be deleted.
-
-MAP_TESTSETS = ["reels50hard", "reels50easy", "reels50transpose"]
+MAP_TESTSETS = ["reels50easy"]
 
 import argparse
 import os
+import time
 import sys
 import json
 import numpy as np
@@ -85,7 +87,7 @@ def load_fold_indices(filepath):
 
 def get_map_from_logs(log_dir, testset_name, epoch):
     """
-    Get mAP value for specific testset and epoch from tensorboard logs
+    Get mAP value for specific testset and epoch, allowing for small timing variations
     """
     event_files = sorted(
         [f for f in os.listdir(log_dir) if "events.out.tfevents" in f],
@@ -100,9 +102,13 @@ def get_map_from_logs(log_dir, testset_name, epoch):
 
     try:
         map_values = ea.Scalars(f"mAP/{testset_name}")
-        for event in map_values:
-            if event.step == epoch:
-                return event.value
+        # Find the closest event to our target epoch
+        closest_event = min(
+            map_values, key=lambda x: abs(x.step - epoch), default=None
+        )
+        # Allow events within 1 step of target epoch
+        if closest_event and abs(closest_event.step - epoch) <= 1:
+            return closest_event.value
     except KeyError:
         return None
     return None
@@ -121,9 +127,17 @@ def get_average_map_for_epoch(log_dir, testsets, epoch):
     return np.mean(maps) if maps else None
 
 
-def find_peak_map_epoch(log_dir, testsets):
+def find_peak_map_epoch(
+    log_dir, testsets, current_epoch, early_stopping_window
+):
     """
-    Find the epoch with highest average mAP across specified testsets
+    Find the epoch with highest average mAP within the early stopping window
+
+    Args:
+        log_dir: Directory containing tensorboard logs
+        testsets: List of testset names to check
+        current_epoch: The epoch at which training stopped
+        early_stopping_window: Number of epochs to look back
     """
     event_files = sorted(
         [f for f in os.listdir(log_dir) if "events.out.tfevents" in f],
@@ -136,22 +150,29 @@ def find_peak_map_epoch(log_dir, testsets):
     ea = EventAccumulator(event_file)
     ea.Reload()
 
-    # Get all epochs where we have mAP values
-    epochs = set()
+    # Calculate the earliest epoch to consider
+    earliest_epoch = max(0, current_epoch - early_stopping_window)
+
+    # Get all epochs where we have mAP values, filtered by window
+    epochs_to_check = set()
     for testset in testsets:
         try:
             events = ea.Scalars(f"mAP/{testset}")
-            epochs.update(event.step for event in events)
+            epochs_to_check.update(
+                event.step
+                for event in events
+                if earliest_epoch <= event.step <= current_epoch
+            )
         except KeyError:
             continue
 
-    if not epochs:
+    if not epochs_to_check:
         return None
 
-    # Find epoch with highest average mAP
+    # Find epoch with highest average mAP within window
     best_epoch = None
     best_map = -float("inf")
-    for epoch in epochs:
+    for epoch in epochs_to_check:
         avg_map = get_average_map_for_epoch(log_dir, testsets, epoch)
         if avg_map is not None and avg_map > best_map:
             best_map = avg_map
@@ -292,7 +313,16 @@ def cross_validate(
         trainer.train(max_epochs=500)
 
         # Find peak mAP epoch achieved so far
-        best_epoch = find_peak_map_epoch(log_path, available_testsets)
+        # After trainer.train() completes for each fold:
+        trainer.summary_writer.flush()
+        trainer.summary_writer.close()
+        time.sleep(1)  # give OS time to save log file
+        best_epoch = find_peak_map_epoch(
+            log_path,
+            available_testsets,
+            trainer.epoch,  # Current epoch when training stopped
+            hp["early_stopping_patience"] + 1,  # Look back this many epochs
+        )
         if best_epoch is not None:
             logger.info(f"Peak average mAP achieved at epoch {best_epoch}")
             cleanup_checkpoints(checkpoint_dir, best_epoch)
