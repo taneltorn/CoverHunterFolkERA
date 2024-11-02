@@ -4,6 +4,7 @@ import logging
 import math
 import random
 import subprocess
+import os
 
 import librosa
 import numpy as np
@@ -302,14 +303,115 @@ class SignalAug:
 class SpecAug:
     """Spectral Augmentation (only shifts or masks data)"""
 
-    def __init__(self, hp=None, logger=None) -> None:
+    def __init__(self, hp=None, logger=None, device=None) -> None:
         self._hp = hp
+        self.device = device
         if "seed" not in hp:
             hp["seed"] = 1234
         random.seed(hp["seed"])
         np.random.seed(hp["seed"])
         if logger:
             logger.info(f"SpecAug hparams {hp}")
+
+        # next 4 lines only for visualization of augmentations
+        self.save_dir = "augmentation_visualization"
+        os.makedirs(self.save_dir, exist_ok=True)
+        self.count = 0
+        self.current_perf = (
+            None  # New attribute to store the current perf value
+        )
+
+    def _save_spectrograms(self, original, augmented, method):
+        # only used for visualization of low_melody augmentation
+        # not safe for MPS when using multiprocessing 'fork' method
+        # because of matplotlib problems
+        import matplotlib.pyplot as plt
+
+        # Find global min/max for consistent amplitude normalization
+        vmin = min(original.min(), augmented.min())
+        vmax = max(original.max(), augmented.max())
+
+        plt.figure(figsize=(12, 6))
+        plt.subplot(121)
+        plt.imshow(
+            original.T,
+            aspect="auto",
+            origin="lower",
+            interpolation="nearest",
+            vmin=vmin,
+            vmax=vmax,
+        )
+        plt.title("Original Spectrogram")
+        plt.subplot(122)
+        plt.imshow(
+            augmented.T,
+            aspect="auto",
+            origin="lower",
+            interpolation="nearest",
+            vmin=vmin,
+            vmax=vmax,
+        )
+        plt.title(f"Augmented Spectrogram ({method})")
+        plt.tight_layout()
+
+        # Use the perf value in the filename
+        filename = f"{self.current_perf}_{method}_{self.count:04d}.png"
+        plt.savefig(os.path.join(self.save_dir, filename), dpi=300)
+        plt.close()
+        self.count += 1
+
+    def _save_spectrograms_mps(self, original, augmented, method):
+        """Save spectrograms using PIL with text annotations,
+        instead of matplotlib, because PIL is safe for forked processes on MPS
+        """
+        # only used for visualization of low_melody augmentation
+        from PIL import Image, ImageDraw  # , ImageFont
+
+        def normalize_for_display(array):
+            """Scale array to 0-255 range for display"""
+            array = array - array.min()
+            if array.max() > 0:
+                array = (array / array.max() * 255).astype(np.uint8)
+            return array
+
+        # Normalize arrays for display and flip vertically ([::-1] on first dimension after transpose)
+        original_img = normalize_for_display(original.T[::-1])
+        augmented_img = normalize_for_display(augmented.T[::-1])
+
+        # Create side-by-side image with space for text
+        text_height = 30  # pixels for text
+        width = original_img.shape[1] + augmented_img.shape[1]
+        height = (
+            max(original_img.shape[0], augmented_img.shape[0]) + text_height
+        )
+        combined = (
+            np.zeros((height, width), dtype=np.uint8) + 255
+        )  # white background
+
+        # Copy images into combined array below text area
+        combined[
+            text_height : text_height + original_img.shape[0],
+            : original_img.shape[1],
+        ] = original_img
+        combined[
+            text_height : text_height + augmented_img.shape[0],
+            original_img.shape[1] :,
+        ] = augmented_img
+
+        # Convert to PIL Image for text addition
+        img = Image.fromarray(combined)
+        draw = ImageDraw.Draw(img)
+
+        # Add text (using default font)
+        draw.text((10, 5), "Original", fill=0)  # black text
+        draw.text(
+            (original_img.shape[1] + 10, 5), f"Augmented ({method})", fill=0
+        )
+
+        # Save
+        filename = f"{self.current_perf}_{method}_{self.count:04d}.png"
+        img.save(os.path.join(self.save_dir, filename))
+        self.count += 1
 
     @staticmethod
     def _mask_silence(feat, p_threshold=0.1):
@@ -346,7 +448,7 @@ class SpecAug:
         """
         This original CoverHunter method - improved here for efficiency - wraps
         the spectrogram around, copying overflow content to the bottom or top
-        of the pitch dimension. 
+        of the pitch dimension.
 
         Args:
         feat (np.array): The input spectrogram of shape (time_steps, frequency_bins).
@@ -359,42 +461,163 @@ class SpecAug:
         shift_amount = random.randint(-1, 1) * shift_num
         return np.roll(feat, shift_amount, axis=1)
 
-    @staticmethod
-    def _shift_melody_low(feat, shift_num=3):
+    def _shift_melody_low(self, feat, shift_num=12, noise_scale=1.1):
         """
         Alternative to original _roll() method, better for strongly
         melodic music that appears at the bottom of the CQT frequency range.
 
-        Shift the spectrogram either shift_num higher or 2x shift_num higher.
-        Fill missing data at the bottom with -128 (very low amplitude) and discard
-        top-range frequency content that spills outside the CQT frequency range.
-
         Don't shift lower in case meaningful melodic content is closer than
-        shift_num to the bottom of the feat array.
+        shift_num to the bottom of the sample.
+
+        Shift the spectrogram between 1 and shift_num higher in frequency bins.
+        Fill missing data at the bottom with smoothed noise that simulates the
+        local noise in each sample, and discard top-range frequency content
+        that spills outside the sample's frequency range.
+
+        Includes optional debugging / research code to visualize the resulting
+        spectrograms. Uncomment those lines if you like.
 
         Args:
-        feat (np.array): The input spectrogram of shape (time_steps, frequency_bins).
-        max_shift (int): The maximum number of frequency bins to shift.
+            feat (np.array): The input spectrogram of shape (time_steps, frequency_bins).
+            shift_num (int): The maximum number of frequency bins to shift.
+            noise_scale (float): Multiplier for amplitude of spectral texture in empty region
+                Note that amplitude is negative, so quieter = higher noise_scale
 
         Returns:
-        np.array: The pitch-transposed spectrogram.
+            np.array: The pitch-transposed spectrogram.
         """
-        w, h = np.shape(feat)
-        # Choose between raising pitch by shift_num or by 2 * shift_num bins
-        shift_amount = random.choice([shift_num, 2 * shift_num])
+        time_steps, freq_bins = np.shape(feat)
+        shift_amount = random.randint(1, shift_num)
 
-        # Shift the spectrogram upwards in place
-        if shift_amount < w:
-            feat[shift_amount:] = feat[: w - shift_amount]
-            feat[:shift_amount] = -128
+        if shift_amount >= freq_bins:
+            return feat
+
+        # Uncomment this line if you also uncomment the visualization code at the
+        # end of this script
+        original_feat = feat.copy()
+
+        # Debugging: Print statistics before shift
+        #        print(f"Before shift - Min: {np.min(feat)}, Max: {np.max(feat)}, Mean: {np.mean(feat)}")
+        #        print(f"shift {self.current_perf} by {shift_amount} up to {fill_max} above {min_amplitude}")
+
+        # 1. Shift the spectrogram upwards in place
+        feat[:, shift_amount:] = feat[:, : freq_bins - shift_amount]
+
+        # 2. Analyze transition boundary and local statistics
+        boundary_content = feat[:, shift_amount]
+        reference_height = min(shift_amount * 2, freq_bins - shift_amount)
+        reference_region = feat[
+            :, shift_amount : shift_amount + reference_height
+        ]
+
+        # Calculate per-time-step statistics with context
+        window_size = 3
+        padded_region = np.pad(
+            reference_region,
+            ((window_size // 2, window_size // 2), (0, 0)),
+            mode="edge",
+        )
+        local_means = np.zeros(time_steps)
+        local_stds = np.zeros(time_steps)
+        local_maxes = np.zeros(time_steps)
+
+        for i in range(time_steps):
+            window = padded_region[i : i + window_size]
+            local_means[i] = np.mean(window)
+            local_stds[i] = np.std(window)
+            local_maxes[i] = np.max(boundary_content[i : i + 1])
+
+        # 3. Generate noise base with gradual transition
+        noise = np.zeros((time_steps, shift_amount))
+
+        for i in range(shift_amount):
+            # Calculate frequency-dependent weights
+            freq_weight = np.cos(
+                np.pi * i / (2 * shift_amount)
+            )  # Smoother falloff
+
+            # Calculate amplitude bounds relative to boundary
+            max_allowed = local_maxes * freq_weight
+            min_allowed = local_means - local_stds
+
+            # Generate initial noise
+            base_noise = np.random.normal(
+                loc=local_means,
+                scale=local_stds
+                * (1 - freq_weight * 0.7),  # Reduce variation near boundary
+                size=time_steps,
+            )
+
+            # Clip noise to ensure it doesn't exceed local amplitude bounds
+            base_noise = np.clip(base_noise, min_allowed, max_allowed)
+
+            # Blend with boundary content based on frequency position
+            noise[:, i] = (
+                freq_weight * boundary_content + (1 - freq_weight) * base_noise
+            )
+
+        # 4. Apply temporal smoothing while preserving local variation
+        smoothed_noise = np.zeros_like(noise)
+        for i in range(time_steps):
+            start = max(0, i - window_size // 2)
+            end = min(time_steps, i + window_size // 2 + 1)
+            for j in range(shift_amount):
+                # Weight the smoothing based on frequency position
+                smooth_weight = 0.8 + 0.2 * (
+                    j / shift_amount
+                )  # Less smoothing near boundary
+                current = noise[i, j]
+                neighborhood = noise[start:end, j]
+                smoothed = np.mean(neighborhood)
+                smoothed_noise[i, j] = (
+                    smooth_weight * current + (1 - smooth_weight) * smoothed
+                )
+
+        # 5. Ensure explicit amplitude matching at boundary
+        transition_width = min(3, shift_amount)
+        for i in range(transition_width):
+            # Use boundary amplitudes directly for top rows
+            amplitude_factor = np.minimum(
+                1.0,
+                np.abs(smoothed_noise[:, i])
+                / (np.abs(boundary_content) + 1e-8),
+            )
+            smoothed_noise[:, i] = np.minimum(
+                smoothed_noise[:, i], boundary_content * amplitude_factor
+            )
+
+        # 6. Scale and apply the processed noise
+        feat[:, :shift_amount] = smoothed_noise * noise_scale
+
+        # Debugging: Print statistics after shift
+        #            print(f"After shift - Min: {np.min(feat)}, Max: {np.max(feat)}, Mean: {np.mean(feat)}")
+
+        # Uncomment these lines if you want to generate visualizations
+        # CAUTION: If you are using an MPS device, you must also temporarily
+        # disable the line "mp.set_start_method("fork")" in whichever
+        # tools.train_... script you are using. Otherwise matplotlib will
+        # cause a crash.
+        if not np.array_equal(original_feat, feat):
+            print(f"augmented {self.current_perf} by {shift_amount}")
+            if self.device == "mps":
+                self._save_spectrograms(
+                    original_feat, feat, "shift_melody_low"
+                )
+            else:
+                self._save_spectrograms(
+                    original_feat, feat, "shift_melody_low"
+                )
+
         return feat
 
     @staticmethod
     def _shift_melody_flex(feat, max_shift=12):
         """
+        NOT RECOMMENDED - NEEDS INNOVATIONS FROM NEW MELODY_LOW()
+
         Alternative to _shift_melody_low() method, better for strongly
         melodic music that only sometimes appears at the bottom or top of the
-        CQT frequency range. However, if loud non-melodic content is present 
+        CQT frequency range. However, if loud non-melodic content is present
         then this method will be less reliable.
 
         Detect the tonal center by dominant amplitude, and use that to shift
@@ -559,7 +782,9 @@ class AudioFeatDataset(torch.utils.data.Dataset):
             )
 
         if train and "spec_augmentation" in hp:
-            self._aug = SpecAug(hp["spec_augmentation"], logger)
+            self._aug = SpecAug(
+                hp["spec_augmentation"], logger, device=hp["device"]
+            )
         else:
             self._aug = None
             if logger:
@@ -595,6 +820,8 @@ class AudioFeatDataset(torch.utils.data.Dataset):
 
         feat = shorter(feat, self._hp["mean_size"])
         if self._aug:
+            # Set the current perf value, only needed for visualization
+            self._aug.current_perf = perf
             feat = self._aug.augmentation(feat)
 
         feat = torch.from_numpy(feat)

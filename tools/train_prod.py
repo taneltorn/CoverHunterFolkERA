@@ -87,7 +87,7 @@ def load_fold_indices(filepath):
 
 def get_map_from_logs(log_dir, testset_name, epoch):
     """
-    Get mAP value for specific testset and epoch, allowing for small timing variations
+    Get mAP value for specific testset and epoch
     """
     event_files = sorted(
         [f for f in os.listdir(log_dir) if "events.out.tfevents" in f],
