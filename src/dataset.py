@@ -19,8 +19,6 @@ logging.basicConfig(
     level=logging.DEBUG, format="%(asctime)s %(levelname)s %(message)s"
 )
 
-random.seed(1)
-
 
 def _float_signal_to_int16(signal):
     signal = signal * 32768
@@ -461,6 +459,7 @@ class SpecAug:
         shift_amount = random.randint(-1, 1) * shift_num
         return np.roll(feat, shift_amount, axis=1)
 
+
     def _shift_melody_low(self, feat, shift_num=12, noise_scale=1.1):
         """
         Alternative to original _roll() method, better for strongly
@@ -494,7 +493,7 @@ class SpecAug:
 
         # Uncomment this line if you also uncomment the visualization code at the
         # end of this script
-        original_feat = feat.copy()
+        # original_feat = feat.copy()
 
         # Debugging: Print statistics before shift
         #        print(f"Before shift - Min: {np.min(feat)}, Max: {np.max(feat)}, Mean: {np.mean(feat)}")
@@ -597,16 +596,16 @@ class SpecAug:
         # disable the line "mp.set_start_method("fork")" in whichever
         # tools.train_... script you are using. Otherwise matplotlib will
         # cause a crash.
-        if not np.array_equal(original_feat, feat):
-            print(f"augmented {self.current_perf} by {shift_amount}")
-            if self.device == "mps":
-                self._save_spectrograms(
-                    original_feat, feat, "shift_melody_low"
-                )
-            else:
-                self._save_spectrograms(
-                    original_feat, feat, "shift_melody_low"
-                )
+        # if not np.array_equal(original_feat, feat):
+        #     print(f"augmented {self.current_perf} by {shift_amount}")
+        #     if self.device == "mps":
+        #         self._save_spectrograms(
+        #             original_feat, feat, "shift_melody_low"
+        #         )
+        #     else:
+        #         self._save_spectrograms(
+        #             original_feat, feat, "shift_melody_low"
+        #         )
 
         return feat
 
@@ -735,6 +734,10 @@ class AudioFeatDataset(torch.utils.data.Dataset):
         logger=None,
     ) -> None:
 
+        # Set seed from hyperparameters if training
+        if train and "seed" in hp:
+            random.seed(hp["seed"])
+
         if data_path:
             data_lines = read_lines(data_path, log=False)
 
@@ -845,8 +848,11 @@ class MPerClassSampler(Sampler):
     """
 
     def __init__(
-        self, data_path, m, batch_size, distribute=False, logger=None
-    ) -> None:
+        self, data_path, m, batch_size, distribute=False, logger=None, seed=None
+        ) -> None:
+        if seed is not None:
+            random.seed(seed)
+
         data_lines = read_lines(data_path, log=False)
 
         self._m_per_class = m
@@ -875,6 +881,10 @@ class MPerClassSampler(Sampler):
         i = 0
         num_iters = self.num_iters()
         for _ in range(num_iters):
+            # Use random.Random instance with explicit seed for shuffling.
+            # This allows multiple samplers to have independent randomization.
+            rng = random.Random(self._seed) if hasattr(self, '_seed') else random.Random()
+            rng.shuffle(self.labels)
             random.shuffle(self.labels)
             curr_label_set = self.labels[
                 : self._batch_size // self._m_per_class
