@@ -106,11 +106,11 @@ class TestTrainer(unittest.TestCase):
         expected_calls = [
             # 1 because the step is logged for csi
             unittest.mock.call("csi/lr", unittest.mock.ANY, 1),
-            unittest.mock.call("csi/ce_loss", unittest.mock.ANY, 1),
+            unittest.mock.call("csi/foc_loss", unittest.mock.ANY, 1),
             unittest.mock.call("csi/tri_loss", unittest.mock.ANY, 1),
             unittest.mock.call("csi/total", unittest.mock.ANY, 1),
             # 0 because the epoch is logged for the rest
-            unittest.mock.call("csi_test/ce_loss", unittest.mock.ANY, 0),
+            unittest.mock.call("csi_test/foc_loss", unittest.mock.ANY, 0),
             unittest.mock.call("csi_test/tri_loss", unittest.mock.ANY, 0),
             unittest.mock.call("mAP/covers80", unittest.mock.ANY, 0),
             unittest.mock.call("hit_rate/covers80", unittest.mock.ANY, 0),

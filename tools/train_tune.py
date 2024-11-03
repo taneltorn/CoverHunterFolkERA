@@ -118,7 +118,7 @@ def get_final_metrics_from_logs(log_dir, test_name):
     ea.Reload()
 
     # Extract the final validation loss and mAP
-    val_loss = ea.Scalars("csi_val/ce_loss")[-1].value
+    val_loss = ea.Scalars("csi_val/foc_loss")[-1].value
     mAP = ea.Scalars(f"mAP/{test_name}")[-1].value
     print(f"Final loss {val_loss}, mAP {mAP}")
 
