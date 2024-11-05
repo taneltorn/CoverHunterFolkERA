@@ -19,6 +19,12 @@ logging.basicConfig(
     level=logging.DEBUG, format="%(asctime)s %(levelname)s %(message)s"
 )
 
+# set fixed seeding for dataset classes
+# test of instead using hyperparameter seed throughout all these operations 
+# did NOT show benefits to either learning, and this approach still resulted in 
+# deterministic training at least on MPS (4 November 2024)
+
+random.seed(1)
 
 def _float_signal_to_int16(signal):
     signal = signal * 32768
@@ -609,6 +615,7 @@ class SpecAug:
 
         return feat
 
+
     @staticmethod
     def _shift_melody_flex(feat, max_shift=12):
         """
@@ -734,10 +741,6 @@ class AudioFeatDataset(torch.utils.data.Dataset):
         logger=None,
     ) -> None:
 
-        # Set seed from hyperparameters if training
-        if train and "seed" in hp:
-            random.seed(hp["seed"])
-
         if data_path:
             data_lines = read_lines(data_path, log=False)
 
@@ -850,8 +853,6 @@ class MPerClassSampler(Sampler):
     def __init__(
         self, data_path, m, batch_size, distribute=False, logger=None, seed=None
         ) -> None:
-        if seed is not None:
-            random.seed(seed)
 
         data_lines = read_lines(data_path, log=False)
 
@@ -881,10 +882,6 @@ class MPerClassSampler(Sampler):
         i = 0
         num_iters = self.num_iters()
         for _ in range(num_iters):
-            # Use random.Random instance with explicit seed for shuffling.
-            # This allows multiple samplers to have independent randomization.
-            rng = random.Random(self._seed) if hasattr(self, '_seed') else random.Random()
-            rng.shuffle(self.labels)
             random.shuffle(self.labels)
             curr_label_set = self.labels[
                 : self._batch_size // self._m_per_class
