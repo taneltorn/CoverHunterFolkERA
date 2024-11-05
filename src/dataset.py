@@ -11,6 +11,7 @@ import numpy as np
 import torch
 import torch.utils.data
 from torch.utils.data.sampler import Sampler
+from scipy.ndimage import uniform_filter1d
 
 from src.cqt import shorter
 from src.utils import line_to_dict, read_lines
@@ -499,100 +500,100 @@ class SpecAug:
 
         # Uncomment this line if you also uncomment the visualization code at the
         # end of this script
-        # original_feat = feat.copy()
+#        original_feat = feat.copy()
 
         # Debugging: Print statistics before shift
         #        print(f"Before shift - Min: {np.min(feat)}, Max: {np.max(feat)}, Mean: {np.mean(feat)}")
         #        print(f"shift {self.current_perf} by {shift_amount} up to {fill_max} above {min_amplitude}")
 
-        # 1. Shift the spectrogram upwards in place
+        # pre-allocate memory for speed reasons
+        noise = np.empty((time_steps, shift_amount), dtype=feat.dtype)
+        smoothed_noise = np.empty_like(noise)
+
+        # Chunking pads with -100 on the fly, so don't fill below the shift
+        # with noise in that time region.
+        # Create mask for padded regions (where all frequencies are -100)
+        is_padded = np.all(feat == -100, axis=1)
+
+        # Shift the spectrogram upwards in place
         feat[:, shift_amount:] = feat[:, : freq_bins - shift_amount]
 
-        # 2. Analyze transition boundary and local statistics
-        boundary_content = feat[:, shift_amount]
-        reference_height = min(shift_amount * 2, freq_bins - shift_amount)
+        # Analyze the region just above where we'll fill
+        reference_height = min(
+            3, shift_amount
+        )  # adjust this constant as needed. Smaller = look only close to boundary
+
         reference_region = feat[
-            :, shift_amount : shift_amount + reference_height
+            ~is_padded, shift_amount : shift_amount + reference_height
         ]
 
-        # Calculate per-time-step statistics with context
-        window_size = 3
-        padded_region = np.pad(
-            reference_region,
-            ((window_size // 2, window_size // 2), (0, 0)),
-            mode="edge",
+        # Calculate local statistics per time step
+        local_means = np.mean(reference_region, axis=1, keepdims=True)
+        local_stds = np.std(reference_region, axis=1, keepdims=True)
+        local_mins = np.min(reference_region, axis=1, keepdims=True)
+        # Calculate baseline amplitude from the quieter parts of reference region
+        base_amplitude = np.percentile(
+            reference_region, 20
+        )  # Adjust percentile as needed
+
+        # Generate base noise matching the local statistics, except padded region
+        noise = np.random.normal(
+            loc=local_means,
+            scale=local_stds * 0.5,  # Reduce variation to avoid outliers
+            size=(np.sum(~is_padded), shift_amount),
         )
-        local_means = np.zeros(time_steps)
-        local_stds = np.zeros(time_steps)
-        local_maxes = np.zeros(time_steps)
 
-        for i in range(time_steps):
-            window = padded_region[i : i + window_size]
-            local_means[i] = np.mean(window)
-            local_stds[i] = np.std(window)
-            local_maxes[i] = np.max(boundary_content[i : i + 1])
+        # Create vertical fade-out weights
+        min_shift_for_fade = 4  # Don't fade much until at least this many bins
+        fade_scale = max(
+            0,
+            (shift_amount - min_shift_for_fade)
+            / (shift_num - min_shift_for_fade),
+        )
+        min_fade = 1 - (
+            0.8 * fade_scale
+        )  # Won't go below ~0.8 until shift_amount > 4
+        fade = np.linspace(min_fade, 1, shift_amount)
+        fade_weights = fade.reshape(1, -1)  # Shape for broadcasting
 
-        # 3. Generate noise base with gradual transition
-        noise = np.zeros((time_steps, shift_amount))
+        # Generate faded statistics
+        faded_means = local_means * fade_weights + base_amplitude * (
+            1 - fade_weights
+        )
+        faded_stds = local_stds * fade_weights
+        faded_mins = local_mins * fade_weights + base_amplitude * (
+            1 - fade_weights
+        )
+        # Ensure noise doesn't exceed local amplitude range
+        # Clip using faded bounds
+        noise = np.clip(noise, faded_mins, faded_means + faded_stds)
 
-        for i in range(shift_amount):
-            # Calculate frequency-dependent weights
-            freq_weight = np.cos(
-                np.pi * i / (2 * shift_amount)
-            )  # Smoother falloff
+        # Apply temporal smoothing to avoid discontinuities
+        window_size = 3
+        smoothed_noise = uniform_filter1d(noise, size=window_size, axis=0)
 
-            # Calculate amplitude bounds relative to boundary
-            max_allowed = local_maxes * freq_weight
-            min_allowed = local_means - local_stds
-
-            # Generate initial noise
-            base_noise = np.random.normal(
-                loc=local_means,
-                scale=local_stds
-                * (1 - freq_weight * 0.7),  # Reduce variation near boundary
-                size=time_steps,
-            )
-
-            # Clip noise to ensure it doesn't exceed local amplitude bounds
-            base_noise = np.clip(base_noise, min_allowed, max_allowed)
-
-            # Blend with boundary content based on frequency position
-            noise[:, i] = (
-                freq_weight * boundary_content + (1 - freq_weight) * base_noise
-            )
-
-        # 4. Apply temporal smoothing while preserving local variation
-        smoothed_noise = np.zeros_like(noise)
-        for i in range(time_steps):
-            start = max(0, i - window_size // 2)
-            end = min(time_steps, i + window_size // 2 + 1)
-            for j in range(shift_amount):
-                # Weight the smoothing based on frequency position
-                smooth_weight = 0.8 + 0.2 * (
-                    j / shift_amount
-                )  # Less smoothing near boundary
-                current = noise[i, j]
-                neighborhood = noise[start:end, j]
-                smoothed = np.mean(neighborhood)
-                smoothed_noise[i, j] = (
-                    smooth_weight * current + (1 - smooth_weight) * smoothed
-                )
-
-        # 5. Ensure explicit amplitude matching at boundary
+        # Create smooth transition at the boundary
         transition_width = min(3, shift_amount)
-        for i in range(transition_width):
-            # Use boundary amplitudes directly for top rows
-            amplitude_factor = np.minimum(
-                1.0,
-                np.abs(smoothed_noise[:, i])
-                / (np.abs(boundary_content) + 1e-8),
-            )
-            smoothed_noise[:, i] = np.minimum(
-                smoothed_noise[:, i], boundary_content * amplitude_factor
-            )
+        fade = np.linspace(1, 0.2, transition_width).reshape(
+            1, -1
+        )  # Shape becomes (1, transition_width)
+        ref_content = feat[
+            ~is_padded, shift_amount : shift_amount + transition_width
+        ]
+        smoothed_noise[:, -transition_width:] = (
+            fade
+            * smoothed_noise[
+                :, -transition_width:
+            ]  # Broadcasting applies fade across all relevant columns
+            + (1 - fade) * ref_content
+        )
 
-        # 6. Scale and apply the processed noise
-        feat[:, :shift_amount] = smoothed_noise * noise_scale
+        # Apply the processed noise to empty region
+        feat[~is_padded, :shift_amount] = smoothed_noise * noise_scale
+
+        #  Fill padded regions with -100
+        feat[is_padded, :shift_amount] = -100
+
 
         # Debugging: Print statistics after shift
         #            print(f"After shift - Min: {np.min(feat)}, Max: {np.max(feat)}, Mean: {np.mean(feat)}")
