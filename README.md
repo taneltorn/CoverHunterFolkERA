@@ -322,6 +322,13 @@ Original CoverHunter also generated the following files, but were not used by th
 | work_id_num.map | Text file, not used by train.py, maybe not by anything else? |
 | work_name_num.map | Text file, not used by train.py, maybe not by anything else? |
 
+## CQT Array Structure
+
+The structure of the CQT arrays as handled within this project is:
+[time bins ordered from start to end, frequency bins ordered from low to high frequencies]
+
+Note that to visualize these arrays in traditional spectrogram form with time on the x axis and frequency on the y axis, the CQT arrays must be transposed, for example by using the native Python `.T` suffix.
+
 ## Training Checkpoint Output
 
 Using the default configuration, training saves checkpoints after each epoch in the training/covers80 folder.
