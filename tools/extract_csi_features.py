@@ -249,7 +249,7 @@ def _extract_cqt_parallel(
     
     # Process data in smaller batches as workaround to memory leak 
     # encountered in large runs, probably in nnAudio library
-    batch_size = 5000
+    batch_size = 2000
     lines = read_lines(init_path, log=False)
 
     for i in range(0, len(lines), batch_size):

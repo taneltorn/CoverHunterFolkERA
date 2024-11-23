@@ -21,11 +21,12 @@ logging.basicConfig(
 )
 
 # set fixed seeding for dataset classes
-# test of instead using hyperparameter seed throughout all these operations 
-# did NOT show benefits to either learning, and this approach still resulted in 
+# test of instead using hyperparameter seed throughout all these operations
+# did NOT show benefits to either learning, and this approach still resulted in
 # deterministic training at least on MPS (4 November 2024)
 
 random.seed(1)
+
 
 def _float_signal_to_int16(signal):
     signal = signal * 32768
@@ -466,31 +467,22 @@ class SpecAug:
         shift_amount = random.randint(-1, 1) * shift_num
         return np.roll(feat, shift_amount, axis=1)
 
-
-    def _shift_melody_low(self, feat, shift_num=12, noise_scale=1.1):
+    def _shift_melody_low(self, feat, shift_num=12):
         """
         Alternative to original _roll() method, better for strongly
         melodic music that appears at the bottom of the CQT frequency range.
 
-        Don't shift lower in case meaningful melodic content is closer than
-        shift_num to the bottom of the sample.
-
-        Shift the spectrogram between 1 and shift_num higher in frequency bins.
-        Fill missing data at the bottom with smoothed noise that simulates the
-        local noise in each sample, and discard top-range frequency content
-        that spills outside the sample's frequency range.
-
-        Includes optional debugging / research code to visualize the resulting
-        spectrograms. Uncomment those lines if you like.
+        Shift the spectrogram upwards between 1 and shift_num frequency bins.
+        Below that, fill with noise that matches the spectral characteristics
+        of this spectrogram.
 
         Args:
-            feat (np.array): The input spectrogram of shape (time_steps, frequency_bins).
-            shift_num (int): The maximum number of frequency bins to shift.
-            noise_scale (float): Multiplier for amplitude of spectral texture in empty region
-                Note that amplitude is negative, so quieter = higher noise_scale
+        self: only used if generating visualization filenames
+        feat (np.array): The input spectrogram of shape (time_steps, frequency_bins).
+        shift_num (int): The maximum number of frequency bins to shift.
 
         Returns:
-            np.array: The pitch-transposed spectrogram.
+        np.array: The pitch-transposed spectrogram.
         """
         time_steps, freq_bins = np.shape(feat)
         shift_amount = random.randint(1, shift_num)
@@ -498,105 +490,75 @@ class SpecAug:
         if shift_amount >= freq_bins:
             return feat
 
-        # Uncomment this line if you also uncomment the visualization code at the
-        # end of this script
-#        original_feat = feat.copy()
+        # Uncomment this line if you want to generate visualizations
+        # original_feat = feat.copy()
 
-        # Debugging: Print statistics before shift
-        #        print(f"Before shift - Min: {np.min(feat)}, Max: {np.max(feat)}, Mean: {np.mean(feat)}")
-        #        print(f"shift {self.current_perf} by {shift_amount} up to {fill_max} above {min_amplitude}")
-
-        # pre-allocate memory for speed reasons
-        noise = np.empty((time_steps, shift_amount), dtype=feat.dtype)
-        smoothed_noise = np.empty_like(noise)
-
-        # Chunking pads with -100 on the fly, so don't fill below the shift
-        # with noise in that time region.
+        # Chunking pads with -100 on the fly, so don't fill with noise
+        # below the shift in that time region.
         # Create mask for padded regions (where all frequencies are -100)
         is_padded = np.all(feat == -100, axis=1)
+
+        # Find amplitude of quietest frequency bin, excluding padding
+        freq_means = np.mean(feat[~is_padded], axis=0)
+        target_amplitude = np.min(freq_means)
 
         # Shift the spectrogram upwards in place
         feat[:, shift_amount:] = feat[:, : freq_bins - shift_amount]
 
-        # Analyze the region just above where we'll fill
-        reference_height = min(
-            3, shift_amount
-        )  # adjust this constant as needed. Smaller = look only close to boundary
-
+        # Analyze the region about one fifth above where we'll fill
         reference_region = feat[
-            ~is_padded, shift_amount : shift_amount + reference_height
+            ~is_padded, shift_amount : shift_amount + 6 + random.randint(0, 2)
         ]
+        unpadded_len = reference_region.shape[0]
 
         # Calculate local statistics per time step
-        local_means = np.mean(reference_region, axis=1, keepdims=True)
-        local_stds = np.std(reference_region, axis=1, keepdims=True)
-        local_mins = np.min(reference_region, axis=1, keepdims=True)
-        # Calculate baseline amplitude from the quieter parts of reference region
-        base_amplitude = np.percentile(
-            reference_region, 20
-        )  # Adjust percentile as needed
+        local_means = np.mean(reference_region, axis=1).reshape(-1, 1)
+        local_stds = np.std(reference_region, axis=1).reshape(-1, 1)
 
-        # Generate base noise matching the local statistics, except padded region
+        # Generate base noise matching the local statistics
         noise = np.random.normal(
             loc=local_means,
-            scale=local_stds * 0.5,  # Reduce variation to avoid outliers
-            size=(np.sum(~is_padded), shift_amount),
+            scale=local_stds * 0.5,  # Reduced variation
+            size=(unpadded_len, shift_amount),
         )
 
-        # Create vertical fade-out weights
-        min_shift_for_fade = 4  # Don't fade much until at least this many bins
-        fade_scale = max(
-            0,
-            (shift_amount - min_shift_for_fade)
-            / (shift_num - min_shift_for_fade),
-        )
-        min_fade = 1 - (
-            0.8 * fade_scale
-        )  # Won't go below ~0.8 until shift_amount > 4
-        fade = np.linspace(min_fade, 1, shift_amount)
-        fade_weights = fade.reshape(1, -1)  # Shape for broadcasting
+        ## clip noise with time-bin statistics
+        noise = np.maximum(noise, local_means - local_stds)  # valleys
 
-        # Generate faded statistics
-        faded_means = local_means * fade_weights + base_amplitude * (
-            1 - fade_weights
-        )
-        faded_stds = local_stds * fade_weights
-        faded_mins = local_mins * fade_weights + base_amplitude * (
-            1 - fade_weights
-        )
-        # Ensure noise doesn't exceed local amplitude range
-        # Clip using faded bounds
-        noise = np.clip(noise, faded_mins, faded_means + faded_stds)
+        # fade to quiet towards bottom frequencies
+        if shift_amount > 2:
+            # Create weights that fade from 1.0 to this quietest level
+            #            fade_weights = np.linspace(0, 1, shift_amount).reshape(1, -1)
+            fade_weights = 0.5 * (
+                1 - np.cos(np.linspace(0, np.pi, shift_amount))
+            ).reshape(1, -1)
+            noise = noise - (local_means - target_amplitude) * (
+                1 - fade_weights
+            )
 
-        # Apply temporal smoothing to avoid discontinuities
-        window_size = 3
-        smoothed_noise = uniform_filter1d(noise, size=window_size, axis=0)
+        # clip peaks
+        noise = np.minimum(noise, local_means + local_stds)  # peaks
 
-        # Create smooth transition at the boundary
-        transition_width = min(3, shift_amount)
-        fade = np.linspace(1, 0.2, transition_width).reshape(
-            1, -1
-        )  # Shape becomes (1, transition_width)
-        ref_content = feat[
-            ~is_padded, shift_amount : shift_amount + transition_width
-        ]
-        smoothed_noise[:, -transition_width:] = (
+        # Create smooth transition at the boundary by mirroring content
+        transition_width = min(5, shift_amount)
+        # set weights for far-to-near rows from boundary
+        fade = np.linspace(0.1, 0.6, transition_width)
+        noise[:, -transition_width:] = (
+            # Use reference content proportional to fade value
             fade
-            * smoothed_noise[
-                :, -transition_width:
-            ]  # Broadcasting applies fade across all relevant columns
-            + (1 - fade) * ref_content
+            * reference_region[:, :transition_width][
+                :, ::-1
+            ]  # flip to mirror content near boundary
+            +
+            # Use noise proportional to (1-fade) value
+            (1 - fade) * noise[:, -transition_width:]
         )
 
         # Apply the processed noise to empty region
-        feat[~is_padded, :shift_amount] = smoothed_noise * noise_scale
+        feat[~is_padded, :shift_amount] = noise
 
         #  Fill padded regions with -100
         feat[is_padded, :shift_amount] = -100
-
-
-        # Debugging: Print statistics after shift
-        #            print(f"After shift - Min: {np.min(feat)}, Max: {np.max(feat)}, Mean: {np.mean(feat)}")
 
         # Uncomment these lines if you want to generate visualizations
         # CAUTION: If you are using an MPS device, you must also temporarily
@@ -604,18 +566,10 @@ class SpecAug:
         # tools.train_... script you are using. Otherwise matplotlib will
         # cause a crash.
         # if not np.array_equal(original_feat, feat):
-        #     print(f"augmented {self.current_perf} by {shift_amount}")
-        #     if self.device == "mps":
-        #         self._save_spectrograms(
-        #             original_feat, feat, "shift_melody_low"
-        #         )
-        #     else:
-        #         self._save_spectrograms(
-        #             original_feat, feat, "shift_melody_low"
-        #         )
+        #    print(f"augmented {self.current_perf} by {shift_amount}")
+        #    self._save_spectrograms(original_feat, feat, "shift_melody_low")
 
         return feat
-
 
     @staticmethod
     def _shift_melody_flex(feat, max_shift=12):
@@ -852,8 +806,14 @@ class MPerClassSampler(Sampler):
     """
 
     def __init__(
-        self, data_path, m, batch_size, distribute=False, logger=None, seed=None
-        ) -> None:
+        self,
+        data_path,
+        m,
+        batch_size,
+        distribute=False,
+        logger=None,
+        seed=None,
+    ) -> None:
 
         data_lines = read_lines(data_path, log=False)
 
