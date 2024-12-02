@@ -24,6 +24,9 @@ hyperparameters as documented for the training hparams.yaml, except:
 
     Set a lower early_stopping_patience than you used in research mode to avoid 
     overfitting in each fold.
+    
+    See additional hyperparameters described in hparams_prod.yaml in the section
+    "Training parameters only used by train_prod"
 
 Example launch command:
 python -m tools.train_prod training/yourdata
@@ -41,10 +44,10 @@ will be deleted.
 
 """
 
-MAP_TESTSETS = ["reels50easy"]
+MAP_TESTSETS = ["reels50easy", "reels50hard", "reels50transpose"]
 
 import argparse
-import os
+import os, glob, shutil
 import time
 import sys
 import json
@@ -183,13 +186,18 @@ def find_peak_map_epoch(
 
 def cleanup_checkpoints(checkpoint_dir, best_epoch):
     """
-    Remove all checkpoints after the best epoch
+    Remove all checkpoints and testset embeddings after the best epoch
     """
     for filename in os.listdir(checkpoint_dir):
         if filename.startswith(("g_", "do_")):
             epoch = int(filename.split("_")[1])
             if epoch > best_epoch:
                 os.remove(os.path.join(checkpoint_dir, filename))
+    embed_dirs = glob.glob(
+        os.path.join(os.path.dirname(checkpoint_dir), "embed_*_*")
+    )
+    for directory in embed_dirs:
+        shutil.rmtree(directory)
 
 
 def cross_validate(
@@ -296,10 +304,16 @@ def cross_validate(
 
         # different learning-rate strategy for all folds after the first
         if fold > 0 and is_new_fold_start:
-            new_lr = 0.00022 - fold * 0.00002
+            # Calculate evenly spaced learning rates from 0.0001 to min_lr
+            lr_range = hp["lr_initial"] - hp["min_lr"]
+            lr_step = lr_range / (
+                n_splits - 1
+            )  # -1 since first fold uses original lr
+            new_lr = (
+                hp["lr_initial"] - (fold - 1) * lr_step
+            )  # fold-1 since we start at fold 1
             trainer.reset_learning_rate(new_lr=new_lr)
-            hp["lr_decay"] = 0.995
-            hp["min_lr"] = 0.00005
+            hp["lr_decay"] = hp["fold_lr_decay"]
             logger.info(
                 f"Adjusted learning rate for fold {fold+1}: lr={new_lr}, min_lr={hp['min_lr']}, decay={hp['lr_decay']}"
             )
@@ -371,16 +385,25 @@ def cross_validate(
     full_trainer.configure_scheduler()
 
     # Adjust learning rate for full dataset training if it's a new start
+    # let full dataset have a little more learning rate than the final folds did
     if is_new_full_start:
-        new_lr = 0.0001
-        hp["lr_decay"] = 0.995
-        hp["min_lr"] = 0.00005
+        # recalculate in case resuming after an interruption
+        lr_range = hp["lr_initial"] - hp["min_lr"]
+        lr_step = lr_range / (
+            n_splits - 1
+        )  # -1 since first fold uses original lr
+        new_lr = hp["min_lr"] + lr_step * hp["full_dataset_lr_boost"]
+        hp["lr_decay"] = hp["final_lr_decay"]
         logger.info(
             f"Adjusted learning rate for fold {fold+1}: lr={new_lr}, min_lr={hp['min_lr']}, decay={hp['lr_decay']}"
         )
         full_trainer.reset_learning_rate(new_lr=new_lr)
     else:
         logger.info("Resuming learning rate for full dataset training")
+
+    # allow user to define longer patience for this final run
+    if "final_early_stopping_patience" in hp:
+        hp["early_stopping_patience"] = hp["final_early_stopping_patience"]
 
     # Mark full dataset training as started
     with open(full_start_file, "w") as f:
@@ -411,12 +434,6 @@ def _main() -> None:
         help="give more debug log",
     )
     parser.add_argument(
-        "--k_folds",
-        type=int,
-        default=5,
-        help="Number of folds for k-fold cross-validation",
-    )
-    parser.add_argument(
         "--runid",
         default="",
         action="store",
@@ -425,7 +442,6 @@ def _main() -> None:
 
     args = parser.parse_args()
     model_dir = args.model_dir
-    k_folds = args.k_folds
     run_id = args.runid
 
     logger = create_logger()
@@ -487,7 +503,7 @@ def _main() -> None:
         checkpoint_dir=checkpoint_dir,
         model_dir=model_dir,
         run_id=run_id,
-        n_splits=k_folds,
+        n_splits=hp["k_folds"],
     )
 
     for result in fold_results:

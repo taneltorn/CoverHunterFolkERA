@@ -37,3 +37,5 @@ training/covers80.*
 pretrained_model/
 training/covers80/tSNE*
 sox.log
+data/covers80/test-only-work-ids.txt
+data/covers80/reference_embeddings.pkl
