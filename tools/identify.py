@@ -34,6 +34,9 @@ query_path : string
 top : integer
     Optional. Return N closest matches to this query where N = top.
 
+save : string
+    Relative path to use for saving the embedding of the query audio. 
+
 Created on Sat Mar  2 17:31:23 2024
 @author: alanngnet
 
