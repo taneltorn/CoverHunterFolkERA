@@ -161,7 +161,8 @@ def _main():
     parser.add_argument("data_path")
     parser.add_argument("model_path")
     parser.add_argument("query_path")
-    parser.add_argument("-top", default=0, type=int)
+    parser.add_argument("-top", default=10, type=int)
+    parser.add_argument("-save", help="Path to save the query embedding as .npy file")
     args = parser.parse_args()
     data_dir = args.data_path
     model_dir = args.model_path
@@ -215,6 +216,11 @@ def _main():
         _ = model.load_model_parameters(checkpoint_dir, device=device)
         query_embed, _ = model.inference(query_feat)
     query_embed = query_embed.cpu().numpy()[0]
+
+    # Save embedding if requested 
+    if args.save:
+        np.save(args.save, query_embed)
+        print(f"Query embedding saved to: {args.save}")
 
     # Load reference embeddings from pickle file
     with open(os.path.join(data_dir, "reference_embeddings.pkl"), "rb") as f:
