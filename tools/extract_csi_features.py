@@ -11,6 +11,7 @@ import random
 import shutil
 import subprocess
 from concurrent.futures import ProcessPoolExecutor
+import multiprocessing as mp
 
 import librosa
 from nnAudio.features.cqt import CQT, CQT2010v2
@@ -251,6 +252,7 @@ def _extract_cqt_parallel(
     # encountered in large runs, probably in nnAudio library
     batch_size = 2000
     lines = read_lines(init_path, log=False)
+    mp.set_start_method('spawn', force=True)
 
     for i in range(0, len(lines), batch_size):
         batch = lines[i:i+batch_size]
