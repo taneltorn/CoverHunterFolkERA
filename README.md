@@ -375,6 +375,6 @@ This figure may be helpful as a reference for comparing the distribution of work
 
 To help you understand this visualization of the SHS100K dataset, here are some example data points from it: The most common work ("Summertime") is represented by  387 performances, and there are over 300 works having only a single performance. The most common count of performances per work is 6.
 
-To get a sense of the range of usable distributions, here's another example generated using the tools/plot_histogram.py utility in this project. This was sufficient to achieve .97 mAP on the [reels50easy test](https://www.irishtune.info/public/MLdata.htm) by epoch 33. Total count of performances was 26,482 across 6,606 works. The maximum count of performances for a single work was 72.
+To get a sense of the range of usable distributions, here's a different dataset's histogram, generated using the `tools/plot_histogram.py` utility in this project. Total count of performances was 26,482 across 6,606 works. The maximum count of performances for a single work was 72. This dataset was sufficient to achieve .97 mAP on the [reels50easy test](https://www.irishtune.info/public/MLdata.htm) by epoch 33. 
 
 ![irishtune.info v3.2 Histogram](irishtune.infov3.2_histogram.png)
