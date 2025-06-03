@@ -191,37 +191,42 @@ def _extract_cqt_worker_torchaudio(args):
     elif device == "cuda":
         transform = CQT2010v2
 
-    if not os.path.exists(feat_path):
-        signal, sr = torchaudio.load(wav_path)
-        signal = signal.to(device)
-        signal = (
-            signal
-            / torch.max(
-                torch.tensor(0.001).to(device), torch.max(torch.abs(signal))
-            )
-            * 0.999
+
+    signal, sr = torchaudio.load(wav_path)
+    signal = signal.to(device)
+    signal = (
+        signal
+        / torch.max(
+            torch.tensor(0.001).to(device), torch.max(torch.abs(signal))
         )
-        signal = transform(
-            16000,
-            hop_length=640,
-            n_bins=n_bins,
-            fmin=fmin,
-            bins_per_octave=bins_per_octave,
-            verbose=False,
-        ).to(device)(signal)
-        signal = signal + 1e-9
-        signal = signal.squeeze(0)
+        * 0.999
+    )
+    signal = transform(
+        16000,
+        hop_length=640,
+        n_bins=n_bins,
+        fmin=fmin,
+        bins_per_octave=bins_per_octave,
+        verbose=False,
+    ).to(device)(signal)
+    signal = signal + 1e-9
+    signal = signal.squeeze(0)
 
-        # Add contrast
-        ref_value_log10 = torch.log10(torch.max(signal))
-        signal = 20 * torch.log10(signal) - 20 * ref_value_log10
+    # Add contrast
+    ref_value_log10 = torch.log10(torch.max(signal))
+    signal = 20 * torch.log10(signal) - 20 * ref_value_log10
 
-        signal = torch.swapaxes(signal, 0, 1)
-        cqt = signal.numpy(force=True)
-        np.save(feat_path, cqt)
-        feat_len = len(cqt)
-    else:
-        feat_len = len(np.load(feat_path))
+    signal = torch.swapaxes(signal, 0, 1)
+    cqt = signal.numpy(force=True)
+
+    # does this help prevent MPS hanging between batches?        
+    if device == "mps":
+        torch.mps.synchronize()
+    elif device == "cuda":
+        torch.cuda.synchronize()
+    np.save(feat_path, cqt)
+    
+    feat_len = len(cqt)
     line["feat"] = feat_path
     line["feat_len"] = feat_len
     return line
@@ -248,14 +253,44 @@ def _extract_cqt_parallel(
     # calculate max_freq in case CPU device requires use of the PyCQT function
     max_freq = fmin * (2 ** (n_bins / bins_per_octave))
     
+    # Pre-process to separate existing from missing CQT files
+    lines = read_lines(init_path, log=False)
+    missing_cqt_lines = []
+    
+    for line in lines:
+        local_data = line_to_dict(line)
+        feat_path = os.path.join(cqt_dir, "{}.cqt.npy".format(local_data["perf"]))
+        
+        if os.path.exists(feat_path):
+            # Get file size instead of 
+            # loading existing CQT files to estimate feat_len
+            # Note that feat_len is only used when training with mode="random"
+            # and even then it ends up extracting the real length anyway
+            # AudioFeatDataset.__getitem__()
+            
+            file_size = os.path.getsize(feat_path)
+            # Rough estimate: each frame is n_bins * 8 bytes (float64)
+            estimated_feat_len = file_size // (n_bins * 8)
+            local_data["feat"] = feat_path
+            local_data["feat_len"] = estimated_feat_len
+            dump_lines.append(dict_to_line(local_data))
+        else:
+            missing_cqt_lines.append(line)
+        
+    logging.info(f"Found {len(dump_lines)} existing CQT files, need to process {len(missing_cqt_lines)} files")
+    
+    if not missing_cqt_lines:
+        write_lines(out_path, dump_lines)
+        return
+    
     # Process data in smaller batches as workaround to memory leak 
     # encountered in large runs, probably in nnAudio library
     batch_size = 2000
     lines = read_lines(init_path, log=False)
     mp.set_start_method('spawn', force=True)
 
-    for i in range(0, len(lines), batch_size):
-        batch = lines[i:i+batch_size]
+    for i in range(0, len(missing_cqt_lines), batch_size):
+        batch = missing_cqt_lines[i:i+batch_size]
         with ProcessPoolExecutor() as executor:
             worker_args = [
                 (
@@ -282,7 +317,17 @@ def _extract_cqt_parallel(
                             result["perf"],
                         ),
                     )
+        # clean up context to prevent hanging between batches
+        if torch.backends.mps.is_available():
+            torch.mps.empty_cache()
+            torch.mps.synchronize()
+        elif torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            torch.cuda.synchronize()
         gc.collect()
+        # Small delay to let system recover
+        import time
+        time.sleep(0.1)
     write_lines(out_path, dump_lines)
 
 
