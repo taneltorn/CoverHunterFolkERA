@@ -374,3 +374,7 @@ As a contribution to the CSI community, where the [SHS100K dataset](https://gith
 This figure may be helpful as a reference for comparing the distribution of works vs. performances in datasets you want to use with CoverHunterMPS, knowing that CoverHunter was able to train successfully given this distribution. 
 
 To help you understand this visualization of the SHS100K dataset, here are some example data points from it: The most common work ("Summertime") is represented by  387 performances, and there are over 300 works having only a single performance. The most common count of performances per work is 6.
+
+To get a sense of the range of usable distributions, here's another example generated using the tools/plot_histogram.py utility in this project. This was sufficient to achieve 97% mAP on the reels50easy test by epoch 33.
+
+![irishtune.info v3.2 Histogram]|[irishtune.infov3.2_histogram.png]
