@@ -266,8 +266,8 @@ The hparams.yaml file located in the "config" subfolder of the path you provide 
 #### Model Parameters
 | key | value |
 | --- | --- |
-| embed_dim | 128 |
-| encoder | # model-encode<br>Subparameters:<br>`attention_dim`: 256 # "the hidden units number of position-wise feed-forward"<br>`output_dims`: 128<br>`num_blocks`: 6 # number of decoder blocks |
+| embed_dim | Generally matches `encoder : output_dims` but you can set this to a higher value (multiple of 2) than `output_dims` if your output_dims are at the limit of the "curse of dimensionality" in order to gain more complex learning without sacrificing the value of inference embeddings for cosine-similarity-based clustering. Default 128. |
+| encoder | # model-encode<br>Subparameters:<br>`attention_dim`: 256 # "the hidden units number of position-wise feed-forward"<br>`output_dims`: This defines the dimensionality of the final embeddings the model generates, which impacts your results using the `identify.py` tool. Default 128, which is low enough to avoid the "curse of dimensionality."<br>`num_blocks`: 6 # number of decoder blocks |
 | input_dim | The "vertical" (frequency) dimension size of the CQT arrays you provide to the model. Set this to the same value you used for `n_bins` in the data preparation hyperparameters. Default is 96. |
 
 
