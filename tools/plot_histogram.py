@@ -1,10 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on [Current Date]
-
-@author: alan
-
 Plot a histogram of a CoverHunterMPS dataset displaying on the horizontal axis the 
 count of works, and on the vertical axis the count of performances per work. 
 The goal is to understand the distribution of data between works with few 
@@ -12,6 +8,10 @@ performances and works with many performances.
 
 Expects a dataset file prepared for extract_csi_features with JSON lines containing
 "work" and "perf" fields.
+
+Created on 2025-06-03
+@author: alanngnet and Claude Sonnet 4
+
 """
 
 import json
