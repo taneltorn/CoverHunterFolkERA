@@ -197,8 +197,8 @@ Future goal and call for help: How do we take this command-line solution for inf
 Once you have a well-trained model that performs well with real-world inference to match to performances stored in your `references_embeddings.pkl` file, you can expand your model's vocabulary of works it can identify without having to re-train the entire model.
 
 1. Build a "diff" aka "delta" metadata file suitable for input to `extract_csi_features` describing the new performances to process, including their human-identified work_ids, and where the corresponding audio files are located. 
-2. Feed that to `extract_csi_features` which generates .npy CQT files and the full.text metadata file, and configured its hyperparamters to do zero augmentation.
-3. Merge the output of this "delta" data (the diff `full.txt` and its CQT files) with your master full.txt and its CQT files.
+2. Feed that to `extract_csi_features` which generates .npy CQT files and the full.text metadata file, and configure its hyperparameters to do no augmentation.
+3. Merge the output (the diff `full.txt` and its CQT files) with your master full.txt and its CQT files.
 4. Run `make_embeds.py` on the newly merged `full.txt` to update your `reference_embeddings.pkl` file that `identify.py` needs. 
 
 Then you can resume using `identify.py` and it will "know" the new works and performances you added.
