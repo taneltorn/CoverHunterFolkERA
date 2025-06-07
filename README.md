@@ -118,6 +118,8 @@ This script will not retain any model checkpoints from the training runs, but it
 
 If you are running on a CUDA platform, the `make_deterministic()` function in tools.train_tune may have significant performance disadvantages for you. Consider whether you'd rather comment out that line and instead run enough different random seeds to compensate for non-deterministic training behavior so that you can reliably compare results between different hyperparameter settings.
 
+Tip for deep learning newbies: A good AI assistant can help greatly with hyperparameter tuning advice. Give it this project's files, the hyperparameters you tried, and the corresponding screenshots of your resulting Tensorboard validation loss and testset mAP metrics. Then ask it for advice on what to try next. 
+
 ## Evaluation
 
 This script evaluates your trained model by providing standard mAP (mean average precision) and MR1 (mean rank one) training metrics, plus an optional t-SNE clustering plot (compare Fig. 3 in the CoverHunter paper).
