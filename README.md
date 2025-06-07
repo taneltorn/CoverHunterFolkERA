@@ -269,7 +269,7 @@ The hparams.yaml file located in the "config" subfolder of the path you provide 
 | key | value |
 | --- | --- |
 | adam_b1 and adam_b2 | See https://pytorch.org/docs/stable/generated/torch.optim.AdamW.html for documentation of the two "beta" parameters used by the AdamW optimizer that the CoverHunter authors chose. Our experiments showed these can have a strong impact. Note that the CoverHunter default values of .8 and .99 are not the usual default AdamW values, for unknown reasons. We recommend experimenting with these values. |
-| batch_size | Usual "batch size" meaning in the field of machine learning. An important parameter to experiment with. Original CoverHunter's preset batch size of 16 was no longer able to succeed at the covers80 training task after @alanngnet fixed an important logic error in extract_csi_features.py. Now only batch size 32 or larger works for covers80. Be sure to consider adjusting `learning_rate` and `lr_decay` whenever you change `batch_size` based on general deep-learning best practices and your own experimentation. |
+| batch_size | Usual "batch size" meaning in the field of machine learning. An important parameter to experiment with. Original CoverHunter's preset batch size of 16 was no longer able to succeed at the covers80 training task after @alanngnet fixed an important logic error in extract_csi_features.py. Now only batch size 32 or larger works for covers80. Be sure to consider adjusting `learning_rate` and `lr_decay` whenever you change `batch_size` based on general deep-learning best practices and your own experimentation. Batch size is traditionally set to an exponent of 2, but in practice could be any integer multiple of your `m_per_class` hyperparameter. |
 | device | 'mps' or 'cuda', corresponding to your GPU hardware and PyTorch library support. Theoretically 'cpu' could work but untested and probably of no value. |
 | early_stopping_patience | how many epochs to wait for validation loss to improve before early stopping |
 | learning_rate | The initial value for how much variability to allow the model during each learning step. See `lr_decay`. Default = .001. |
@@ -277,9 +277,11 @@ The hparams.yaml file located in the "config" subfolder of the path you provide 
 | min_lr | Minimum learning rate, below which `lr_decay` is ignored. Default = 0.0001. |
 
 #### Model Parameters
+Traditionally these model dimensions are restricted to exponents of 2 (32, 64, 128, etc.) but in practice other values may work well. Experimentation is necessary if you diverge from those multiples to avoid performance disadvantages from potential memory-allocation inefficiencies in your particular environment, while seeking higher quality results from higher dimensions.
+
 | key | value |
 | --- | --- |
-| embed_dim | Generally matches `encoder : output_dims` but you can set this to a higher value (multiple of 2) than `output_dims` if your output_dims are at the limit of the "curse of dimensionality" in order to gain more complex learning without sacrificing the value of inference embeddings for cosine-similarity-based clustering. Default 128. |
+| embed_dim | Generally matches `encoder : output_dims` but you can set this to a higher value than `output_dims` if your output_dims are at the limit of the "curse of dimensionality" in order to gain more complex learning without sacrificing the value of inference embeddings for cosine-similarity-based clustering. Default 128. |
 | encoder | # model-encode<br>Subparameters:<br>`attention_dim`: 256 # "the hidden units number of position-wise feed-forward"<br>`output_dims`: This defines the dimensionality of the final embeddings the model generates, which impacts your results using the `identify.py` tool. Default 128, which is low enough to avoid the "curse of dimensionality."<br>`num_blocks`: 6 # number of decoder blocks |
 | input_dim | The "vertical" (frequency) dimension size of the CQT arrays you provide to the model. Set this to the same value you used for `n_bins` in the data preparation hyperparameters. Default is 96. |
 
