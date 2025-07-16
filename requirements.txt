@@ -7,3 +7,6 @@ PyYAML
 tensorboard
 torch
 torchaudio
+numpy
+pandas
+tabulate
