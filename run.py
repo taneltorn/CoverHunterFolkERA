@@ -1,6 +1,5 @@
 import argparse
 import subprocess
-import os
 import sys
 import re
 import json
@@ -9,6 +8,11 @@ import traceback
 from pathlib import Path
 from typing import List, Tuple
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass  # dotenv is optional for local dev
 
 def log(message: str):
     print(message, file=sys.stderr)
@@ -64,12 +68,13 @@ def main():
     parser = argparse.ArgumentParser(description="Preprocess audio and identify using tools.identify.")
     parser.add_argument("query", help="Path to the query WAV or MP3 file")
     parser.add_argument("-top", default="10", help="Number of top results to return")
-    parser.add_argument("--root", required=True, help="Path to the root directory of the project")
+    parser.add_argument("--root", help="Root directory of CoverHunter project (fallbacks to COVERHUNTER_ROOT_DIR env var)")
+    parser.add_argument("--converted", help="Directory for temporary converted WAV files (fallbacks to CONVERTED_DIR env var)")
 
     args = parser.parse_args()
     root_dir = Path(args.root).resolve()
+    converted_dir = Path(args.root).resolve()
     query_path = Path(args.query).resolve()
-    converted_dir = root_dir / "converted"
 
     converted_dir.mkdir(parents=True, exist_ok=True)
     converted_path = None
@@ -77,7 +82,7 @@ def main():
     try:
         converted_path = convert_audio(query_path, converted_dir)
         results = find_similar_tunes(converted_path, args.top, root_dir)
-        print(json.dumps(results))  # stdout: machine-readable output only
+        print(json.dumps(results))
 
     except subprocess.CalledProcessError as e:
         log(f"[Command failed] {e.cmd}")
