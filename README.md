@@ -88,7 +88,10 @@ Note: Don't use the `torchrun` launch command offered in original CoverHunter. A
 
 The original CoverHunter project included a prepared configuration to run a training session on the Covers80 dataset, and this is now located in the 'training/covers80' subfolder of this project. See the "Background explanation" above in the Data Preparation section about what to expect from using Covers80 for training. In particular, their test configuration used the same dataset for both training and validation, so results looked fabulously accurate and were essentially meaningless except that you could confirm that your setup is working. This fork added a train/validate/test data-splitting function in the extract_csi_features tool, along with corresponding new data-preparation hyperparameters, so you can choose to try more realistic training - in which the model validates its learning against data it has not seen before - even if you only have Covers80 data to play with.
 
-Optionally edit the training hyperparameters in the `hparams.yaml` configuration file in the folder `training/covers80/config` before starting a training run. For example, if you run into memory limits, start with decreasing the batch size from 64 to 32.
+You may need to edit the training hyperparameters in the `hparams.yaml` configuration file in the folder `training/covers80/config` before starting a training run. For example:
+* To skip the step of also setting up covers80 not only as your training data but also in its normal use as your covers80 testset, just comment out the 4 `covers80` lines of your `hparams.yaml`. If you do want to see the surreal perfection of covers80 training vs covers80 testset, then follow the instructions in step 2 of the Evaluation section below to create your `data/covers80_testset/full.txt` file.
+* Or configure the `testset` lines to point to any other testset(s) you like, for example the other testsets cited in the original CoverHunter paper, or the Irish traditional ones published at https://www.irishtune.info/public/MLdata.htm . See [Training Hyperparameters](https://github.com/alanngnet/CoverHunterMPS#data-sources) for details. 
+* If you run into memory limits, start with decreasing the batch size from 64 to 32.
 
 The one required command-line parameter for the training script is to specify the path where the training hyperparameters are available and where the model output will go, like this:
 
@@ -117,6 +120,8 @@ Step 3: Launch training with `model_dir` as the one required parameter:
 This script will not retain any model checkpoints from the training runs, but it does create separate log files for each run that you can monitor and study in TensorBoard.
 
 If you are running on a CUDA platform, the `make_deterministic()` function in tools.train_tune may have significant performance disadvantages for you. Consider whether you'd rather comment out that line and instead run enough different random seeds to compensate for non-deterministic training behavior so that you can reliably compare results between different hyperparameter settings.
+
+Tip for deep learning newbies: A good AI assistant can help greatly with hyperparameter tuning advice. Give it this project's files, the hyperparameters you tried, and the corresponding screenshots of your resulting Tensorboard validation loss and testset mAP metrics. Then ask it for advice on what to try next. 
 
 ## Evaluation
 
@@ -174,7 +179,7 @@ Example for covers80:
 
 `python -m tools.make_embeds data/covers80 training/covers80`
 
-See comments at the top of the make_embeds script for more details.
+See comments at the top of the make_embeds script for more details. The output of `make_embeds` is `reference_embeddings.pkl`.
 
 ## Inference (work identification)
 
@@ -191,6 +196,17 @@ Optional parameter to save the embedding as a NumPy array:
 `python -m tools.identify data/covers80 training/covers80 query.wav -save query.npy`
 
 Future goal and call for help: How do we take this command-line solution for inference and productionize it for broader use outside the context of the specific machine where this CoverHunterMPS project was installed?
+
+## Adding New Works to a Model's Knowledge
+
+Once you have a well-trained model that performs well with real-world inference to match to performances stored in your `references_embeddings.pkl` file, you can expand your model's vocabulary of works it can identify without having to re-train the entire model.
+
+1. Build a "diff" aka "delta" metadata file suitable for input to `extract_csi_features` describing the new performances to process, including their human-identified work_ids, and where the corresponding audio files are located. 
+2. Feed that to `extract_csi_features` which generates .npy CQT files and the full.text metadata file, and configure its hyperparameters to do no augmentation.
+3. Merge the output (the diff `full.txt` and its CQT files) with your master full.txt and its CQT files.
+4. Run `make_embeds.py` on the newly merged `full.txt` to update your `reference_embeddings.pkl` file that `identify.py` needs. 
+
+Then you can resume using `identify.py` and it will "know" the new works and performances you added.
 
 ## Coarse-to-Fine Alignment Training
 
@@ -256,7 +272,7 @@ The hparams.yaml file located in the "config" subfolder of the path you provide 
 | key | value |
 | --- | --- |
 | adam_b1 and adam_b2 | See https://pytorch.org/docs/stable/generated/torch.optim.AdamW.html for documentation of the two "beta" parameters used by the AdamW optimizer that the CoverHunter authors chose. Our experiments showed these can have a strong impact. Note that the CoverHunter default values of .8 and .99 are not the usual default AdamW values, for unknown reasons. We recommend experimenting with these values. |
-| batch_size | Usual "batch size" meaning in the field of machine learning. An important parameter to experiment with. Original CoverHunter's preset batch size of 16 was no longer able to succeed at the covers80 training task after @alanngnet fixed an important logic error in extract_csi_features.py. Now only batch size 32 or larger works for covers80. Be sure to consider adjusting `learning_rate` and `lr_decay` whenever you change `batch_size` based on general deep-learning best practices and your own experimentation. |
+| batch_size | Usual "batch size" meaning in the field of machine learning. An important parameter to experiment with. Original CoverHunter's preset batch size of 16 was no longer able to succeed at the covers80 training task after @alanngnet fixed an important logic error in extract_csi_features.py. Now only batch size 32 or larger works for covers80. Be sure to consider adjusting `learning_rate` and `lr_decay` whenever you change `batch_size` based on general deep-learning best practices and your own experimentation. Batch size is traditionally set to an exponent of 2, but in practice could be any integer multiple of your `m_per_class` hyperparameter. |
 | device | 'mps' or 'cuda', corresponding to your GPU hardware and PyTorch library support. Theoretically 'cpu' could work but untested and probably of no value. |
 | early_stopping_patience | how many epochs to wait for validation loss to improve before early stopping |
 | learning_rate | The initial value for how much variability to allow the model during each learning step. See `lr_decay`. Default = .001. |
@@ -264,10 +280,12 @@ The hparams.yaml file located in the "config" subfolder of the path you provide 
 | min_lr | Minimum learning rate, below which `lr_decay` is ignored. Default = 0.0001. |
 
 #### Model Parameters
+Traditionally these model dimensions are restricted to exponents of 2 (32, 64, 128, etc.) but in practice other values may work well. Experimentation is necessary if you diverge from those multiples to avoid performance disadvantages from potential memory-allocation inefficiencies in your particular environment, while seeking higher quality results from higher dimensions.
+
 | key | value |
 | --- | --- |
-| embed_dim | 128 |
-| encoder | # model-encode<br>Subparameters:<br>`attention_dim`: 256 # "the hidden units number of position-wise feed-forward"<br>`output_dims`: 128<br>`num_blocks`: 6 # number of decoder blocks |
+| embed_dim | Generally matches `encoder : output_dims` but you can set this to a higher value than `output_dims` if your output_dims are at the limit of the "curse of dimensionality" in order to gain more complex learning without sacrificing the value of inference embeddings for cosine-similarity-based clustering. Default 128. |
+| encoder | # model-encode<br>Subparameters:<br>`attention_dim`: 256 # "the hidden units number of position-wise feed-forward"<br>`output_dims`: This defines the dimensionality of the final embeddings the model generates, which impacts your results using the `identify.py` tool. Default 128, which is low enough to avoid the "curse of dimensionality."<br>`num_blocks`: 6 # number of decoder blocks |
 | input_dim | The "vertical" (frequency) dimension size of the CQT arrays you provide to the model. Set this to the same value you used for `n_bins` in the data preparation hyperparameters. Default is 96. |
 
 
@@ -374,3 +392,7 @@ As a contribution to the CSI community, where the [SHS100K dataset](https://gith
 This figure may be helpful as a reference for comparing the distribution of works vs. performances in datasets you want to use with CoverHunterMPS, knowing that CoverHunter was able to train successfully given this distribution. 
 
 To help you understand this visualization of the SHS100K dataset, here are some example data points from it: The most common work ("Summertime") is represented by  387 performances, and there are over 300 works having only a single performance. The most common count of performances per work is 6.
+
+To get a sense of the range of usable distributions, here's a different dataset's histogram, generated using the `tools/plot_histogram.py` utility in this project. Total count of performances was 26,482 across 6,606 works. The maximum count of performances for a single work was 72. This dataset was sufficient to achieve .97 mAP on the [reels50easy test](https://www.irishtune.info/public/MLdata.htm) by epoch 33. 
+
+![irishtune.info v3.2 Histogram](irishtune.infov3.2_histogram.png)

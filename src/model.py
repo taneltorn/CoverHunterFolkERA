@@ -209,13 +209,15 @@ class Model(torch.nn.Module):
             num_blocks=hp["encoder"]["num_blocks"],
         )
 
-        # Unused
-        #if hp["encoder"]["output_dims"] != hp["embed_dim"]:
-        #    self._embed_lo = torch.nn.Linear(
-        #        hp["encoder"]["output_dims"], hp["embed_dim"],
-        #    )
-        #else:
-        #    self._embed_lo = None
+        # support the option of setting encoder:output_dims != embed_dim
+        # for example to use higher-complexity training without entering
+        # higher-dimensional output space that could risk inference quality
+        if hp["encoder"]["output_dims"] != hp["embed_dim"]:
+            self._embed_lo = torch.nn.Linear(
+                hp["encoder"]["output_dims"], hp["embed_dim"],
+            )
+        else:
+            self._embed_lo = None
 
         # Bottleneck
         self._bottleneck = torch.nn.BatchNorm1d(hp["embed_dim"])
@@ -314,6 +316,8 @@ class Model(torch.nn.Module):
             .long()
         )
         x, _ = self._encoder(x, xs_lens=xs_lens, decoding_chunk_size=-1)
+        if self._embed_lo is not None:
+            x = self._embed_lo(x)  # Project to embed_dim
         x = self._pool_layer(x)
         return x
 
