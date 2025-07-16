@@ -18,8 +18,11 @@ def log(message: str):
     print(message, file=sys.stderr)
 
 
-def convert_audio(query_path: Path, converted_dir: Path) -> Path:
+def convert_audio(query_path: Path, recordings_dir: Path) -> Path:
     timestamp = int(time.time())
+    converted_dir = recordings_dir / "_converted"
+    converted_dir.mkdir(parents=True, exist_ok=True)
+
     output_path = converted_dir / f"{timestamp}.wav"
     command = [
         "ffmpeg", "-y",
@@ -68,19 +71,19 @@ def main():
     parser = argparse.ArgumentParser(description="Preprocess audio and identify using tools.identify.")
     parser.add_argument("query", help="Path to the query WAV or MP3 file")
     parser.add_argument("-top", default="10", help="Number of top results to return")
-    parser.add_argument("--root", help="Root directory of CoverHunter project (fallbacks to COVERHUNTER_ROOT_DIR env var)")
-    parser.add_argument("--converted", help="Directory for temporary converted WAV files (fallbacks to CONVERTED_DIR env var)")
+    parser.add_argument("--root", help="Root directory of CoverHunter project")
+    parser.add_argument("--recordings", help="Directory for uploaded and converted recordings")
 
     args = parser.parse_args()
     root_dir = Path(args.root).resolve()
-    converted_dir = Path(args.root).resolve()
+    recordings_dir = Path(args.recordings).resolve()
     query_path = Path(args.query).resolve()
 
-    converted_dir.mkdir(parents=True, exist_ok=True)
+    recordings_dir.mkdir(parents=True, exist_ok=True)
     converted_path = None
 
     try:
-        converted_path = convert_audio(query_path, converted_dir)
+        converted_path = convert_audio(query_path, recordings_dir)
         results = find_similar_tunes(converted_path, args.top, root_dir)
         print(json.dumps(results))
 
