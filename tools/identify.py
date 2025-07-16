@@ -84,6 +84,8 @@ def _make_feat(wav_path, fmin, max_freq, n_bins, bins_per_octave, device):
         transform = CQT
     elif device == "cuda":
         transform = CQT2010v2
+    else:
+        transform = CQT2010v2
 
     # Load audio using librosa and force sample rate of 16kHz
     signal, sr = librosa.load(wav_path, sr=16000, mono=True)
@@ -185,6 +187,8 @@ def _main():
                 torch.cuda.is_available()
             ), "You requested 'cuda' device in your hyperparameters but you do not have a CUDA-compatible GPU available."
             device = torch.device("cuda")
+        case "cpu":
+            device = torch.device("cpu")
         case _:
             print(
                 "You set device: ",
