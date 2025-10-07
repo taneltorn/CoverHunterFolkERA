@@ -1,8 +1,8 @@
 
 ### Training data paths
-train_path: "data/folk162/full.txt"
+train_path: "data/folkera/full.txt"
 #val_path: "data/folk162/val.txt"
-test_path: "data/reels50easy_testset/full.txt"
+#test_path: "data/reels50easy_testset/full.txt"
 
 # test_path: "data/covers80/test.txt"
 
