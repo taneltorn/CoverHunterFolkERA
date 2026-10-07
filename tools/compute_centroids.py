@@ -1,38 +1,55 @@
-# Compute work centroids and 93% confidence radii
-# given a reference_embeddings.pkl created by make_embeds.
-# First draft by Claude Sonnet 4.5 2024-12-08, prompted by alanngnet
-
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 Compute work centroids from a reference_embeddings.pkl file.
 
 The centroids file is the deployment unit for inference: tools.identify
-consumes it directly. It can be shipped to end-user devices for local inference
-without the (much larger) reference embeddings file. All metadata required for
-calibrated, fingerprint-checked inference is copied into the centroids
+consumes it directly, and is suitable for direct consumption by downstream
+custom apps. It can be shipped to end-user devices for local  inference 
+without the (much larger) reference embeddings file. All metadata required
+for calibrated, fingerprint-checked inference is copied into the centroids
 file at compute time.
 
-Geometry: assumes unit-normalized input embeddings (the standard output
-of the current tools.make_embeds). Centroids are computed by spherical
-mean - take the mean of unit perfs, then re-normalize to the unit
-hypersphere. This makes radii (angular spread) and query-time cosine
-distances live in the same geometry. The pre-renormalization magnitude
-is retained as a coherence scalar in [0, 1]: 1 = all perfs of this work
-point identically, 0 = perfs maximally spread.
+Work membership: taken from the "perf_to_work" mapping that
+tools.make_embeds persists from the authoritative "work" field of
+full.txt. Files written by make_embeds before 2026-10-05 lack it; for
+those, membership falls back to the perf_id prefix (text before the first
+"."), with a warning. That convention holds for irishtune.info production
+datasets but makes every perf its own work elsewhere (SHS100K, Meertens,
+EstFolk, ...), so regenerate the embeddings for any other corpus.
 
-Radii: mean + 1.5 * std of within-work cosine distance from the
-spherical-mean centroid. Captures ~93% of perfs assuming a roughly
-Gaussian within-work distribution. Used downstream as a confidence
-filter in tools.identify.
+Geometry: assumes unit-normalized input embeddings (the standard output
+of tools.make_embeds). Centroids are computed by spherical mean - take
+the mean of unit perfs, then re-normalize to the unit hypersphere. This
+makes radii (angular spread) and query-time cosine distances live in the
+same geometry. A singleton work's centroid is its one performance.
+
+Per-work descriptive statistics (all in-sample; undefined, stored as NaN,
+for singleton works, which are typically about half of a folk corpus):
+
+  coherence          Pre-renormalization magnitude R of the mean of the
+                     work's unit perfs, in [0, 1]: 1 = all perfs point
+                     identically. Biased upward for small n: even
+                     unrelated perfs give E[R^2] = 1/n.
+  coherence_debiased sqrt(max(0, (n R^2 - 1) / (n - 1))): unbiased (in
+                     R^2) estimate of the population mean-resultant
+                     length, comparable across works of different size.
+  radii              mean + 1.5 * std of within-work cosine distance from
+                     the spherical-mean centroid. In-sample (each perf is
+                     part of its own centroid), so biased low, most for
+                     small n. No longer used for match filtering by
+                     tools.identify or serve.py (a calibrated filter
+                     replaced it because it rejected legitimate held-out
+                     queries); retained for research and schema
+                     compatibility.
 
 Example invocation:
     python -m tools.compute_centroids \\
         data/covers80/reference_embeddings.pkl \\
         data/covers80/work_centroids.pkl
 
-[NOT YET IMPLEMENTED FOR A PRODUCTION ENVIRONMENT:] Optional --export-edge 
-writes a packed-binary deployment artifact alongside the pkl, suitable for 
+[NOT YET IMPLEMENTED FOR A PRODUCTION ENVIRONMENT:] Optional --export-edge
+writes a packed-binary deployment artifact alongside the pkl, suitable for
 edge devices:
     python -m tools.compute_centroids \\
         data/covers80/reference_embeddings.pkl \\
@@ -42,33 +59,86 @@ edge devices:
 Output schema (pkl):
     {
         "centroids":          dict work_id -> unit np.ndarray (float32)
-        "radii":              dict work_id -> float (angular)
-        "coherence":          dict work_id -> float in [0, 1]
+        "radii":              dict work_id -> float (angular; NaN if n=1)
+        "coherence":          dict work_id -> float in [0, 1] (NaN if n=1)
+        "coherence_debiased": dict work_id -> float in [0, 1] (NaN if n=1)
         "work_to_perfs":      dict work_id -> list of perf_ids
         "normalized":         True
         "embed_dim":          int
         "model_fingerprint":  str (16 hex, copied from embeddings file)
         "calibration":        dict per src.calibration schema (copied)
+        "provenance":         dict (copied from embeddings file if present,
+                              plus how work membership was derived)
     }
+"coherence_debiased" and "provenance" were added 2026-10-05; the keys
+required by src.utils.load_centroids are unchanged.
 
-@author: alanngnet with Claude
-Originally created 2024-12-08 by alanngnet with Claude Sonnet 4.5. This version
-used the not-normalized raw embeddings generated by the old make_embeds.
+Revision history
+----------------
+Originally created 2024-12-08 by alanngnet with Claude Sonnet 4.5. This
+version used the not-normalized raw embeddings generated by the old
+make_embeds.
 
-Completely rewritten 2026-05-03 by alanngnet with Claude Opus 4.7. This version 
-was needed to use the new normalized embeddings generated by the new make_embeds,
-and to improve accuracy in downstream end-user CSI applications.
+Completely rewritten 2026-05-03 by alanngnet with Claude Opus 4.7. This
+version was needed to use the new normalized embeddings generated by the
+new make_embeds, and to improve accuracy in downstream end-user CSI
+applications.
 
+Revised 2026-10-05 by alanngnet with Claude (Opus 5.5), following a review
+of calibration validity on singleton-heavy corpora:
+  - Work membership comes from make_embeds' persisted "perf_to_work"
+    (authoritative "work" field) instead of the perf_id prefix. Older 
+    embeddings files fall back to the prefix with a warning. Centroid keys
+    and values are unchanged for corpora where "work" equals the
+    prefix.
+  - Singleton works get NaN radius and coherence instead of the
+    degenerate 0.0 and 1.0, which dominated the printed medians in a
+    corpus with ~54% singleton works. The summary now reports
+    statistics over multi-perf works plus the singleton count.
+  - Adds "coherence_debiased" (small-n bias corrected) and copies
+    "provenance" forward.
+  - Docstring updated: radii are in-sample and no longer used for
+    filtering.
 """
 
 import argparse
 import pickle
 import sys
-
-import numpy as np
 from collections import defaultdict
 
+import numpy as np
+
 from src.utils import load_reference_embeddings
+
+
+def _work_membership(record: dict, embeddings_path: str):
+    """Return (work_to_perfs, source_description)."""
+    embeddings = record["embeddings"]
+    perf_to_work = record.get("perf_to_work")
+    if perf_to_work is None:
+        print(
+            f"WARNING: {embeddings_path} predates perf_to_work "
+            f"(tools.make_embeds before 2026-10-05). Falling back to the "
+            f"perf_id prefix as work_id, which is only valid for datasets "
+            f"whose perf_ids are '<work>.<n>' (e.g. the Irish production "
+            f"data). Regenerate the embeddings for any other corpus."
+        )
+        perf_to_work = {p: p.split(".")[0] for p in embeddings}
+        source = "perf_id prefix (legacy fallback)"
+    else:
+        source = "make_embeds perf_to_work (full.txt 'work' field)"
+
+    missing = [p for p in embeddings if p not in perf_to_work]
+    if missing:
+        raise ValueError(
+            f"{len(missing)} embedded perf(s) have no work assignment, "
+            f"e.g. {missing[:5]}. The embeddings file is inconsistent; "
+            f"regenerate it."
+        )
+    work_to_perfs = defaultdict(list)
+    for perf_id in embeddings:
+        work_to_perfs[str(perf_to_work[perf_id])].append(perf_id)
+    return dict(work_to_perfs), source
 
 
 def compute_centroids(embeddings_path: str, output_path: str) -> dict:
@@ -102,18 +172,18 @@ def compute_centroids(embeddings_path: str, output_path: str) -> dict:
             f"Regenerate the embeddings file."
         )
 
-    # Group performances by work using the perf_id naming convention.
-    work_to_perfs = defaultdict(list)
-    for perf_id in embeddings:
-        work_id = perf_id.split(".")[0]
-        work_to_perfs[work_id].append(perf_id)
+    work_to_perfs, membership_source = _work_membership(
+        record, embeddings_path
+    )
 
     centroids = {}
     radii = {}
     coherence = {}
+    coherence_debiased = {}
 
     print(f"Computing centroids for {len(work_to_perfs)} works...")
     for work_id, perf_ids in work_to_perfs.items():
+        n = len(perf_ids)
         # Stack this work's unit perfs as (n_perfs, D).
         # Inputs are already unit-normalized at storage time.
         perf_matrix = np.stack(
@@ -151,41 +221,74 @@ def compute_centroids(embeddings_path: str, output_path: str) -> dict:
             centroid = mean_vec / magnitude
 
         centroids[work_id] = centroid.astype(np.float32)
+
+        if n == 1:
+            # Spread statistics are undefined for a single performance;
+            # NaN keeps them out of summaries instead of contributing a
+            # degenerate radius 0 / coherence 1.
+            radii[work_id] = float("nan")
+            coherence[work_id] = float("nan")
+            coherence_debiased[work_id] = float("nan")
+            continue
+
         coherence[work_id] = magnitude
+        coherence_debiased[work_id] = float(
+            np.sqrt(max(0.0, (n * magnitude**2 - 1.0) / (n - 1)))
+        )
 
         # Radius: angular distance of each perf from the spherical-mean
         # centroid. Both sides unit-norm so cosine distance reduces to
-        # 1 - dot product.
-        dots = perf_matrix @ centroid
-        dots = np.clip(dots, -1.0, 1.0)
+        # 1 - dot product. In-sample (see module docstring).
+        dots = np.clip(perf_matrix @ centroid, -1.0, 1.0)
         distances = 1.0 - dots
         radii[work_id] = float(distances.mean() + 1.5 * distances.std())
+
+    provenance = dict(record.get("provenance") or {})
+    provenance["work_membership"] = membership_source
+    provenance["centroids_tool"] = "tools.compute_centroids (rev 2026-10-05)"
 
     out_record = {
         "centroids": centroids,
         "radii": radii,
         "coherence": coherence,
-        "work_to_perfs": dict(work_to_perfs),
+        "coherence_debiased": coherence_debiased,
+        "work_to_perfs": work_to_perfs,
         "normalized": True,
         "embed_dim": embed_dim,
         "model_fingerprint": fingerprint,
         "calibration": calibration,
+        "provenance": provenance,
     }
 
     with open(output_path, "wb") as f:
         pickle.dump(out_record, f)
 
     # Reporting: a quick sanity summary so the user can spot anomalies.
+    # Spread statistics are over multi-perf works only.
+    sizes = np.array([len(v) for v in work_to_perfs.values()])
+    n_single = int((sizes == 1).sum())
     radii_arr = np.array(list(radii.values()))
     coh_arr = np.array(list(coherence.values()))
-    print(
-        f"Saved centroids for {len(centroids)} works to {output_path}\n"
-        f"  Radii:     median={np.median(radii_arr):.4f}  "
-        f"min={radii_arr.min():.4f}  max={radii_arr.max():.4f}\n"
-        f"  Coherence: median={np.median(coh_arr):.4f}  "
-        f"min={coh_arr.min():.4f}  max={coh_arr.max():.4f}\n"
-        f"  Fingerprint: {fingerprint}"
-    )
+    cohd_arr = np.array(list(coherence_debiased.values()))
+    lines = [
+        f"Saved centroids for {len(centroids)} works to {output_path}",
+        f"  Work membership: {membership_source}",
+        f"  Works: {len(sizes)} ({n_single} singletons, "
+        f"{n_single / len(sizes):.1%}); perfs/work median "
+        f"{np.median(sizes):.0f}, max {sizes.max()}",
+    ]
+    if n_single < len(sizes):
+        lines += [
+            f"  Over {len(sizes) - n_single} multi-perf works:",
+            f"    Radii:              median={np.nanmedian(radii_arr):.4f}  "
+            f"min={np.nanmin(radii_arr):.4f}  max={np.nanmax(radii_arr):.4f}",
+            f"    Coherence:          median={np.nanmedian(coh_arr):.4f}  "
+            f"min={np.nanmin(coh_arr):.4f}  max={np.nanmax(coh_arr):.4f}",
+            f"    Coherence debiased: median={np.nanmedian(cohd_arr):.4f}  "
+            f"min={np.nanmin(cohd_arr):.4f}  max={np.nanmax(cohd_arr):.4f}",
+        ]
+    lines.append(f"  Fingerprint: {fingerprint}")
+    print("\n".join(lines))
 
     return out_record
 
@@ -202,8 +305,8 @@ def export_edge(record: dict, output_path: str) -> None:
     Schema:
         work_ids:          (N,) array of str (object dtype)
         centroids:         (N, D) float32
-        radii:             (N,) float32
-        coherence:         (N,) float32
+        radii:             (N,) float32 (NaN for singleton works)
+        coherence:         (N,) float32 (NaN for singleton works)
         embed_dim:         scalar
         model_fingerprint: scalar str
         calibration_*:     calibration record fields, individually
