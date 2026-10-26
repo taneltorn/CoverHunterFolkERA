@@ -46,9 +46,9 @@ def parse_output(output: str) -> List[Tuple[str, float]]:
     return entries
 
 
-def find_similar_tunes(file_path: Path, top: str, root_dir: Path) -> List[Tuple[str, float]]:
-    data_dir = root_dir / "data/folkera"
-    training_dir = root_dir / "training/folkera"
+def find_similar_tunes(file_path: Path, top: str, root_dir: Path, dataset: str = "folkera") -> List[Tuple[str, float]]:
+    data_dir = root_dir / f"data/{dataset}"
+    training_dir = root_dir / f"training/{dataset}"
 
     command = [
         sys.executable, "-m", "tools.identify",
@@ -72,6 +72,7 @@ def main():
     parser.add_argument("query", help="Path to the query WAV or MP3 file")
     parser.add_argument("-top", default="10", help="Number of top results to return")
     parser.add_argument("--root", help="Root directory of CoverHunter project")
+    parser.add_argument("--dataset", help="Dataset that was used in training")
     parser.add_argument("--recordings", help="Directory for uploaded and converted recordings")
 
     args = parser.parse_args()
@@ -84,7 +85,7 @@ def main():
 
     try:
         converted_path = convert_audio(query_path, recordings_dir)
-        results = find_similar_tunes(converted_path, args.top, root_dir)
+        results = find_similar_tunes(converted_path, args.top, root_dir, args.dataset)
         print(json.dumps(results))
 
     except subprocess.CalledProcessError as e:
