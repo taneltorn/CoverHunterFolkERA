@@ -89,6 +89,8 @@ def _make_feat(wav_path, fmin, max_freq, n_bins, bins_per_octave, device):
         transform = CQT
     elif device == "cuda":
         transform = CQT2010v2
+    else:
+        transform = CQT2010v2
 
     # Load audio using librosa and force sample rate of 16kHz
     signal, sr = librosa.load(wav_path, sr=16000, mono=True)
