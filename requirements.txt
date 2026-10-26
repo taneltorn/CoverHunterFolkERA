@@ -3,10 +3,11 @@ coverage
 librosa
 matplotlib
 nnAudio
+numpy
 PyYAML
+scikit-learn
+scipy
+tabulate
 tensorboard
 torch
-torchaudio
-numpy
-pandas
-tabulate
+tqdm

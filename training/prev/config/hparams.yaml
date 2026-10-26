@@ -1,28 +1,28 @@
 
-### Training data paths
-train_path: "data/folk162/full.txt"
-#val_path: "data/folk162/val.txt"
-test_path: "data/reels50easy_testset/full.txt"
+### CoverHunterMPS training hyperparameters
 
+### Training data paths
+train_path: "data/covers80/train.txt"
+val_path: "data/covers80/val.txt"
 # test_path: "data/covers80/test.txt"
 
 ### optional external test datasets used in the test phase of training epochs
-#covers80:
-#  query_path: "data/covers80_testset/full.txt"
-#  ref_path: "data/covers80_testset/full.txt"
-#  every_n_epoch_to_test: 1  # validate after every n epoch
+covers80:
+  query_path: "data/covers80_testset/full.txt"
+  ref_path: "data/covers80_testset/full.txt"
+  every_n_epoch_to_test: 1  # validate after every n epoch
 
 # Download the reels50easy dataset from https://www.irishtune.info/public/MLdata.htm
 # and then you can uncomment the next 4 lines.
-#reels50easy:
-#  query_path: "data/reels50easy_testset/full.txt"  # path to your bench
+# reels50easy:
+#  query_path: "data/reels50easy_testset/full.txt"  # # path to your prepared data
 #  ref_path: "data/reels50easy_testset/full.txt"
 #  every_n_epoch_to_test: 1
 
 # Download the reels50hard dataset from https://www.irishtune.info/public/MLdata.htm
 # and then you can uncomment the next 4 lines.
 #reels50hard:
-#  query_path: "data/reels50hard_testset/full.txt"  # path to your bench
+#  query_path: "data/reels50hard_testset/full.txt"  # # path to your prepared data
 #  ref_path: "data/reels50hard_testset/full.txt"
 #  every_n_epoch_to_test: 1
 
@@ -37,8 +37,41 @@ test_path: "data/reels50easy_testset/full.txt"
 #  query_in_ref_path: "training/datacos/query_in_ref.txt"
 #  every_n_epoch_to_test: 2  # validate after every n epoch
 
+# --- Early Stopping Configuration ---
+# early_stop_metric: "val_loss" or "mAP"
+#   - "val_loss" (default): Stop when validation loss plateaus. All testsets
+#     remain uncontaminated benchmarks suitable for publication.
+#   - "mAP": Stop when smoothed mAP plateaus on map_stopping_testsets.
+#     Checkpoint selection uses best raw mAP epoch.
+#
+# For research with publication-grade results:
+#   Set early_stop_metric: "mAP" and list only validation-tier testsets in
+#   map_stopping_testsets. Other testsets (defined above in this file)
+#   will be evaluated and logged but never influence training decisions,
+#   preserving their validity as held-out benchmarks.
+
+early_stop_metric: "val_loss"
+
+# map_stopping_testsets: List of testset names that drive stopping decisions.
+#   Only used when early_stop_metric: "mAP"
+#   Testsets not in this list are benchmark-only (logged but uncontaminated).
+#
+# map_stopping_testsets: ["reels50easy"]
+
+# map_smoothing_alpha: EMA weight for current mAP observation (0.0-1.0).
+#   Higher values = more responsive to recent changes, more noise sensitivity.
+#   Lower values = more stable, slower to detect genuine plateaus.
+#   Only used when early_stop_metric: "mAP"
+#
+# map_smoothing_alpha: 0.3
+
 every_n_epoch_to_test: 1  # validate after every n epoch
 every_n_epoch_to_save: 1  # save model after every n epoch
+# bootstrap: Work-stratified bootstrap iterations for 95% confidence intervals
+# on mAP, MR1, and hit_rate. Runs automatically at each new-best checkpoint.
+# Reports how much your metrics might vary due to which tunes are in the testset.
+# 0 disables (default). 1000 is standard for publication. Cost is negligible.
+# bootstrap: 1000
 
 ### Dataset parameters
 data_type: "cqt"  # raw or cqt or mel
@@ -61,19 +94,71 @@ spec_augmentation:
     method: "default" # "default" "low_melody" or "flex_melody"
 
 ### Training parameters
-device: 'cpu' # 'mps' or 'cuda'
+device: 'mps' # 'mps' or 'cuda' 
 seed: 1234
 num_workers: 1
 num_gpus: 1
-batch_size: 64  # 256. CoverHunter repo started with 16, but that is too small.
-learning_rate: 0.0001
-adam_b1: 0.8
-adam_b2: 0.99
+batch_size: 32  # 256. CoverHunter repo started with 16, but that is too small.
+learning_rate: 0.001
+optimizer: adamw        # Options: adamw, prodigy
+adam_b1: 0.8            # only relevant when using adamw
+adam_b2: 0.99           # only relevant when using adamw
+prodigy_d_coef: 1.0     # Prodigy step-size sensitivity; only relevant when using prodigy
+                        # increase to 2.0 if converging too slowly
+                        # decrease to 0.5 if it explodes
+                        # prodigy is not useful for refinement training
+prodigy_safeguard_warmup: false
 lr_decay: 0.9  # CoverHunter used 0.9975 but that's for very large datasets
 min_lr: 0.0001
 warmup: False
 warmup_steps: 20000
+# hold_steps: Number of training steps to hold at the initial learning rate
+# before exponential decay begins. Creates a "plateau" period for model
+# stabilization.
+#
+# Important difference in this project's steps-epochs relationship: since 
+# tools.extract_csi_features adds precomputed speed variants to every real
+# data sample, there will be a lot more steps per epoch than you'd otherwise expect.
+# With the default settings, that means 5 training samples per real-world sample.
+#
+# Useful when resuming from a checkpoint, or to allow more exploration
+# at the starting LR before decay.
+#
+# Set to 0 to disable (immediate decay). Typical values: 2000-5000 steps.
+# Note: Mutually exclusive with warmup; if warmup=True, hold_steps is ignored.
+# Applies to both LR decay when using AdamW optimizer and to d growth when using Prodigy
+hold_steps: 0
+
+
+# --- Early Stopping Configuration ---
+# early_stop_metric: "val_loss" or "mAP"
+#   - "val_loss" (default): Stop when validation loss plateaus. All testsets
+#     remain uncontaminated benchmarks suitable for publication.
+#   - "mAP": Stop when smoothed mAP plateaus on map_stopping_testsets.
+#     Checkpoint selection uses best raw mAP epoch.
+#
+# For research with publication-grade results:
+#   Set early_stop_metric: "mAP" and list only validation-tier testsets in
+#   map_stopping_testsets. Other testsets (defined above in this file)
+#   will be evaluated and logged but never influence training decisions,
+#   preserving their validity as held-out benchmarks.
+#   You must also set map_stopping_testsets below.
+early_stop_metric: "val_loss"
 early_stopping_patience: 6
+max_epochs: 100           # safety ceiling; early stopping normally terminates first
+
+# map_stopping_testsets: List of testset names that drive stopping decisions.
+#   Only used when early_stop_metric: "mAP"
+#   Testsets not in this list are benchmark-only (logged but uncontaminated).
+#
+# map_stopping_testsets: ["yourInternalTestset"]
+
+# map_smoothing_alpha: EMA weight for current mAP observation (0.0-1.0).
+#   Higher values = more responsive to recent changes, more noise sensitivity.
+#   Lower values = more stable, slower to detect genuine plateaus.
+#   Only used when early_stop_metric: "mAP"
+#
+# map_smoothing_alpha: 0.3
 
 ### Model parameters
 input_dim: 96 # default 96 frequency bins

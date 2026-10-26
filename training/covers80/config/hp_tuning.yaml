@@ -1,0 +1,185 @@
+### CoverHunterMPS hyperparameters for tuning training hyperparameters
+
+# Configuration file for tools/train_tune.py
+#
+# The main hparams.yaml is used to define the default values for all hyperparameters
+# other than then ones you specify below. max_epochs is the only hyperparameter
+# that is unique to train_tune.
+#
+# You may set an unlimited number of hyperparameter values to test below. 
+# To not test any values of a hyperparameter, leave it empty.
+# For example, to *not* test any m_per_class settings, make sure an empty:
+#   m_per_classes: []
+# is the final line mentioning m_per_class. This way you can leave preceding
+# definitions of m_per_classes as a record of values you may have already tested, 
+# without having to comment/uncomment a lot of lines.
+
+# specify here how the mAP metrics are identified in the TensorBoard logs
+test_name: "covers80"
+
+# If you want to tune for a refinement training scenario (as opposed to training 
+# a model from scratch), use this to to specity the path to the base checkpoint
+# to use as the starting point for every experiment
+# Set to null to train from scratch.
+foundation_checkpoint: null
+# Example for refinement training:
+# foundation_checkpoint: /path/to/your/model_dir/checkpoints/g_00130000
+
+# You also need to decide whether to also restore the optimizer state 
+# (Adam moment estimates) from the foundation checkpoint's matching do_ file.
+#
+# true:  Copies both g_ and do_ files. Adam's running mean/variance estimates
+#        are warm from the foundation training, so the effective step size is
+#        calibrated to the loss landscape. The experiment's learning_rate
+#        (from hp_overrides or sweep variable) still takes effect — only the
+#        moment estimates are inherited, not the checkpoint's LR.
+#        Recommended when comparing experiments against a train_prod baseline,
+#        or when the foundation checkpoint was produced by a long training run
+#        whose optimizer state reflects the geometry of the loss surface.
+#
+# false: Copies only the g_ file (model weights). Adam starts cold with
+#        zeroed moment estimates. This amplifies effective step size in early
+#        epochs (sqrt(v_hat) is tiny), producing aggressive early peaks that
+#        may not reflect steady-state behavior. Use this when the foundation
+#        model was trained with a different optimizer or when you intentionally
+#        want a fresh optimization trajectory.
+restore_optimizer_state: true
+
+# Optional overrides for hparams.yaml values.
+# When present, these replace the corresponding hparams.yaml values for
+# every experiment in this tuning run. Omit or set to null to use the
+# hparams.yaml value unchanged. Particularly useful for refinement training
+# from a checkpoint where LR and schedule should differ from scratch training.
+hp_overrides:
+  learning_rate: null
+  hold_steps: null
+  lr_decay: null
+  map_smoothing_alpha: null
+  warmup: null
+  warmup_steps: null
+
+# Early stopping mode for all experiments in this tuning run.
+# Options:
+#   "val_loss" (default): stop when validation focal loss plateaus.
+#                         early_stopping_patience (below) is required.
+#   "mAP": stop when smoothed mAP on map_stopping_testsets plateaus.
+#          map_stopping_patience is used instead of early_stopping_patience
+#          for the stopping decision AND for the slope window in the summary.
+#          early_stopping_patience is still accepted as a safety ceiling
+#          (defaults to 1000 if omitted in mAP mode).
+early_stop_metric: "val_loss"
+
+# Required when early_stop_metric: "mAP"
+# List testset names whose mAP drives stopping. Must match names defined
+# in hparams.yaml. Testsets defined in hparams.yaml but not listed here
+# are evaluated each epoch but never influence stopping decisions.
+# map_stopping_testsets: ["covers80"]
+
+# EMA smoothing weight for mAP-based stopping (0.0–1.0).
+# Higher = more responsive but noisier. Lower = more stable but slower to react.
+# Only used when early_stop_metric: "mAP". Default: 0.3
+# map_smoothing_alpha: 0.3
+
+# Patience for early stopping — applies to both val_loss and mAP modes.
+# In val_loss mode: epochs without validation loss improvement.
+# In mAP mode: epochs without smoothed mAP improvement.
+# Also used as the slope calculation window in the experiment summary output.
+early_stopping_patience: 3
+
+max_epochs: 10 # if omitted, train_tune will default to 15
+
+seeds: [123, 456, 789]
+
+# Don't specify chunk_s. The train-tune script will automatically calculate
+# chunk_s based on chunk_frame[0]
+# Note that a sample rate of 25 samples/second is assumed throughout CoverHunter.
+chunk_frames: 
+#   seconds: 5, 4, 3
+#    - [250, 200, 150]
+    # seconds: 15, 12, 9
+    - [375, 300, 225]
+    # seconds: 30, 24, 18
+    - [750, 600, 450]
+    # seconds: 45, 36, 27   # default CoverHunter
+    - [1125, 900, 675]
+chunk_frames: {} # uncomment this to not run any chunk_frame experiments
+
+# You must include at least one mean_size.
+mean_sizes: [3]
+
+m_per_classes: [4,8]
+m_per_classes: []
+
+# num_blockss as plural of num_blocks
+num_blockss: [3,4]
+num_blockss: []
+
+spec_augmentations:
+    - random_erase:
+        prob: 0.5
+        erase_num: 4
+        region_size: [.25,.1]
+      roll_pitch:
+        prob: 0.5
+        shift_num: 7
+        method: "default"
+    - random_erase:
+        prob: 0
+        erase_num: 4
+        region_size: [.25,.1]
+      roll_pitch:
+        prob: 0.5
+        shift_num: 7
+        method: "low_melody"
+    - random_erase:
+        prob: 0
+        erase_num: 4
+        region_size: [.25,.1]
+      roll_pitch:
+        prob: 0.5
+        shift_num: 7
+        method: "flex_melody"
+# spec_augmentations: {}
+
+## loss settings
+losses:
+    - foc:  # focal
+        output_dims: 30000
+        weight: 1.0
+        gamma: 2
+      triplet:
+        margin: 0.3
+        weight: 0.1
+      center:
+        weight: 0.1
+    - foc:  # focal
+        output_dims: 10000
+        weight: 1.0
+        gamma: 2
+      triplet:
+        margin: 0.3
+        weight: 0.1
+      center:
+        weight: 0
+losses: {}
+
+optimizers:
+  - prodigy
+optimizers: []
+
+# When using prodigy, learning_rates and lr_decays are ignored at runtime,
+# but keep them as single-element lists to avoid breaking the loop structure
+## learning rate starting point
+learning_rates: [.0005, .002, .005, .01]
+learning_rates: []
+
+## learning rate decay
+lr_decays: [.998, .995, .99]
+lr_decays: []
+
+## AdamW betas as pairs of B1, B2 used as adam_b1 and adam_b2
+adam_betas:
+    - [0.85, 0.995]
+    - [0.9, 0.999]
+    - [0.95, 0.999]
+adam_betas: []

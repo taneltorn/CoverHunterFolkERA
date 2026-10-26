@@ -5,20 +5,23 @@
 
 import argparse
 import os
-import sys
-
 import torch
 
 from src.eval_testset import eval_for_map_with_feat
 from src.model import Model
-from src.utils import create_logger, get_hparams_as_string, load_hparams, read_lines
+from src.utils import (
+    create_logger,
+    get_hparams_as_string,
+    load_hparams,
+    read_lines,
+)
 
 torch.backends.cudnn.benchmark = True
 
 
 def _main() -> None:
     parser = argparse.ArgumentParser(
-        description="evaluate test-set with pretrained model",
+        description="Evaluate a pretrained model against a test dataset",
     )
     parser.add_argument("model_dir")
     parser.add_argument("query_path")
@@ -43,7 +46,22 @@ def _main() -> None:
         help="Path to list of work_ids reserved for test dataset for use in t-SNE plot.",
     )
     parser.add_argument(
-        "-dist_name", default="", type=str, help="Save the distance matrix to this path",
+        "-dist_name",
+        default="",
+        type=str,
+        help="Save the distance matrix to this path",
+    )
+    parser.add_argument(
+        "--reuse-embeddings",
+        action="store_true",
+        help="Reuse existing embeddings in embed_NN_tmp if present (faster but risky if data or parameters have changed)",
+    )
+    parser.add_argument(
+        "--bootstrap",
+        type=int,
+        default=0,
+        metavar="N",
+        help="Work-stratified bootstrap iterations for 95%% confidence intervals on mAP, MR1, hit_rate. 0 disables. Typical: 1000.",
     )
 
     args = parser.parse_args()
@@ -56,24 +74,17 @@ def _main() -> None:
     hp = load_hparams(os.path.join(model_dir, "config/hparams.yaml"))
     logger.info(f"{get_hparams_as_string(hp)}")
 
-    match hp["device"]:  # noqa match requires Python 3.10 or later
-        case "mps":
-            assert (
-                torch.backends.mps.is_available()
-            ), "You requested 'mps' device in your hyperparameters but you are not running on an Apple M-series chip or have not compiled PyTorch for MPS support."
-            device = torch.device("mps")
-        case "cuda":
-            assert (
-                torch.cuda.is_available()
-            ), "You requested 'cuda' device in your hyperparameters but you do not have a CUDA-compatible GPU available."
-            device = torch.device("cuda")
-        case _:
-            print(
-                "You set device: ",
-                hp["device"],
-                " in your hyperparameters but that is not a valid option.",
-            )
-            sys.exit()
+    # Auto-detect optimal device (evaluation device is independent of training device)
+    if torch.backends.mps.is_available():
+        device = torch.device("mps")
+        logger.info("Using MPS device for evaluation")
+    elif torch.cuda.is_available():
+        device = torch.device("cuda")
+        logger.info("Using CUDA device for evaluation")
+    else:
+        device = torch.device("cpu")
+        logger.info("Using CPU device for evaluation")
+    hp["device"] = device  # src/model.py expects hp["device"]
 
     torch.manual_seed(hp["seed"])
 
@@ -101,7 +112,7 @@ def _main() -> None:
     else:
         test_only_labels = None
 
-    mean_ap, hit_rate, rank1 = eval_for_map_with_feat(
+    mean_ap, hit_rate, rank1, _ = eval_for_map_with_feat(
         hp,
         model,
         embed_dir,
@@ -115,6 +126,8 @@ def _main() -> None:
         plot_name=plot_name,
         marks=args.marks,
         dist_name=args.dist_name,
+        reuse_embeddings=args.reuse_embeddings,
+        bootstrap=args.bootstrap,
     )
 
 
